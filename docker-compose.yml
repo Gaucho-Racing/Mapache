@@ -1,4 +1,12 @@
 version: "3.8"
 
 services:
-  
+  singlestore:
+    image: 'memsql/cluster-in-a-box'
+    ports:
+      - 3306:3306
+      - 8080:8080
+    environment:
+      LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
+      ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
+      START_AFTER_INIT: 'Y'
