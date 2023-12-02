@@ -7,11 +7,6 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
 
 
 <h1 align="center">
@@ -25,11 +20,16 @@
 <h4 align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</h4>
 
 <div align="center">
+
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
+
+</div>
+<div align="center">
   <p align="center">
-    <br />
-    <a href=""><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
     <a href="">View Demo</a>
     ·
     <a href="">Report Bug</a>
@@ -38,11 +38,7 @@
   </p>
 </div>
 
-
-
 <!-- ABOUT THE PROJECT -->
-## About The Project
-
 <div align="center">
     <img src="assets/dashboard.png" alt="Logo">
 </div>
