@@ -8,32 +8,35 @@ import (
 )
 
 var RabbitConn *amqp.Connection
-func ConnectRabbit() {
+func InitializeRabbit() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	failOnError(err, "Failed to connect to RabbitMQ")
+	logError(err, "Failed to connect to RabbitMQ")
 	RabbitConn = conn
+	CreateMetaQueue()
 }
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		utils.SugarLogger.Errorln("%s: %s", msg, err)
-	}
+func CreateMetaQueue() {
+	ch, err := RabbitConn.Channel()
+	logError(err, "Failed to open a channel")
+	q, err := ch.QueueDeclare(
+		"meta",
+		false,
+		false,
+		false,
+		false,
+		nil,
+		)
+	logError(err, "Failed to declare a queue")
+	utils.SugarLogger.Infoln("Queue \"" + q.Name + "\" successfully created!")
 }
 
 func TestSend() {
 	ch, err := RabbitConn.Channel()
-	failOnError(err, "Failed to open a channel")
+	logError(err, "Failed to open a channel")
 	defer ch.Close()
 	
-	q, err := ch.QueueDeclare(
-		"hello", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
-		)
-	failOnError(err, "Failed to declare a queue")
+	q, err := ch.QueueBind("meta", "#", false, nil)
+	logError(err, "Failed to declare a queue")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -48,6 +51,12 @@ func TestSend() {
 		ContentType: "text/plain",
 		Body:        []byte(body),
 		})
-	failOnError(err, "Failed to publish a message")
+	logError(err, "Failed to publish a message")
 	utils.SugarLogger.Infoln(" [x] Sent %s\n", body)
+}
+
+func logError(err error, msg string) {
+	if err != nil {
+		utils.SugarLogger.Errorln("%s: %s", msg, err)
+	}
 }

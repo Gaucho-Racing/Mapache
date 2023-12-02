@@ -20,6 +20,7 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
+	println(config.Banner)
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
 	
@@ -27,7 +28,7 @@ func main() {
 	controller.InitializeRoutes(router)
 	service.InitializeDB()
 
-	service.ConnectRabbit()
+	service.InitializeRabbit()
 	defer service.RabbitConn.Close()
 
 	service.TestSend()
@@ -36,6 +37,4 @@ func main() {
 	if err != nil {
 		utils.SugarLogger.Fatalln(err)
 	}
-
-	utils.SugarLogger.Info("Ingest Service v" + config.Version)
 }
