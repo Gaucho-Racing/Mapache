@@ -27,6 +27,11 @@ func main() {
 	controller.InitializeRoutes(router)
 	service.InitializeDB()
 
+	service.ConnectRabbit()
+	defer service.RabbitConn.Close()
+
+	service.TestSend()
+
 	err := router.Run(":" + config.Port)
 	if err != nil {
 		utils.SugarLogger.Fatalln(err)
