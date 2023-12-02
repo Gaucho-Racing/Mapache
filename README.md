@@ -32,9 +32,9 @@
   <p align="center">
     <a href="">View Demo</a>
     ·
-    <a href="">Report Bug</a>
+    <a href="">Whitepaper</a>
     ·
-    <a href="">Request Feature</a>
+    <a href="">Report Bug</a>
   </p>
 </div>
 
