@@ -14,26 +14,27 @@
 [![MIT License][license-shield]][license-url]
 
 
-<!-- PROJECT LOGO -->
-<br />
+<h1 align="center">
+  <br>
+  <img src="assets/mapache.png" alt="Mapache Logo" width="100">
+  <br>
+  Mapache
+  <br>
+</h1>
+
+<h4 align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</h4>
+
 <div align="center">
-  <a href="">
-    <img src="assets/mapache.png" alt="Logo" height="80">
-  </a>
-
-<h3 align="center">Mapache</h3>
-
   <p align="center">
-    Gaucho Racing's bespoke telemetry and data analytics platform.
     <br />
     <a href=""><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template">View Demo</a>
+    <a href="">View Demo</a>
     ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Report Bug</a>
+    <a href="">Report Bug</a>
     ·
-    <a href="https://github.com/othneildrew/Best-README-Template/issues">Request Feature</a>
+    <a href="">Request Feature</a>
   </p>
 </div>
 
