@@ -23,15 +23,13 @@ func main() {
 	println(config.Banner)
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
-	
+
 	router = setupRouter()
 	controller.InitializeRoutes(router)
 	service.InitializeDB()
 
 	service.InitializeRabbit()
 	defer service.RabbitConn.Close()
-
-	service.TestSend()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {
