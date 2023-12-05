@@ -17,7 +17,7 @@
   <br>
 </h1>
 
-<h3 align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</h4>
+<p align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</p>
 
 <div align="center">
 
