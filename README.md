@@ -21,11 +21,11 @@
 
 <div align="center">
 
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
+![GitHub contributors](https://img.shields.io/github/contributors/gaucho-racing/mapache?style=flat)
+![GitHub issues](https://img.shields.io/github/issues/gaucho-racing/mapache?style=flat)
+![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/gaucho-racing/mapache?filename=ingest%2Fgo.mod&style=flat)
+![Python 3.6](https://img.shields.io/badge/python-3.10-blue.svg)
+![GitHub License](https://img.shields.io/github/license/Gaucho-Racing/Mapache?style=flat)
 
 </div>
 
