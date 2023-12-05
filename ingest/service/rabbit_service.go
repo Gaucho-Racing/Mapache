@@ -16,6 +16,7 @@ func InitializeRabbit() {
 	RabbitConn = conn
 	CreateMetaQueue()
 	CreateAlertQueue()
+	go ListenMeta()
 }
 
 func CreateMetaQueue() {
@@ -85,7 +86,7 @@ func TestMetaSend(message string) {
 			Body:        []byte(message),
 		})
 	logError(err, "Failed to publish a message")
-	utils.SugarLogger.Infoln(" [x] Sent: ", message)
+	utils.SugarLogger.Infoln(" [x] Sent: " + message)
 }
 
 func ListenMeta() {
@@ -118,7 +119,7 @@ func ListenMeta() {
 
 	go func() {
 		for d := range msgs {
-			utils.SugarLogger.Infoln("Received a message: %s", d.Body)
+			utils.SugarLogger.Infoln("Received a message: " + string(d.Body))
 		}
 	}()
 

@@ -30,7 +30,6 @@ func main() {
 	service.InitializeDB()
 
 	service.InitializeRabbit()
-	go service.TestContinuousMetaSend()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {
