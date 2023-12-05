@@ -1,17 +1,30 @@
+import random
+import time
 import pika
 
 def main() -> None:
     """
     Run the main application logic.
     """
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    channel = connection.channel()
-
-    channel.queue_declare(queue='meta')
-    channel.basic_publish(exchange='',
-                      routing_key='meta',
-                      body='Hello World!')
-    print(" [x] Sent 'Hello World!'")
+    for i in range(20):
+        publish_message('meta', 'Message ' + str(i))
+        time.sleep(0.1)
+        if random.randint(1, 10) < 2:
+            publish_message('alert', 'Alert message ' + str(i))
 
 if __name__ == "__main__":
     main()
+
+
+def publish_message(queue: str, message: str) -> None:
+    """
+    Publish a message to the specified queue.
+    """
+    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    channel = connection.channel()
+
+    channel.queue_declare(queue=queue)
+    channel.basic_publish(exchange='',
+                      routing_key=queue,
+                      body=message)
+    print(" [" + str(queue) + "] Sent msg: '" + str(message) + "'")

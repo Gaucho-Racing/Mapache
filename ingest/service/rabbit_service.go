@@ -12,41 +12,59 @@ var RabbitConn *amqp.Connection
 
 func InitializeRabbit() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	logError(err, "Failed to connect to RabbitMQ")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to connect to RabbitMQ: " + err.Error())
+		return
+	} else {
+		utils.SugarLogger.Infoln("Successfully connected to RabbitMQ!")
+	}
 	RabbitConn = conn
-	CreateMetaQueue()
-	CreateAlertQueue()
-	go ListenMeta()
+	CreateQueues([]string{"meta", "alert"})
 }
 
-func CreateMetaQueue() {
+func CreateQueues(names []string) {
 	ch, err := RabbitConn.Channel()
-	logError(err, "Failed to open a channel")
-	q, err := ch.QueueDeclare(
-		"meta",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	logError(err, "Failed to declare a queue")
-	utils.SugarLogger.Infoln("Queue \"" + q.Name + "\" successfully created!")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to open a channel: " + err.Error())
+		return
+	}
+	defer ch.Close()
+
+	for _, name := range names {
+		q, err := ch.QueueDeclare(
+			name,
+			false,
+			false,
+			false,
+			false,
+			nil,
+		)
+		if err != nil {
+			utils.SugarLogger.Errorln("Failed to create queue \"" + name + "\": " + err.Error())
+		} else {
+			utils.SugarLogger.Infoln("Queue \"" + q.Name + "\" successfully created!")
+			go ListenQueue(q.Name)
+		}
+	}
+	utils.SugarLogger.Infoln("Finished creating queues!")
 }
 
-func CreateAlertQueue() {
-	ch, err := RabbitConn.Channel()
-	logError(err, "Failed to open a channel")
-	q, err := ch.QueueDeclare(
-		"alert",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	logError(err, "Failed to declare a queue")
-	utils.SugarLogger.Infoln("Queue \"" + q.Name + "\" successfully created!")
+func CreateVehicleQueues(vehicles []string) {
+	vehicleQueues := []string{
+		"vdm",
+		"wheel/fr",
+		"wheel/fl",
+		"wheel/rr",
+		"wheel/rl",
+	}
+	var compositeQueues []string
+	for _, vehicle := range vehicles {
+		for _, queue := range vehicleQueues {
+			compositeQueues = append(compositeQueues, vehicle+"/"+queue)
+		}
+	}
+	CreateQueues(compositeQueues)
+	utils.SugarLogger.Infoln("Finished creating vehicle queues!")
 }
 
 func TestContinuousMetaSend() {
@@ -60,7 +78,10 @@ func TestContinuousMetaSend() {
 
 func TestMetaSend(message string) {
 	ch, err := RabbitConn.Channel()
-	logError(err, "Failed to open a channel")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to open a channel: " + err.Error())
+		return
+	}
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
@@ -71,7 +92,7 @@ func TestMetaSend(message string) {
 		false,
 		nil,
 	)
-	logError(err, "Failed to bind to a queue")
+	//logError(err, "Failed to bind to a queue")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -85,26 +106,32 @@ func TestMetaSend(message string) {
 			ContentType: "text/plain",
 			Body:        []byte(message),
 		})
-	logError(err, "Failed to publish a message")
+	//logError(err, "Failed to publish a message")
 	utils.SugarLogger.Infoln(" [x] Sent: " + message)
 }
 
-func ListenMeta() {
+func ListenQueue(queue string) {
 	ch, err := RabbitConn.Channel()
-	logError(err, "Failed to open a channel")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to open a channel: " + err.Error())
+		return
+	}
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"meta",
+		queue,
 		false,
 		false,
 		false,
 		false,
 		nil,
 	)
-	logError(err, "Failed to declare a queue")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to bind to queue \"" + queue + "\": " + err.Error())
+		return
+	}
 
-	msgs, err := ch.Consume(
+	messages, err := ch.Consume(
 		q.Name,
 		"",
 		true,
@@ -113,22 +140,18 @@ func ListenMeta() {
 		false,
 		nil,
 	)
-	logError(err, "Failed to register a consumer")
+	if err != nil {
+		utils.SugarLogger.Errorln("Failed to consume messages from queue \"" + q.Name + "\": " + err.Error())
+		return
+	}
 
 	var forever chan struct{}
 
 	go func() {
-		for d := range msgs {
-			utils.SugarLogger.Infoln("Received a message: " + string(d.Body))
+		for m := range messages {
+			utils.SugarLogger.Infoln("[MQ-" + q.Name + "] Received msg: " + string(m.Body))
 		}
 	}()
-
-	utils.SugarLogger.Infoln(" [*] Waiting for messages...")
+	utils.SugarLogger.Infoln("[MQ] Listening on \"" + q.Name + "\"...")
 	<-forever
-}
-
-func logError(err error, msg string) {
-	if err != nil {
-		utils.SugarLogger.Errorln("%s: %s", msg, err)
-	}
 }

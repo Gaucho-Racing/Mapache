@@ -29,7 +29,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to postgres database")
-		db.AutoMigrate(model.Meta{})
+		db.AutoMigrate(model.Meta{}, model.Vehicle{}, model.VDM{}, model.Wheel{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
