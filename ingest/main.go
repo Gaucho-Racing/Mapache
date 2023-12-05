@@ -31,7 +31,6 @@ func main() {
 
 	service.InitializeRabbit()
 	go service.TestContinuousMetaSend()
-	go service.ListenMeta()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {

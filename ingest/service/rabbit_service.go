@@ -4,7 +4,6 @@ import (
 	"context"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"ingest/utils"
-	"log"
 	"strconv"
 	"time"
 )
@@ -119,11 +118,11 @@ func ListenMeta() {
 
 	go func() {
 		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
+			utils.SugarLogger.Infoln("Received a message: %s", d.Body)
 		}
 	}()
 
-	log.Printf(" [*] Waiting for messages...")
+	utils.SugarLogger.Infoln(" [*] Waiting for messages...")
 	<-forever
 }
 

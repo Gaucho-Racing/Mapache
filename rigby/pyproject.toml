@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "rigby"
+version = "1.0.0"
+description = "Mock data engine for testing Mapache ingest."
+authors = ["Bharat Kathi <bharat1031@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.scripts]
+rigby = "rigby.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
