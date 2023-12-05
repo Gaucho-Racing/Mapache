@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/fatih/color"
 	"github.com/gin-gonic/gin"
 	"ingest/config"
 	"ingest/controller"
@@ -20,7 +21,7 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
-	println(config.Banner)
+	PrintStartupBanner()
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
 
@@ -29,10 +30,19 @@ func main() {
 	service.InitializeDB()
 
 	service.InitializeRabbit()
-	defer service.RabbitConn.Close()
+	go service.TestContinuousMetaSend()
+	go service.ListenMeta()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {
 		utils.SugarLogger.Fatalln(err)
 	}
+}
+
+func PrintStartupBanner() {
+	banner := color.New(color.Bold, color.FgHiMagenta).PrintlnFunc()
+	banner(config.Banner)
+	version := color.New(color.Bold, color.FgMagenta).PrintlnFunc()
+	version("Running v" + config.Version + " [ENV: " + config.Env + "]")
+	println()
 }

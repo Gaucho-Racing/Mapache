@@ -32,7 +32,6 @@ func InitializeDB() {
 		db.AutoMigrate(model.Meta{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
-		go TestDB()
 	}
 }
 
