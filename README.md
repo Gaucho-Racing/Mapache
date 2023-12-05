@@ -17,7 +17,7 @@
   <br>
 </h1>
 
-<h4 align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</h4>
+<h3 align="center">Gaucho Racing's bespoke telemetry and data analytics platform.</h4>
 
 <div align="center">
 
@@ -28,15 +28,13 @@
 [![MIT License][license-shield]][license-url]
 
 </div>
-<div align="center">
-  <p align="center">
-    <a href="">View Demo</a>
-    ·
-    <a href="">Whitepaper</a>
-    ·
-    <a href="">Report Bug</a>
-  </p>
-</div>
+
+  <h3 align="center">
+   <a href=""><b>View Demo</b></a> &bull;
+   <a href=""><b>Whitepaper</b></a> &bull;
+   <a href=""><b>Documentation</b></a> &bull;
+   <a href=""><b>API Reference</b></a>
+ </h3>
 
 <!-- ABOUT THE PROJECT -->
 <div align="center">
