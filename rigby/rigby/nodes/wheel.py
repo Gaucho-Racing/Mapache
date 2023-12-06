@@ -65,3 +65,6 @@ class Wheel:
     tire_temp_six: int
     tire_temp_seven: int
     tire_temp_eight: int
+
+    @classmethod
+    def 
