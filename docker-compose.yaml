@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  singlestore:
+    image: "memsql/cluster-in-a-box"
+    ports:
+      - 3306:3306
+      - 8080:8080
+    environment:
+      LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
+      ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
+      START_AFTER_INIT: "Y"
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    build:
+      context: docker/
+    ports:
+      - "1883:1883"
+      - "5672:5672"
+      - "15672:15672"
+      - "1885:15675"
+    command: "/bin/bash -c \"rabbitmq-plugins enable --offline rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_amqp1_0; rabbitmq-server\""
+    env_file:
+      - rabbitmq/login.env
+    volumes:
+      - type: bind
+        source: ./rabbitmq/rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+        read_only: true
+      - type: bind
+        source: ./rabbitmq/advanced.config
+        target: /etc/rabbitmq/advanced.config
+        read_only: true
