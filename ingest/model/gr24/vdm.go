@@ -1,4 +1,4 @@
-package model
+package gr24
 
 import (
 	"github.com/google/uuid"

@@ -16,3 +16,12 @@ services:
     ports:
       - 5672:5672
       - 15672:15672
+      - 15675:15675
+    volumes:
+      - ./rabbitmq/etc/:/etc/rabbitmq/
+      - rabbitmq-data:/var/lib/rabbitmq/mnesia/rabbit@rabbitmq
+      - rabbitmq-logs:/var/log/rabbitmq/log
+
+volumes:
+  rabbitmq-data:
+  rabbitmq-logs:

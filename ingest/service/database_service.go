@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"ingest/config"
 	"ingest/model"
+	"ingest/model/gr24"
 	"ingest/utils"
 	"time"
 )
@@ -29,7 +30,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to postgres database")
-		db.AutoMigrate(model.Meta{}, model.Vehicle{}, model.VDM{}, model.Wheel{})
+		db.AutoMigrate(model.Meta{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
