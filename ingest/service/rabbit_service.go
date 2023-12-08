@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"ingest/utils"
 	"strconv"
@@ -11,15 +13,62 @@ import (
 var RabbitConn *amqp.Connection
 
 func InitializeRabbit() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	if err != nil {
-		utils.SugarLogger.Errorln("Failed to connect to RabbitMQ: " + err.Error())
-		return
-	} else {
-		utils.SugarLogger.Infoln("Successfully connected to RabbitMQ!")
+	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	//if err != nil {
+	//	utils.SugarLogger.Errorln("Failed to connect to RabbitMQ: " + err.Error())
+	//	return
+	//} else {
+	//	utils.SugarLogger.Infoln("Successfully connected to RabbitMQ!")
+	//}
+	//RabbitConn = conn
+	//CreateQueues([]string{"meta", "alert"})
+
+	var broker = "localhost"
+	var port = 1883
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", broker, port))
+	opts.SetClientID("ingest_mqtt")
+	opts.SetUsername("guest")
+	opts.SetPassword("guest")
+	opts.SetDefaultPublishHandler(messagePubHandler)
+	opts.OnConnect = connectHandler
+	opts.OnConnectionLost = connectLostHandler
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		panic(token.Error())
 	}
-	RabbitConn = conn
-	CreateQueues([]string{"meta", "alert"})
+
+	sub(client)
+}
+
+var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+	fmt.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+
+}
+
+var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+	fmt.Println("Connected")
+}
+
+var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+	fmt.Printf("Connect lost: %v", err)
+}
+
+func publish(client mqtt.Client) {
+	num := 10
+	for i := 0; i < num; i++ {
+		text := fmt.Sprintf("Message %d", i)
+		token := client.Publish("topic/test", 0, false, text)
+		token.Wait()
+		time.Sleep(time.Second)
+	}
+}
+
+func sub(client mqtt.Client) {
+	topic := "meta"
+	token := client.Subscribe(topic, 1, nil)
+	token.Wait()
+	fmt.Printf("Subscribed to topic: %s", topic)
 }
 
 func CreateQueues(names []string) {
