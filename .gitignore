@@ -3,6 +3,9 @@
 !example.env
 *.env
 
+# === RABBITMQ ===
+rabbitmq/etc/
+
 # === GO ===
 
 # Binaries for programs and plugins
