@@ -9,13 +9,10 @@ def main() -> None:
     Run the main application logic.
     """
     myWheel = Wheel()
-    ba = myWheel.createByteArray()
-    print(ba)
-    count = 1
-    for i in ba:
-        print('count ', i)
-        count += 1
-
+    myWheel.genRandomValues()
+    byts = myWheel.generateBytes() 
+    print(len(byts))
+    
 if __name__ == "__main__":
     main()
 

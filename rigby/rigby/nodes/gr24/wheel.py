@@ -1,37 +1,37 @@
 import numpy as np
 
 class Wheel:
-    suspension: int
-    wheel_speed: int
-    tire_pressure: int
-    imu_accel_x: int
-    imu_accel_y: int
-    imu_accel_z: int
-    imu_gyro_x: int
-    imu_gyro_y: int
-    imu_gyro_z: int
-    brake_temp_one: int
-    brake_temp_two: int
-    brake_temp_three: int
-    brake_temp_four: int
-    brake_temp_five: int
-    brake_temp_six: int
-    brake_temp_seven: int
-    brake_temp_eight: int
-    tire_temp_one: int
-    tire_temp_two: int
-    tire_temp_three: int
-    tire_temp_four: int
-    tire_temp_five: int
-    tire_temp_six: int
-    tire_temp_seven: int
-    tire_temp_eight: int
+    suspension : int
+    wheel_speed : int
+    tire_pressure : int
+    imu_accel_x : int
+    imu_accel_y : int
+    imu_accel_z : int
+    imu_gyro_x : int
+    imu_gyro_y : int
+    imu_gyro_z : int
+    brake_temp_one : int
+    brake_temp_two : int
+    brake_temp_three : int
+    brake_temp_four : int
+    brake_temp_five : int
+    brake_temp_six : int
+    brake_temp_seven : int
+    brake_temp_eight : int
+    tire_temp_one : int
+    tire_temp_two : int
+    tire_temp_three : int
+    tire_temp_four : int
+    tire_temp_five : int
+    tire_temp_six : int
+    tire_temp_seven : int
+    tire_temp_eight : int
 
     @classmethod
-    def createByteArray(cls):
+    def generateBytes(cls):
         initList = []
         initList.append(cls.suspension)
-        initList += Wheel.toByes((cls.wheel_speed),2)
+        initList += Wheel.toBytes((cls.wheel_speed),2)
         initList.append(cls.tire_pressure)
         initList += [0]*4
         initList += Wheel.toBytes(cls.imu_accel_x, 2)
@@ -58,35 +58,35 @@ class Wheel:
         initList.append(cls.tire_temp_six)
         initList.append(cls.tire_temp_seven)
         initList.append(cls.tire_temp_eight)
-        return bytearray(initList)
+        return bytes(initList)
 
     @classmethod
-    def decodeByteArray(cls, byteArrayList):
-        cls.suspension = byteArrayList[0]
-        cls.wheel_speed = Wheel.toDec(byteArrayList[1:3])
-        cls.tire_pressure = byteArrayList[3]
-        cls.imu_accel_x = Wheel.toDec(byteArrayList[8:10])
-        cls.imu_accel_y = Wheel.toDec(byteArrayList[10:12])
-        cls.imu_accel_z = Wheel.toDec(byteArrayList[12:14])
-        cls.imu_gyro_x = Wheel.toDec(byteArrayList[16:18])
-        cls.imu_gyro_y = Wheel.toDec(byteArrayList[18:20])
-        cls.imu_gyro_z = Wheel.toDec(byteArrayList[20:22])
-        cls.brake_temp_one = byteArrayList[24]
-        cls.brake_temp_two = byteArrayList[25]
-        cls.brake_temp_three = byteArrayList[26]
-        cls.brake_temp_four = byteArrayList[27]
-        cls.brake_temp_five = byteArrayList[28]
-        cls.brake_temp_six = byteArrayList[29]
-        cls.brake_temp_seven = byteArrayList[30]
-        cls.brake_temp_eight = byteArrayList[31]
-        cls.tire_temp_one = byteArrayList[32]
-        cls.tire_temp_two = byteArrayList[33]
-        cls.tire_temp_three = byteArrayList[34]
-        cls.tire_temp_four = byteArrayList[35]
-        cls.tire_temp_five = byteArrayList[36]
-        cls.tire_temp_six = byteArrayList[37]
-        cls.tire_temp_seven = byteArrayList[38]
-        cls.tire_temp_eight = byteArrayList[39]
+    def decodeByteArray(cls, byteList):
+        cls.suspension = byteList[0]
+        cls.wheel_speed = Wheel.toDec(byteList[1:3])
+        cls.tire_pressure = byteList[3]
+        cls.imu_accel_x = Wheel.toDec(byteList[8:10])
+        cls.imu_accel_y = Wheel.toDec(byteList[10:12])
+        cls.imu_accel_z = Wheel.toDec(byteList[12:14])
+        cls.imu_gyro_x = Wheel.toDec(byteList[16:18])
+        cls.imu_gyro_y = Wheel.toDec(byteList[18:20])
+        cls.imu_gyro_z = Wheel.toDec(byteList[20:22])
+        cls.brake_temp_one = byteList[24]
+        cls.brake_temp_two = byteList[25]
+        cls.brake_temp_three = byteList[26]
+        cls.brake_temp_four = byteList[27]
+        cls.brake_temp_five = byteList[28]
+        cls.brake_temp_six = byteList[29]
+        cls.brake_temp_seven = byteList[30]
+        cls.brake_temp_eight = byteList[31]
+        cls.tire_temp_one = byteList[32]
+        cls.tire_temp_two = byteList[33]
+        cls.tire_temp_three = byteList[34]
+        cls.tire_temp_four = byteList[35]
+        cls.tire_temp_five = byteList[36]
+        cls.tire_temp_six = byteList[37]
+        cls.tire_temp_seven = byteList[38]
+        cls.tire_temp_eight = byteList[39]
 
     def toBytes(rawVal, numBytes): #numBytes is prob always 2
         negative = False
