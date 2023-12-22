@@ -1,7 +1,8 @@
 import random
 import time
+import sys
 import pika
-from nodes.gr24.wheel import Wheel
+from .nodes.gr24.wheel import Wheel
 import numpy as np
 
 def main() -> None: 
@@ -10,8 +11,9 @@ def main() -> None:
     """
     myWheel = Wheel()
     myWheel.genRandomValues()
-    byts = myWheel.generateBytes() 
+    byts = myWheel.generateBytes()
     print(len(byts))
+    print("Size of byts: ", sys.getsizeof(byts))
     
 if __name__ == "__main__":
     main()
