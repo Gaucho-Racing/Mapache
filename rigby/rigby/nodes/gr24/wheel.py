@@ -1,168 +1,79 @@
 import numpy as np
+from data_node import data_node
 
-class Wheel:
-    suspension : int
-    wheel_speed : int
-    tire_pressure : int
-    imu_accel_x : int
-    imu_accel_y : int
-    imu_accel_z : int
-    imu_gyro_x : int
-    imu_gyro_y : int
-    imu_gyro_z : int
-    brake_temp_one : int
-    brake_temp_two : int
-    brake_temp_three : int
-    brake_temp_four : int
-    brake_temp_five : int
-    brake_temp_six : int
-    brake_temp_seven : int
-    brake_temp_eight : int
-    tire_temp_one : int
-    tire_temp_two : int
-    tire_temp_three : int
-    tire_temp_four : int
-    tire_temp_five : int
-    tire_temp_six : int
-    tire_temp_seven : int
-    tire_temp_eight : int
+class Wheel(data_node):
+    suspension: int
+    wheel_speed: int
+    tire_pressure: int
+    imu_accel: list[int]
+    imu_gyro: list[int]
+    brake_temp: list[int]
+    tire_temp: list[int]
 
     @classmethod
-    def generateBytes(cls):
-        initList = []
-        initList.append(cls.suspension)
-        initList += Wheel.toBytes((cls.wheel_speed),2)
-        initList.append(cls.tire_pressure)
-        initList += [0]*4
-        initList += Wheel.toBytes(cls.imu_accel_x, 2)
-        initList += Wheel.toBytes(cls.imu_accel_y, 2)
-        initList += Wheel.toBytes(cls.imu_accel_z, 2)
-        initList += [0]*2
-        initList += Wheel.toBytes(cls.imu_gyro_x, 2)
-        initList += Wheel.toBytes(cls.imu_gyro_y, 2)
-        initList += Wheel.toBytes(cls.imu_gyro_z, 2)
-        initList += [0]*2
-        initList.append(cls.brake_temp_one)
-        initList.append(cls.brake_temp_two)
-        initList.append(cls.brake_temp_three)
-        initList.append(cls.brake_temp_four)
-        initList.append(cls.brake_temp_five)
-        initList.append(cls.brake_temp_six)
-        initList.append(cls.brake_temp_seven)
-        initList.append(cls.brake_temp_eight)
-        initList.append(cls.tire_temp_one)
-        initList.append(cls.tire_temp_two)
-        initList.append(cls.tire_temp_three)
-        initList.append(cls.tire_temp_four)
-        initList.append(cls.tire_temp_five)
-        initList.append(cls.tire_temp_six)
-        initList.append(cls.tire_temp_seven)
-        initList.append(cls.tire_temp_eight)
-        return bytes(initList)
+    def generate_bytes(cls):
+        init_list = [
+            cls.suspension,
+            *([0] * 2), #cls.to_bytes(cls.wheel_speed, 2),
+            cls.tire_pressure,
+            *([0] * 4),
+            *[element for row in [cls.to_bytes(cls.imu_accel[i], 2) for i in range(3)] for element in row],
+            *([0] * 2),
+            *[element for row in [cls.to_bytes(cls.imu_gyro[i], 2) for i in range(3)] for element in row],
+            *([0] * 2),
+            *cls.brake_temp,
+            *cls.tire_temp
+        ]
+        return bytes(init_list)
 
     @classmethod
-    def decodeByteArray(cls, byteList):
-        cls.suspension = byteList[0]
-        cls.wheel_speed = Wheel.toDec(byteList[1:3])
-        cls.tire_pressure = byteList[3]
-        cls.imu_accel_x = Wheel.toDec(byteList[8:10])
-        cls.imu_accel_y = Wheel.toDec(byteList[10:12])
-        cls.imu_accel_z = Wheel.toDec(byteList[12:14])
-        cls.imu_gyro_x = Wheel.toDec(byteList[16:18])
-        cls.imu_gyro_y = Wheel.toDec(byteList[18:20])
-        cls.imu_gyro_z = Wheel.toDec(byteList[20:22])
-        cls.brake_temp_one = byteList[24]
-        cls.brake_temp_two = byteList[25]
-        cls.brake_temp_three = byteList[26]
-        cls.brake_temp_four = byteList[27]
-        cls.brake_temp_five = byteList[28]
-        cls.brake_temp_six = byteList[29]
-        cls.brake_temp_seven = byteList[30]
-        cls.brake_temp_eight = byteList[31]
-        cls.tire_temp_one = byteList[32]
-        cls.tire_temp_two = byteList[33]
-        cls.tire_temp_three = byteList[34]
-        cls.tire_temp_four = byteList[35]
-        cls.tire_temp_five = byteList[36]
-        cls.tire_temp_six = byteList[37]
-        cls.tire_temp_seven = byteList[38]
-        cls.tire_temp_eight = byteList[39]
-
-    def toBytes(rawVal, numBytes): #numBytes is prob always 2
-        negative = False
-        if rawVal < 0:
-            negative = True
-            rawVal = abs(rawVal)
-        binaryRep = bin(rawVal)[bin(rawVal).index('b')+1:]
-
-        if numBytes == 1 and rawVal <= 255 and rawVal >= 0: #never gunna use this lmao
-            return [rawVal]
-        
-        elif numBytes == 2 and rawVal < 32768: #excludes -32768 cuz lazy
-            while len(binaryRep) < 16:
-                binaryRep = '0' + binaryRep
-
-            byte1 = int(binaryRep[:8],2)
-            byte2 = int(binaryRep[8:],2)
-            if negative:
-                byte1 = int(Wheel.invertBin(binaryRep[:8]), 2)
-                byte2 = int(Wheel.invertBin(binaryRep[8:]), 2)
-            
-            return [byte1, byte2]
-        
-        return 0
-
-    def toDec(bytes_list): #only concat 2, convert back
-        negative = False
-        
-        if len(bytes_list) != 2:
-            return None
-
-        byte1 = bin(bytes_list[0])[bin(bytes_list[0]).index('b')+1:]
-        byte2 = bin(bytes_list[1])[bin(bytes_list[1]).index('b')+1:]
-
-        if len(byte1) == 8:
-            negative = True
-
-        while len(byte2) < 8:
-            byte2 = '0' + byte2
-
-        concat = byte1 + byte2
-        if negative:
-            return int(Wheel.invertBin(concat), 2) * -1
-        return int(concat, 2)
-
-    def invertBin(binVal):
-        binVal = str(binVal)
-        temp = ''
-        for i in binVal:
-            temp += str(1-int(i))
-        return temp
+    def decode_byte_array(cls, byte_list): #solely for testing purposes
+        cls.suspension = byte_list[0]
+        cls.wheel_speed = cls.to_dec(byte_list[1:3], 2)
+        cls.tire_pressure = byte_list[3]
+        #cls.imu_accel = [*cls.to_dec(byte_list[8:14], 2)]
+        #cls.imu_gyro = [*cls.to_dec(byte_list[16:22], 2)]
+        cls.imu_accel = [
+            cls.to_dec(byte_list[8:10], 2),
+            cls.to_dec(byte_list[10:12], 2),
+            cls.to_dec(byte_list[12:14], 2)
+            ]
+        cls.imu_gyro = [
+            cls.to_dec(byte_list[16:18], 2),
+            cls.to_dec(byte_list[18:20], 2),
+            cls.to_dec(byte_list[20:22], 2)
+            ]
+        cls.brake_temp = byte_list[24:32]
+        cls.tire_temp = byte_list[32:40]
     
     @classmethod
-    def genRandomValues(cls):
-        cls.suspension = np.random.randint(0,99)
+    def gen_random_values(cls):
+        cls.suspension = np.random.randint(0, 99)
         cls.wheel_speed = 0
-        cls.tire_pressure = np.random.randint(20,40)
-        cls.imu_accel_x = np.random.randint(-32767,32768)
-        cls.imu_accel_y = np.random.randint(-32767,32768)
-        cls.imu_accel_z = np.random.randint(-32767,32768)
-        cls.imu_gyro_x = np.random.randint(-32767,32768)
-        cls.imu_gyro_y = np.random.randint(-32767,32768)
-        cls.imu_gyro_z = np.random.randint(-32767,32768)
-        cls.brake_temp_one = np.random.randint(0,256) #should be 1 random number with noise for all but wtvr
-        cls.brake_temp_two = np.random.randint(0,256)
-        cls.brake_temp_three = np.random.randint(0,256)
-        cls.brake_temp_four = np.random.randint(0,256)
-        cls.brake_temp_five = np.random.randint(0,256)
-        cls.brake_temp_six = np.random.randint(0,256)
-        cls.brake_temp_seven = np.random.randint(0,256)
-        cls.brake_temp_eight = np.random.randint(0,256)
-        cls.tire_temp_one = np.random.randint(0,256)
-        cls.tire_temp_two = np.random.randint(0,256)
-        cls.tire_temp_three = np.random.randint(0,256)
-        cls.tire_temp_four = np.random.randint(0,256)
-        cls.tire_temp_five = np.random.randint(0,256)
-        cls.tire_temp_six = np.random.randint(0,256)
-        cls.tire_temp_seven = np.random.randint(0,256)
-        cls.tire_temp_eight = np.random.randint(0,256)
+        cls.tire_pressure = np.random.randint(20, 40)
+        cls.imu_accel = np.random.randint(-32767, 32768, size=3).tolist()
+        cls.imu_gyro = np.random.randint(-32767, 32768, size=3).tolist()
+        cls.brake_temp = np.random.randint(0, 256, size=8).tolist()
+        cls.tire_temp = np.random.randint(0, 256, size=8).tolist()
+
+class Central_Imu:
+    Accel : list[int] #x, y, z
+    Gyro : list[int] #x, y, i
+    #i : int?
+    Mag : list[int] #x, y, z
+
+    @classmethod
+    def generate_random_values(cls):
+        cls.Accel = np.random.randint(-32767, 32768, size=3).tolist()
+        cls.Gyro = np.random.randint(-32767, 32768, size=3).tolist()
+        cls.Mag = np.random.randint(-32767, 32768, size=3).tolist()
+    
+    @classmethod
+    def generate_bytes(cls):
+        init_list = [
+            #3x8 accel, gyro mag
+            *[element for row in [cls.to_bytes(cls.Accel[i], 2) for i in range(3)] for element in row],
+            *[element for row in [cls.to_bytes(cls.Gyro[i], 2) for i in range(3)] for element in row],
+            *[element for row in [cls.to_bytes(cls.Mag[i], 2) for i in range(3)] for element in row]
+        ]
+        return bytes(init_list) #byte rep of list of single byte int reps
