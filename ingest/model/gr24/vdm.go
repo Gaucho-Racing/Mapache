@@ -50,3 +50,7 @@ type VDM struct {
 	// Frame 17 - ID:3094
 	DriveEnable string `json:"drive_enable"`
 }
+
+func (VDM) TableName() string {
+	return "vdm"
+}

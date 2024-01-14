@@ -11,3 +11,7 @@ type Vehicle struct {
 	UploadKey   string    `json:"upload_key"`
 	CreatedAt   time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
 }
+
+func (Vehicle) TableName() string {
+	return "vehicle"
+}

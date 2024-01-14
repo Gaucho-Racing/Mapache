@@ -39,3 +39,7 @@ type Wheel struct {
 	TireTempSeven int `json:"tire_temp_seven"`
 	TireTempEight int `json:"tire_temp_eight"`
 }
+
+func (Wheel) TableName() string {
+	return "wheel"
+}
