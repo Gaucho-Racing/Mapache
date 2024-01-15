@@ -28,7 +28,6 @@ func main() {
 	router = setupRouter()
 	controller.InitializeRoutes(router)
 	service.InitializeDB()
-
 	service.InitializeRabbit()
 
 	err := router.Run(":" + config.Port)

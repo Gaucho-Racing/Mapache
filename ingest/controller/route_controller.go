@@ -5,7 +5,9 @@ import (
 )
 
 func InitializeRoutes(router *gin.Engine) {
-	router.GET("/ingest/ping", Ping)
+	router.GET("/ping", Ping)
+	router.GET("/ingest/ping", PingIngest)
+
 }
 
 func RequestLogger() gin.HandlerFunc {
