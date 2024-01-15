@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"time"
 )
 
 var RabbitClient mqtt.Client
@@ -37,15 +36,6 @@ var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
 
 var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
 	fmt.Printf("[MQ] Connection lost: %v", err)
-}
-
-func Publish(client mqtt.Client) {
-	for i := 0; i < 50; i++ {
-		text := fmt.Sprintf("Message %d", i)
-		token := client.Publish("meta/ping", 1, false, text)
-		token.Wait()
-		time.Sleep(time.Second)
-	}
 }
 
 func sub(client mqtt.Client) {

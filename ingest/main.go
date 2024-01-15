@@ -2,11 +2,13 @@ package main
 
 import (
 	"github.com/fatih/color"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"ingest/config"
 	"ingest/controller"
 	"ingest/service"
 	"ingest/utils"
+	"time"
 )
 
 var router *gin.Engine
@@ -16,6 +18,13 @@ func setupRouter() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		MaxAge:           12 * time.Hour,
+		AllowCredentials: true,
+	}))
 	r.Use(controller.RequestLogger())
 	return r
 }

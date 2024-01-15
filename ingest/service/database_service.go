@@ -31,7 +31,7 @@ func InitializeDB() {
 			utils.SugarLogger.Fatalln("failed to connect database after 15 attempts, terminating program...")
 		}
 	} else {
-		utils.SugarLogger.Infoln("Connected to postgres database")
+		utils.SugarLogger.Infoln("Connected to singlestore database")
 		db.AutoMigrate(model.Meta{}, model.User{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
