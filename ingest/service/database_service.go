@@ -32,7 +32,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to singlestore database")
-		db.AutoMigrate(model.Meta{}, model.User{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{})
+		db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}

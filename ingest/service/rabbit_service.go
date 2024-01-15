@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"ingest/utils"
 )
 
 var RabbitClient mqtt.Client
@@ -20,7 +21,7 @@ func InitializeRabbit() {
 	opts.OnConnectionLost = connectLostHandler
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+		utils.SugarLogger.Fatalln(token.Error())
 	}
 	RabbitClient = client
 	sub(RabbitClient)

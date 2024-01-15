@@ -47,7 +47,6 @@ func PingRabbitMQ() (bool, int) {
 	ping, _ := uuid.NewUUID()
 	topic := "meta/ping"
 	token := RabbitClient.Subscribe(topic, 1, func(client mqtt.Client, msg mqtt.Message) {
-		utils.SugarLogger.Infoln("Received ping: ", string(msg.Payload()))
 		if string(msg.Payload()) == ping.String() {
 			go RabbitClient.Unsubscribe(topic)
 		}
@@ -55,6 +54,11 @@ func PingRabbitMQ() (bool, int) {
 	token.Wait()
 	token = RabbitClient.Publish(topic, 1, false, ping.String())
 	sent := token.WaitTimeout(5 * time.Second)
+	if sent {
+		utils.SugarLogger.Infoln("Pinged rabbitmq in ", time.Since(start).Milliseconds(), "ms")
+	} else {
+		utils.SugarLogger.Errorln("Failed to ping rabbitmq: ", token.Error())
+	}
 	return sent, int(time.Since(start).Milliseconds())
 }
 
