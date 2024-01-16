@@ -6,7 +6,8 @@ type User struct {
 	ID        string     `json:"id" gorm:"primaryKey"`
 	FirstName string     `json:"first_name" gorm:"index"`
 	LastName  string     `json:"last_name"`
-	Email     string     `json:"email"`
+	Email     string     `json:"email" gorm:"index,unique"`
+	Password  string     `json:"password"`
 	Subteam   string     `json:"subteam"`
 	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime;precision:6"`
 	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime;precision:6"`
