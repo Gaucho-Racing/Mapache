@@ -10,6 +10,7 @@ func GetAllUsers() []model.User {
 	var users []model.User
 	DB.Find(&users)
 	for i := range users {
+		users[i].Password = ""
 		users[i].Roles = GetRolesForUser(users[i].ID)
 	}
 	return users
@@ -18,6 +19,7 @@ func GetAllUsers() []model.User {
 func GetUserByID(id string) model.User {
 	var user model.User
 	DB.Where("id = ?", id).First(&user)
+	user.Password = ""
 	user.Roles = GetRolesForUser(user.ID)
 	return user
 }
