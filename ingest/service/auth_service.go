@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -71,7 +72,7 @@ func GenerateJWT(id string, email string) (string, error) {
 func ValidateJWT(token string) (*model.AuthClaims, error) {
 	claims := &model.AuthClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return config.AuthSigningKey, nil
+		return []byte(config.AuthSigningKey), nil
 	})
 	if err != nil {
 		utils.SugarLogger.Errorln(err.Error())
@@ -97,4 +98,22 @@ func GetPasswordForEmail(email string) string {
 	var password string
 	DB.Table("user").Where("email = ?", email).Select("password").Scan(&password)
 	return password
+}
+
+func GetRequestUserID(c *gin.Context) string {
+	id, exists := c.Get("Request-UserID")
+	if !exists {
+		return ""
+	}
+	return id.(string)
+}
+
+func RequestUserHasRole(c *gin.Context, role string) bool {
+	roles := GetRolesForUser(GetRequestUserID(c))
+	for _, r := range roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
 }

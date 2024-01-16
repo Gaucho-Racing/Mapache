@@ -26,6 +26,7 @@ func setupRouter() *gin.Engine {
 		AllowCredentials: true,
 	}))
 	r.Use(controller.RequestLogger())
+	r.Use(controller.AuthChecker())
 	return r
 }
 

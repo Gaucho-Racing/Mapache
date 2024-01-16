@@ -22,6 +22,11 @@ func GetUserByID(c *gin.Context) {
 }
 
 func CreateUser(c *gin.Context) {
+	if service.GetRequestUserID(c) != c.Param("userID") && !service.RequestUserHasRole(c, "ADMIN") {
+		c.JSON(http.StatusForbidden, gin.H{"message": "You are not authorized to edit this resource"})
+		return
+	}
+
 	var input model.User
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
