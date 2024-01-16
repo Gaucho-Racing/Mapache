@@ -21,7 +21,7 @@ func RegisterAccount(user model.User) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	CreateMinimumViableUser(user)
+	createSkeletonUser(user)
 	return token, nil
 }
 
@@ -80,7 +80,7 @@ func ValidateJWT(token string) (*model.AuthClaims, error) {
 	return claims, nil
 }
 
-func CreateMinimumViableUser(user model.User) interface{} {
+func createSkeletonUser(user model.User) interface{} {
 	user.FirstName = ""
 	user.LastName = ""
 	user.Subteam = ""

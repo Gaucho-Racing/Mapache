@@ -9,6 +9,9 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/ingest/ping", PingIngest)
 	router.POST("/auth/register", RegisterAccount)
 	router.POST("/auth/login", LoginAccount)
+	router.GET("/users", GetAllUsers)
+	router.GET("/users/:userID", GetUserByID)
+	router.POST("/users/:userID", CreateUser)
 }
 
 func RequestLogger() gin.HandlerFunc {
