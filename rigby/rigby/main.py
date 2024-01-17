@@ -1,21 +1,24 @@
 import random
 import time
+import sys
 import pika
+from .nodes.gr24.wheel import Wheel
+import numpy as np
 
-def main() -> None:
+def main() -> None: 
     """
     Run the main application logic.
     """
-    for i in range(200):
-        publish_message('meta', 'Message ' + str(i))
-        time.sleep(0.1)
-        if random.randint(1, 10) < 2:
-            publish_message('alert', 'Alert message ' + str(i))
-
+    myWheel = Wheel()
+    myWheel.genRandomValues()
+    byts = myWheel.generateBytes()
+    print(len(byts))
+    print("Size of byts: ", sys.getsizeof(byts))
+    
 if __name__ == "__main__":
     main()
 
-def publish_message(queue: str, message: str) -> None:
+def publish_message(queue: str, message: str) -> None: 
     """
     Publish a message to the specified queue.
     """
@@ -30,3 +33,4 @@ def publish_message(queue: str, message: str) -> None:
             expiration='2000'
     ))
     print(" [" + str(queue) + "] Sent msg: '" + str(message) + "'")
+
