@@ -1,12 +1,11 @@
 package gr24
 
 import (
-	"github.com/google/uuid"
 	"time"
 )
 
 type VDM struct {
-	ID        uuid.UUID `json:"id" gorm:"primary_key"`
+	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
 	CreatedAt time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
 	// Frame 1 - ID:100

@@ -1,5 +1,5 @@
 import numpy as np
-from data_node import data_node
+from .data_node import data_node
 
 class Wheel(data_node):
     suspension: int

@@ -1,5 +1,5 @@
 import numpy as np
-from data_node import data_node
+from .data_node import data_node
 
 '''
 APPS 1		APPS 1		Brake Pressure F		Brake Pressure R	
@@ -29,4 +29,5 @@ class Pedals(data_node):
             *cls.to_bytes(cls.brake_pressure_rear, 2),
             *([0]*8) #excludes pedal ping response
         ]
+        return bytes(init_list)
 

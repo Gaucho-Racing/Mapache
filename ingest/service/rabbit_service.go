@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"ingest/model/gr24"
 	"ingest/utils"
 )
 
@@ -29,6 +30,16 @@ func InitializeRabbit() {
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	fmt.Printf("[MQ] Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+	// temporary test handler for pedal through meta topic
+	if msg.Topic() == "meta" {
+		pedal := gr24.ParsePedal(msg.Payload())
+		if pedal.ID != "" {
+			err := CreatePedal(pedal)
+			if err != nil {
+				utils.SugarLogger.Errorln(err)
+			}
+		}
+	}
 }
 
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {

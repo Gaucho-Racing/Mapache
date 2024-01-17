@@ -1,9 +1,11 @@
 package gr24
 
-import "time"
+import (
+	"time"
+)
 
 type Wheel struct {
-	ID int `json:"id" gorm:"primaryKey"`
+	ID string `json:"id" gorm:"primaryKey"`
 	// FR, FL, RR, RL
 	Location  string    `json:"location" gorm:"index"`
 	Millis    int       `json:"millis" gorm:"index"`
