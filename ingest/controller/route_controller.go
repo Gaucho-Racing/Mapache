@@ -15,6 +15,9 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/users", GetAllUsers)
 	router.GET("/users/:userID", GetUserByID)
 	router.POST("/users/:userID", CreateUser)
+	router.GET("/vehicles", GetAllVehicles)
+	router.GET("/vehicles/:vehicleID", GetVehicleByID)
+	router.POST("/vehicles/:vehicleID", CreateVehicle)
 }
 
 func RequestLogger() gin.HandlerFunc {
