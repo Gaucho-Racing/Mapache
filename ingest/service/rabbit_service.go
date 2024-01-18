@@ -3,20 +3,26 @@ package service
 import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"ingest/config"
 	"ingest/model/gr24"
 	"ingest/utils"
+	"math/rand"
+	"strconv"
 )
 
 var RabbitClient mqtt.Client
 
+var clientID string
+
 func InitializeRabbit() {
-	var broker = "localhost"
-	var port = 1883
+	id := rand.Intn(100)
+	clientID = "ingest_mqtt_" + strconv.Itoa(id)
+
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", broker, port))
-	opts.SetClientID("ingest_mqtt")
-	opts.SetUsername("guest")
-	opts.SetPassword("guest")
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", config.MQTTHost, config.MQTTPort))
+	opts.SetClientID(clientID)
+	opts.SetUsername(config.MQTTUser)
+	opts.SetPassword(config.MQTTPassword)
 	opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = connectHandler
 	opts.OnConnectionLost = connectLostHandler
@@ -43,7 +49,7 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 }
 
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	fmt.Println("[MQ] Connected to RabbitMQ")
+	fmt.Println("[MQ] Connected to RabbitMQ as: " + clientID)
 }
 
 var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
