@@ -4,7 +4,7 @@ import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"ingest/config"
-	"ingest/model/gr24"
+	gr242 "ingest/model/gr24"
 	"ingest/utils"
 	"math/rand"
 	"strconv"
@@ -38,7 +38,7 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 	fmt.Printf("[MQ] Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 	// temporary test handler for pedal through meta topic
 	if msg.Topic() == "meta" {
-		pedal := gr24.ParsePedal(msg.Payload())
+		pedal := gr242.ParsePedal(msg.Payload())
 		if pedal.ID != "" {
 			err := CreatePedal(pedal)
 			if err != nil {

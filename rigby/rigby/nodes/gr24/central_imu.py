@@ -1,7 +1,7 @@
-from data_node import data_node
+from data_node import DataNode
 import numpy as np
 
-class Central_Imu(data_node):
+class CentralIMU(DataNode):
     Accel : list[int] #x, y, z
     Gyro : list[int] #x, y, i
     #i : int?

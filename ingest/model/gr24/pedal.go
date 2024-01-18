@@ -26,13 +26,9 @@ func ParsePedal(data []byte) Pedal {
 	}
 	pedal.ID = uuid.NewString()
 	pedal.Millis = int(time.Now().UnixMilli())
-	// parse first 2 bytes to int for appsone
 	pedal.APPSOne = int(data[0])<<8 | int(data[1])
-	// parse next 2 bytes to int for appstwo
 	pedal.APPSTwo = int(data[2])<<8 | int(data[3])
-	// parse next 2 bytes to int for brakepressurefront
 	pedal.BrakePressureFront = int(data[4])<<8 | int(data[5])
-	// parse next 2 bytes to int for brakepressurerear
 	pedal.BrakePressureRear = int(data[6])<<8 | int(data[7])
 	return pedal
 }

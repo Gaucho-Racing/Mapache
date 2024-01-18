@@ -14,17 +14,13 @@ def main() -> None:
     client = connect_mqtt()
 
     myPedals = Pedals()
-    # myPedals.APPS1 = 120
-    # myPedals.APPS2 = 491
-    # myPedals.brake_pressure_front = 194
-    # myPedals.brake_pressure_rear = 918
 
-    # for i in range (0, 100):
-    #     myPedals.gen_random_values()
-    #     pedal_bytes = myPedals.generate_bytes()
-    #     print(myPedals.APPS1)
-    #     publish_message(client, "meta", pedal_bytes)
-    #     time.sleep(1)
+    for i in range (0, 100):
+        myPedals.gen_random_values()
+        pedal_bytes = myPedals.generate_bytes()
+        print(myPedals.APPS1)
+        publish_message(client, "meta", pedal_bytes)
+        time.sleep(1)
 
     
 if __name__ == "__main__":
