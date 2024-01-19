@@ -2,7 +2,7 @@ package service
 
 import (
 	"ingest/model"
-	"ingest/utils"
+	"strings"
 )
 
 func GetAllVehicles() []model.Vehicle {
@@ -18,13 +18,16 @@ func GetVehicleByID(id string) model.Vehicle {
 }
 
 func CreateVehicle(vehicle model.Vehicle) error {
-	if DB.Where("id = ?", vehicle.ID).Updates(&vehicle).RowsAffected == 0 {
-		utils.SugarLogger.Infoln("New vehicle created with id: " + vehicle.ID)
-		if result := DB.Create(&vehicle); result.Error != nil {
+	result := DB.Create(&vehicle)
+	if result.Error != nil {
+		if strings.Contains(result.Error.Error(), "Duplicate entry") {
+			result = DB.Where("id = ?", vehicle.ID).Updates(&vehicle)
+			if result.Error != nil {
+				return result.Error
+			}
+		} else {
 			return result.Error
 		}
-	} else {
-		utils.SugarLogger.Infoln("Vehicle with id: " + vehicle.ID + " has been updated!")
 	}
 	return nil
 }

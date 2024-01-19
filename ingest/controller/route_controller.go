@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"ingest/service"
 	"ingest/utils"
 	"strings"
@@ -32,6 +34,9 @@ func AuthChecker() gin.HandlerFunc {
 			claims, err := service.ValidateJWT(strings.Split(c.GetHeader("Authorization"), "Bearer ")[1])
 			if err != nil {
 				utils.SugarLogger.Errorln("Failed to validate token: " + err.Error())
+				if errors.Is(err, jwt.ErrTokenExpired) {
+					c.AbortWithStatusJSON(401, gin.H{"message": "Token expired"})
+				}
 			} else {
 				utils.SugarLogger.Infoln("Decoded token: " + claims.ID + " " + claims.Email)
 				c.Set("Request-UserID", claims.ID)

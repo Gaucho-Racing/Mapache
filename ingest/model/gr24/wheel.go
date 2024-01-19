@@ -9,7 +9,7 @@ type Wheel struct {
 	// FR, FL, RR, RL
 	Location  string    `json:"location" gorm:"index"`
 	Millis    int       `json:"millis" gorm:"index"`
-	CreatedAt time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
 	// Frame 1 - ID:69376,69384,69392,69400
 	Suspension   int `json:"suspension"`
 	WheelSpeed   int `json:"wheel_speed"`

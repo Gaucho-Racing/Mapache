@@ -9,7 +9,7 @@ import (
 type Pedal struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
-	CreatedAt time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
 	// Frame 1 - ID:200
 	APPSOne            int `json:"apps_one"`
 	APPSTwo            int `json:"apps_two"`

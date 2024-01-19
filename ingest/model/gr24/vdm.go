@@ -7,7 +7,7 @@ import (
 type VDM struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
-	CreatedAt time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
 	// Frame 1 - ID:100
 	CellNumber string `json:"cell_number"`
 	DataType   string `json:"data_type"`
