@@ -1,10 +1,10 @@
-package gr24
+package model
 
 import (
 	"time"
 )
 
-type VDM struct {
+type GR24VDM struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
@@ -50,6 +50,6 @@ type VDM struct {
 	DriveEnable string `json:"drive_enable"`
 }
 
-func (VDM) TableName() string {
-	return "vdm"
+func (GR24VDM) TableName() string {
+	return "gr24_vdm"
 }

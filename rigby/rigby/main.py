@@ -19,7 +19,7 @@ def main() -> None:
         myPedals.gen_random_values()
         pedal_bytes = myPedals.generate_bytes()
         print(myPedals.APPS1)
-        publish_message(client, "meta", pedal_bytes)
+        publish_message(client, "gr24/pedal", pedal_bytes)
         time.sleep(1)
 
     

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"ingest/config"
-	gr242 "ingest/model/gr24"
 	"ingest/utils"
 	"math/rand"
 	"strconv"
@@ -32,33 +31,28 @@ func InitializeRabbit() {
 	}
 	RabbitClient = client
 	sub(RabbitClient)
+	InitializeGR24Subscriptions()
 }
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("[MQ] Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
-	// temporary test handler for pedal through meta topic
-	if msg.Topic() == "meta" {
-		pedal := gr242.ParsePedal(msg.Payload())
-		if pedal.ID != "" {
-			err := CreatePedal(pedal)
-			if err != nil {
-				utils.SugarLogger.Errorln(err)
-			}
-		}
-	}
+	utils.SugarLogger.Infoln("[MQ] Received message: " + string(msg.Payload()) + " from topic: " + msg.Topic())
 }
 
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	fmt.Println("[MQ] Connected to RabbitMQ as: " + clientID)
+	utils.SugarLogger.Infoln("[MQ] Connected to RabbitMQ as: " + clientID)
 }
 
 var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	fmt.Printf("[MQ] Connection lost: %v", err)
+	utils.SugarLogger.Infoln("[MQ] Connection lost: ", err)
 }
 
 func sub(client mqtt.Client) {
 	topic := "meta"
 	token := client.Subscribe(topic, 1, nil)
 	token.Wait()
-	fmt.Println("[MQ] Subscribed to topic: ", topic)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: ", topic)
+}
+
+func InitializeGR24Subscriptions() {
+	GR24InitializePedalIngest()
 }

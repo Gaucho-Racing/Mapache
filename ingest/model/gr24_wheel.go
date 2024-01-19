@@ -1,10 +1,10 @@
-package gr24
+package model
 
 import (
 	"time"
 )
 
-type Wheel struct {
+type GR24Wheel struct {
 	ID string `json:"id" gorm:"primaryKey"`
 	// FR, FL, RR, RL
 	Location  string    `json:"location" gorm:"index"`
@@ -42,6 +42,6 @@ type Wheel struct {
 	TireTempEight int `json:"tire_temp_eight"`
 }
 
-func (Wheel) TableName() string {
-	return "wheel"
+func (GR24Wheel) TableName() string {
+	return "gr24_wheel"
 }

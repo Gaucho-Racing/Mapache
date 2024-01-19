@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 	"ingest/config"
 	"ingest/model"
-	"ingest/model/gr24"
 	"ingest/utils"
 	"strconv"
 	"time"
@@ -32,7 +31,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to singlestore database")
-		db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{}, gr24.Pedal{})
+		db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, model.GR24VDM{}, model.GR24Wheel{}, model.GR24Pedal{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
