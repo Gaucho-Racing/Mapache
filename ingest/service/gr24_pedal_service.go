@@ -1,11 +1,9 @@
 package service
 
 import (
-	"fmt"
 	"ingest/model"
 	"ingest/utils"
 	"os"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -45,22 +43,23 @@ func parsePedal(data []byte) model.GR24Pedal {
 }
 
 func scale(pedal model.GR24Pedal) model.GR24Pedal {
-	r := reflect.ValueOf(pedal)
-	for i := 0; i < r.NumField(); i++ {
-		field := r.Type().Field(i).Name
-		if field != "ID" && field != "Millis" && field != "CreatedAt" {
-			scaleEnvVar := os.Getenv(fmt.Sprintf("SCALE_GR24_PEDAL_%s", field))
-			println(scaleEnvVar)
-			if scaleEnvVar != "" {
-				scaleFloat, err := strconv.ParseFloat(scaleEnvVar, 64)
-				if err == nil {
-					pedal.APPSOne *= scaleFloat
-				}
-			}
-		}
-		fmt.Printf("↳\t%s\tValue: %v\n", r.Type().Field(i).Name, r.Field(i).Interface())
-	}
+	pedal.APPSOne = pedal.APPSOne * getScale("APPSOne")
+	pedal.APPSTwo = pedal.APPSTwo * getScale("APPSTwo")
+	pedal.BrakePressureFront = pedal.BrakePressureFront * getScale("BrakePressureFront")
+	pedal.BrakePressureRear = pedal.BrakePressureRear * getScale("BrakePressureRear")
 	return pedal
+}
+
+func getScale(variable string) float64 {
+	scaleVar := os.Getenv("SCALE_GR24_PEDAL_" + variable)
+	if scaleVar != "" {
+		scaleFloat, err := strconv.ParseFloat(scaleVar, 64)
+		if err != nil {
+			return 1
+		}
+		return scaleFloat
+	}
+	return 1
 }
 
 func CreatePedal(pedal model.GR24Pedal) error {
