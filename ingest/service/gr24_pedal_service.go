@@ -2,14 +2,15 @@ package service
 
 import (
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/google/uuid"
 	"ingest/model"
 	"ingest/utils"
 	"os"
 	"reflect"
 	"strconv"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 )
 
 func GR24InitializePedalIngest() {
@@ -44,17 +45,16 @@ func parsePedal(data []byte) model.GR24Pedal {
 }
 
 func scale(pedal model.GR24Pedal) model.GR24Pedal {
-	os.Getenv("SCALE_GR24_PEDAL_APPS_ONE")
 	r := reflect.ValueOf(pedal)
 	for i := 0; i < r.NumField(); i++ {
 		field := r.Type().Field(i).Name
 		if field != "ID" && field != "Millis" && field != "CreatedAt" {
 			scaleEnvVar := os.Getenv(fmt.Sprintf("SCALE_GR24_PEDAL_%s", field))
+			println(scaleEnvVar)
 			if scaleEnvVar != "" {
 				scaleFloat, err := strconv.ParseFloat(scaleEnvVar, 64)
-				println(scaleFloat)
 				if err == nil {
-					//r.Field(i).SetFloat(r.Field(i).Float() * scaleFloat)
+					pedal.APPSOne *= scaleFloat
 				}
 			}
 		}
