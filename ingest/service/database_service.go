@@ -7,13 +7,14 @@ import (
 	"gorm.io/gorm"
 	"ingest/config"
 	"ingest/model"
-	"ingest/model/gr24"
 	"ingest/utils"
+	"strconv"
 	"time"
 )
 
 var DB *gorm.DB
 
+var dbKeepalive = 0
 var dbRetries = 0
 
 func InitializeDB() {
@@ -29,20 +30,25 @@ func InitializeDB() {
 			utils.SugarLogger.Fatalln("failed to connect database after 15 attempts, terminating program...")
 		}
 	} else {
-		utils.SugarLogger.Infoln("Connected to postgres database")
-		db.AutoMigrate(model.Meta{}, model.Vehicle{}, gr24.VDM{}, gr24.Wheel{})
+		utils.SugarLogger.Infoln("Connected to singlestore database")
+		db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, model.GR24VDM{}, model.GR24Wheel{}, model.GR24Pedal{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
 }
 
-func TestDB() {
-	DB.Create(model.Meta{
+func PingDB() error {
+	dbKeepalive++
+	err := DB.Create(model.Meta{
 		ID:        uuid.New(),
 		Service:   "Ingest",
 		Version:   config.Version,
 		Level:     "INFO",
-		Message:   "Mapache Ingest v" + config.Version + " is online!",
+		Message:   "Mapache Ingest v" + config.Version + " keepalive message " + strconv.Itoa(dbKeepalive),
 		CreatedAt: time.Now(),
 	})
+	if err.Error != nil {
+		return err.Error
+	}
+	return nil
 }

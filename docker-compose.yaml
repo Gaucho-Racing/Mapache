@@ -1,15 +1,15 @@
-version: "3.8"
+version: "2"
 
 services:
-  singlestore:
-    image: "memsql/cluster-in-a-box"
-    ports:
-      - 3306:3306
-      - 8080:8080
-    environment:
-      LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
-      ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
-      START_AFTER_INIT: "Y"
+  # singlestore:
+  #   image: "memsql/cluster-in-a-box"
+  #   ports:
+  #     - 3306:3306
+  #     - 8080:8080
+  #   environment:
+  #     LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
+  #     ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
+  #     START_AFTER_INIT: "Y"
 
   rabbitmq:
     image: rabbitmq:management-alpine
@@ -34,3 +34,16 @@ services:
         source: ./rabbitmq/advanced.config
         target: /etc/rabbitmq/advanced.config
         read_only: true
+    networks:
+      brokernet:
+        ipv4_address: 172.16.238.101
+
+networks:
+  brokernet:
+    driver: bridge
+    driver_opts:
+      com.docker.network.enable_ipv6: "false"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24

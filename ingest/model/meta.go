@@ -13,3 +13,7 @@ type Meta struct {
 	Message   string    `json:"message"`
 	CreatedAt time.Time `json:"time" gorm:"autoCreateTime;precision:6"`
 }
+
+func (Meta) TableName() string {
+	return "meta"
+}
