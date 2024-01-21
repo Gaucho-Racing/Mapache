@@ -1,5 +1,5 @@
 
-class data_node:
+class DataNode:
     #data node should initialize with a list/dict of variables so that a singular testing method may be written for all nodes
     
     @classmethod

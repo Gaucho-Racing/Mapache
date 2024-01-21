@@ -1,12 +1,12 @@
 import numpy as np
-from data_node import data_node
+from data_node import DataNode
 
 '''
 Accumulator Voltage,		Accumulator Current,		Max Cell Temp,		State of Charge(1),	Errors(1)
 Fan 1 Speed,	Fan 2 Speed,	Fan 3 Speed,	Fan 4 Speed,	Pump Speed,	Water Temp(2),		Errors
 excludes row 8, and final row of ping data (38/40)
 '''
-class ACU(data_node):
+class ACU(DataNode):
     accumulator_voltage : int
     accumulator_current: int
     max_cell_temp : int

@@ -1,7 +1,7 @@
 import numpy as np
-from data_node import data_node
+from .data_node import DataNode
 
-class Wheel(data_node):
+class Wheel(DataNode):
     suspension: int
     wheel_speed: int
     tire_pressure: int
