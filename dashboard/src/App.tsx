@@ -1,20 +1,29 @@
 import "./App.css";
 import React from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+import { cn } from "@/lib/utils";
 import { MAPACHE_API_URL } from "./consts/config";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCheckCircle,
   faTimesCircle,
 } from "@fortawesome/free-solid-svg-icons";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Loader2 } from "lucide-react";
 
 function App() {
   const [connected, setConnected] = React.useState(false);
+  const [pingResponse, setPingResponse] = React.useState<any>({});
+
+  const [loginLoading, setLoginLoading] = React.useState(false);
+  const [loginEmail, setLoginEmail] = React.useState("");
+  const [loginPassword, setLoginPassword] = React.useState("");
 
   React.useEffect(() => {
     checkVpnConnection();
     const interval = setInterval(() => {
-      checkVpnConnection();
+      // checkVpnConnection();
     }, 1000);
 
     return () => clearInterval(interval);
@@ -25,6 +34,7 @@ function App() {
       const response = await axios.get(`${MAPACHE_API_URL}/ping`);
       if (response.status == 200) {
         setConnected(true);
+        setPingResponse(response.data);
       }
     } catch (error) {
       setConnected(false);
@@ -32,47 +42,112 @@ function App() {
     }
   };
 
+  const register = async () => {
+    if (loginEmail == "" || loginPassword == "") return;
+    setLoginLoading(true);
+    try {
+      const response = await axios.post(`${MAPACHE_API_URL}/auth/register`, {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (response.status == 200) {
+        setLoginLoading(false);
+        console.log(response.data);
+      }
+    } catch (error: any) {
+      console.log(error);
+      if (error.response.status == 409) {
+        // User already exists, try to login
+        return login();
+      }
+      return;
+    }
+  };
+
+  const login = async () => {
+    setLoginLoading(true);
+    try {
+      const response = await axios.post(`${MAPACHE_API_URL}/auth/login`, {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (response.status == 200) {
+        setLoginLoading(false);
+        console.log(response.data);
+      }
+    } catch (error: any) {
+      return;
+    }
+  };
+
   return (
-    <div className="flex">
-      <main className="relative min-h-screen bg-slate-100 md:ml-[60px] md:w-[calc(100vw-60px)]">
-        <div className="pt-16">
-          <div className="max-w-3xl p-6">
-            <header className="absolute left-0 top-0 flex h-[60px] w-full items-center bg-white px-6 py-4 ">
-              <div className="h-8 w-40">Home</div>
-            </header>
-            <section className="">
-              <div className="mx-auto max-w-screen-xl px-4 py-8 text-center lg:py-16">
-                <h1 className="mb-4 text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl">
-                  Mapache
-                </h1>
-                {!connected ? (
-                  <p className="mb-8 text-2xl font-normal text-gray-500">
-                    Don't forget to connect to the Axm Dev VPN if you haven't
-                    already!
-                  </p>
-                ) : (
-                  <div />
-                )}
-                <div className="mt-8 flex content-center items-center justify-center">
-                  <FontAwesomeIcon
-                    icon={connected ? faCheckCircle : faTimesCircle}
-                    size="xl"
-                    className={`${
-                      connected ? `text-green-500` : `text-red-500`
-                    } mr-4`}
-                  />
-                  <span className="text-xl font-normal text-gray-500">
-                    {connected
-                      ? "Connected to Axm Dev VPN!"
-                      : "Not connected to Axm Dev VPN"}
-                  </span>
-                </div>
-              </div>
-            </section>
+    <>
+      <div className=""></div>
+      <div className="flex">
+        <div className="h-screen w-1/2 overflow-y-auto bg-gradient-to-r from-gr-pink to-gr-purple">
+          <div className="flex flex-col p-16">
+            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
+              Mapache
+            </h1>
+          </div>
+          <div className="absolute bottom-0 left-0 z-20 p-16">
+            <blockquote className="space-y-2">
+              <p className="text-lg">
+                &ldquo;Theory will take you only so far&rdquo;
+              </p>
+              <footer className="text-sm">J. Robert Oppenheimer</footer>
+            </blockquote>
           </div>
         </div>
-      </main>
-    </div>
+        <div className="mx-auto h-screen w-1/2 bg-black text-center">
+          <div className="flex h-full flex-col items-center justify-center p-32">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Sign In with Email
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Sign into your account to continue. If you don't have an account,
+              one will be created for you.
+            </p>
+            <Input
+              id="email"
+              className="mt-4"
+              placeholder="Email"
+              type="email"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect="off"
+              disabled={loginLoading}
+              onChange={(e) => {
+                setLoginEmail(e.target.value);
+              }}
+            />
+            <Input
+              className="mt-2"
+              id="password"
+              placeholder="Password"
+              type="password"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect="off"
+              disabled={loginLoading}
+              onChange={(e) => {
+                setLoginPassword(e.target.value);
+              }}
+            />
+            <Button
+              disabled={loginLoading}
+              className="mt-4 w-full"
+              onClick={register}
+            >
+              {loginLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Sign In with Email
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
