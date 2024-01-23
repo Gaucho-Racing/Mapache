@@ -1,18 +1,15 @@
 import "./App.css";
 import React from "react";
-import axios, { AxiosError } from "axios";
-import { cn } from "@/lib/utils";
+import axios from "axios";
 import { MAPACHE_API_URL } from "./consts/config";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCheckCircle,
-  faTimesCircle,
-} from "@fortawesome/free-solid-svg-icons";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Loader2 } from "lucide-react";
+import { useToast } from "./components/ui/use-toast";
 
 function App() {
+  const { toast } = useToast();
+
   const [connected, setConnected] = React.useState(false);
   const [pingResponse, setPingResponse] = React.useState<any>({});
 
@@ -55,11 +52,15 @@ function App() {
         console.log(response.data);
       }
     } catch (error: any) {
-      console.log(error);
       if (error.response.status == 409) {
         // User already exists, try to login
         return login();
       }
+      toast({
+        title: "Something went wrong!",
+        description: error.response.data.message,
+      });
+      setLoginLoading(false);
       return;
     }
   };
@@ -76,6 +77,11 @@ function App() {
         console.log(response.data);
       }
     } catch (error: any) {
+      toast({
+        title: "Something went wrong!",
+        description: error.response.data.message,
+      });
+      setLoginLoading(false);
       return;
     }
   };
