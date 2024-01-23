@@ -34,15 +34,15 @@ function App() {
 
   return (
     <div className="flex">
-      <main className="relative min-h-screen md:ml-[60px] md:w-[calc(100vw-60px)] bg-slate-100">
+      <main className="relative min-h-screen bg-slate-100 md:ml-[60px] md:w-[calc(100vw-60px)]">
         <div className="pt-16">
           <div className="max-w-3xl p-6">
-            <header className="absolute top-0 left-0 flex items-center w-full bg-white px-6 py-4 h-[60px] ">
-              <div className="w-40 h-8">Home</div>
+            <header className="absolute left-0 top-0 flex h-[60px] w-full items-center bg-white px-6 py-4 ">
+              <div className="h-8 w-40">Home</div>
             </header>
             <section className="">
-              <div className="py-8 px-4 mx-auto max-w-screen-xl text-center lg:py-16">
-                <h1 className="mb-4 text-4xl font-extrabold tracking-tight leading-none text-gray-900 md:text-5xl lg:text-6xl">
+              <div className="mx-auto max-w-screen-xl px-4 py-8 text-center lg:py-16">
+                <h1 className="mb-4 text-4xl font-extrabold leading-none tracking-tight text-gray-900 md:text-5xl lg:text-6xl">
                   Mapache
                 </h1>
                 {!connected ? (
@@ -53,7 +53,7 @@ function App() {
                 ) : (
                   <div />
                 )}
-                <div className="flex justify-center content-center items-center mt-8">
+                <div className="mt-8 flex content-center items-center justify-center">
                   <FontAwesomeIcon
                     icon={connected ? faCheckCircle : faTimesCircle}
                     size="xl"
