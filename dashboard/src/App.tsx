@@ -6,6 +6,10 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Loader2 } from "lucide-react";
 import { useToast } from "./components/ui/use-toast";
+import {
+  getAxiosErrorCode,
+  getAxiosErrorMessage,
+} from "./lib/axios-error-handler";
 
 function App() {
   const { toast } = useToast();
@@ -48,21 +52,20 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        setLoginLoading(false);
         console.log(response.data);
+        localStorage.setItem("id", response.data.id);
+        localStorage.setItem("token", response.data.token);
       }
     } catch (error: any) {
-      if (error.response.status == 409) {
-        // User already exists, try to login
+      if (getAxiosErrorCode(error) == 409) {
         return login();
       }
       toast({
         title: "Something went wrong!",
-        description: error.response.data.message,
+        description: getAxiosErrorMessage(error),
       });
-      setLoginLoading(false);
-      return;
     }
+    setLoginLoading(false);
   };
 
   const login = async () => {
@@ -73,17 +76,17 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        setLoginLoading(false);
         console.log(response.data);
+        localStorage.setItem("id", response.data.id);
+        localStorage.setItem("token", response.data.token);
       }
     } catch (error: any) {
       toast({
         title: "Something went wrong!",
-        description: error.response.data.message,
+        description: getAxiosErrorMessage(error),
       });
-      setLoginLoading(false);
-      return;
     }
+    setLoginLoading(false);
   };
 
   return (
