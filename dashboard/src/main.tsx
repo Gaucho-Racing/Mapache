@@ -6,6 +6,7 @@ import "./index.css";
 import { Toaster } from "./components/ui/toaster.tsx";
 import PedalDetailsPage from "./pages/pedal/PedalDetailsPage.tsx";
 import RegisterPage from "./pages/auth/RegisterPage.tsx";
+import DashboardPage from "./pages/dashboard/DashboardPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -15,6 +16,10 @@ const router = createBrowserRouter([
   {
     path: "/auth/register",
     element: <RegisterPage />,
+  },
+  {
+    path: "/dash",
+    element: <DashboardPage />,
   },
   {
     path: "/pedal",

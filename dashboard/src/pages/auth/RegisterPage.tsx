@@ -38,7 +38,11 @@ function RegisterPage() {
     }
     try {
       var userId = localStorage.getItem("id");
-      const response = await axios.get(`${MAPACHE_API_URL}/users/${userId}`);
+      const response = await axios.get(`${MAPACHE_API_URL}/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
       if (response.status == 200) {
         currentUser.id = response.data.id;
         currentUser.firstName = response.data.first_name;
