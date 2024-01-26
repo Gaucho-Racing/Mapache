@@ -10,9 +10,11 @@ import {
   getAxiosErrorCode,
   getAxiosErrorMessage,
 } from "./lib/axios-error-handler";
+import { useNavigate } from "react-router-dom";
 
 function App() {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [connected, setConnected] = React.useState(false);
   const [pingResponse, setPingResponse] = React.useState<any>({});
@@ -52,9 +54,9 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        console.log(response.data);
         localStorage.setItem("id", response.data.id);
         localStorage.setItem("token", response.data.token);
+        navigate("/auth/register");
       }
     } catch (error: any) {
       if (getAxiosErrorCode(error) == 409) {
@@ -76,9 +78,9 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        console.log(response.data);
         localStorage.setItem("id", response.data.id);
         localStorage.setItem("token", response.data.token);
+        navigate("/auth/register");
       }
     } catch (error: any) {
       toast({
