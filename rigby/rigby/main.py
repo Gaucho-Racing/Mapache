@@ -7,7 +7,7 @@ from .nodes.gr24.pedals import Pedals
 import numpy as np
 from paho.mqtt import client as mqtt_client
 
-def main() -> None: 
+def main() -> None:
     """
     Run the main application logic.
     """
@@ -15,18 +15,18 @@ def main() -> None:
 
     myPedals = Pedals()
 
-    for i in range (0, 100):
+    for i in range (0, 1000):
         myPedals.gen_random_values()
         pedal_bytes = myPedals.generate_bytes()
         print(myPedals.APPS1)
         publish_message(client, "gr24/pedal", pedal_bytes)
-        time.sleep(1)
+        time.sleep(0.2)
 
-    
+
 if __name__ == "__main__":
     main()
 
-def publish_message(client: mqtt_client, queue: str, message: str) -> None: 
+def publish_message(client: mqtt_client, queue: str, message: str) -> None:
     """
     Publish a message to the specified queue.
     """
@@ -36,7 +36,7 @@ def publish_message(client: mqtt_client, queue: str, message: str) -> None:
         print(f"Send `{message}` to topic `{queue}`")
     else:
         print(f"Failed to send message to topic {queue}")
-    
+
 
 def connect_mqtt() -> mqtt_client:
     """

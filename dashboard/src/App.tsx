@@ -1,5 +1,5 @@
 import "./App.css";
-import React from "react";
+import React, { useReducer } from "react";
 import axios from "axios";
 import { MAPACHE_API_URL } from "./consts/config";
 import { Button } from "./components/ui/button";
@@ -11,10 +11,12 @@ import {
   getAxiosErrorMessage,
 } from "./lib/axios-error-handler";
 import { useNavigate } from "react-router-dom";
+import { checkCredentials } from "./lib/auth";
 
 function App() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const [connected, setConnected] = React.useState(false);
   const [pingResponse, setPingResponse] = React.useState<any>({});
@@ -24,6 +26,7 @@ function App() {
   const [loginPassword, setLoginPassword] = React.useState("");
 
   React.useEffect(() => {
+    init();
     checkVpnConnection();
     const interval = setInterval(() => {
       // checkVpnConnection();
@@ -42,6 +45,15 @@ function App() {
     } catch (error) {
       setConnected(false);
       return;
+    }
+  };
+
+  const init = async () => {
+    if (
+      localStorage.getItem("id") != null &&
+      localStorage.getItem("token") != null
+    ) {
+      navigate("/auth/register");
     }
   };
 

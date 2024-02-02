@@ -11,7 +11,6 @@ import { checkCredentials } from "@/lib/auth";
 function DashboardPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
-
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {

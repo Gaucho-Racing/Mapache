@@ -13,11 +13,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DropdownMenuContent } from "@/components/ui/dropdown-menu";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 function RegisterPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [queryParameters] = useSearchParams();
 
   const [loading, setLoading] = React.useState(true);
   const [createAccountLoading, setCreateAccountLoading] = React.useState(false);
@@ -54,7 +55,12 @@ function RegisterPage() {
         currentUser.createdAt = response.data.created_at;
 
         if (currentUser.firstName != "" && currentUser.lastName != "") {
-          navigate("/dash");
+          const route = queryParameters.get("route");
+          if (route) {
+            navigate(route);
+          } else {
+            navigate("/dash");
+          }
         }
       }
     } catch (error) {
@@ -62,6 +68,7 @@ function RegisterPage() {
         title: "Something went wrong!",
         description: getAxiosErrorMessage(error),
       });
+      navigate("/");
       return;
     }
     setLoading(false);

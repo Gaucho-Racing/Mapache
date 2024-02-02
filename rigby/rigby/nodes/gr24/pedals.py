@@ -2,8 +2,8 @@ import numpy as np
 from .data_node import DataNode
 
 '''
-APPS 1		APPS 1		Brake Pressure F		Brake Pressure R	
-Anything							
+APPS 1		APPS 1		Brake Pressure F		Brake Pressure R
+Anything
 '''
 
 class Pedals(DataNode):
@@ -15,10 +15,10 @@ class Pedals(DataNode):
 
     @classmethod
     def gen_random_values(cls):
-        cls.APPS1 = np.random.randint(0, 10000)
-        cls.APPS2 = np.random.randint(0, 10000)
-        cls.brake_pressure_front = np.random.randint(0, 10000)
-        cls.brake_pressure_rear = np.random.randint(0, 10000)
+        cls.APPS1 = np.random.randint(0, 100)
+        cls.APPS2 = np.random.randint(0, 100)
+        cls.brake_pressure_front = np.random.randint(0, 100)
+        cls.brake_pressure_rear = np.random.randint(0, 100)
 
     @classmethod
     def generate_bytes(cls):
@@ -30,4 +30,3 @@ class Pedals(DataNode):
             *([0]*8) #excludes pedal ping response
         ]
         return bytes(init_list)
-

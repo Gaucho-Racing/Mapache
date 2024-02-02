@@ -11,11 +11,24 @@ import (
 	"github.com/google/uuid"
 )
 
+var callbacks []func(Pedal model.GR24Pedal)
+
+func notify(pedal model.GR24Pedal) {
+	for _, callback := range callbacks {
+		callback(pedal)
+	}
+}
+
+func GR24PedalSubscribe(callback func(Pedal model.GR24Pedal)) {
+	callbacks = append(callbacks, callback)
+}
+
 func GR24InitializePedalIngest() {
 	callback := func(client mqtt.Client, msg mqtt.Message) {
 		utils.SugarLogger.Infoln("[MQ] Received pedal frame")
 		pedal := parsePedal(msg.Payload())
 		if pedal.ID != "" {
+			notify(pedal)
 			err := CreatePedal(pedal)
 			if err != nil {
 				utils.SugarLogger.Errorln(err)
