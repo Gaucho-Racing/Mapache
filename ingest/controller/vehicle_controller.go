@@ -8,11 +8,21 @@ import (
 )
 
 func GetAllVehicles(c *gin.Context) {
+	if service.GetRequestUserID(c) == "" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "You are not authorized to access this resource"})
+		return
+	}
+
 	result := service.GetAllVehicles()
 	c.JSON(http.StatusOK, result)
 }
 
 func GetVehicleByID(c *gin.Context) {
+	if service.GetRequestUserID(c) == "" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "You are not authorized to access this resource"})
+		return
+	}
+
 	result := service.GetVehicleByID(c.Param("vehicleID"))
 	if result.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No vehicle found with given id: " + c.Param("vehicleID")})

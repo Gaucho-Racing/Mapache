@@ -13,6 +13,11 @@ func GetAllUsers(c *gin.Context) {
 }
 
 func GetUserByID(c *gin.Context) {
+	if service.GetRequestUserID(c) == "" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "You are not authorized to access this resource"})
+		return
+	}
+
 	result := service.GetUserByID(c.Param("userID"))
 	if result.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No user found with given id: " + c.Param("userID")})

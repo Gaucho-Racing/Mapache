@@ -68,6 +68,8 @@ function RegisterPage() {
         title: "Something went wrong!",
         description: getAxiosErrorMessage(error),
       });
+      localStorage.removeItem("id");
+      localStorage.removeItem("token");
       navigate("/");
       return;
     }
