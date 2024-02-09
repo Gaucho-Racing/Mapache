@@ -10,6 +10,18 @@ services:
   #     LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
   #     ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
   #     START_AFTER_INIT: "Y"
+  db:
+      image: mysql:8.3
+      restart: unless-stopped
+      environment:
+        MYSQL_DATABASE: ${DB_NAME}
+        MYSQL_USER: ${DB_USER}
+        MYSQL_PASSWORD: ${DB_PASSWORD}
+        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      ports:
+        - '3306:3306'
+      volumes:
+        - mysql:/var/lib/mysql
 
   rabbitmq:
     image: rabbitmq:management-alpine
@@ -48,3 +60,6 @@ networks:
       driver: default
       config:
         - subnet: 172.16.238.0/24
+
+volumes:
+  mysql:
