@@ -5,7 +5,7 @@ import { MAPACHE_API_URL } from "./consts/config";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Loader2 } from "lucide-react";
-import { useToast } from "./components/ui/use-toast";
+import { toast } from "sonner";
 import {
   getAxiosErrorCode,
   getAxiosErrorMessage,
@@ -14,7 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "./lib/auth";
 
 function App() {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -74,10 +73,7 @@ function App() {
       if (getAxiosErrorCode(error) == 409) {
         return login();
       }
-      toast({
-        title: "Something went wrong!",
-        description: getAxiosErrorMessage(error),
-      });
+      toast(getAxiosErrorMessage(error));
     }
     setLoginLoading(false);
   };
@@ -95,10 +91,7 @@ function App() {
         navigate("/auth/register");
       }
     } catch (error: any) {
-      toast({
-        title: "Something went wrong!",
-        description: getAxiosErrorMessage(error),
-      });
+      toast(getAxiosErrorMessage(error));
     }
     setLoginLoading(false);
   };
@@ -118,7 +111,7 @@ function App() {
               <p className="text-lg">
                 &ldquo;Theory will take you only so far&rdquo;
               </p>
-              <footer className="text-sm">J. Robert Oppenheimer</footer>
+              <footer className="text-sm">Tien Nguyen</footer>
             </blockquote>
           </div>
         </div>
