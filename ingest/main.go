@@ -1,14 +1,15 @@
 package main
 
 import (
-	"github.com/fatih/color"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"ingest/config"
 	"ingest/controller"
 	"ingest/service"
 	"ingest/utils"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 var router *gin.Engine

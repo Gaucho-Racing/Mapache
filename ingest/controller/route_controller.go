@@ -20,6 +20,7 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/vehicles", GetAllVehicles)
 	router.GET("/vehicles/:vehicleID", GetVehicleByID)
 	router.POST("/vehicles/:vehicleID", CreateVehicle)
+	router.GET("/ws/gr24/pedal", GR24PedalSocket)
 }
 
 func RequestLogger() gin.HandlerFunc {
