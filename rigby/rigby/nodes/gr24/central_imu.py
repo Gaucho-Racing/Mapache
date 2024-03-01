@@ -25,3 +25,6 @@ class CentralIMU(DataNode):
             *[0]*2,
         ]
         return bytes(init_list) #byte rep of list of single byte int reps
+    
+
+    

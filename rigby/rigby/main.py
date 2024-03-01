@@ -3,6 +3,7 @@ import time
 import sys
 import os
 from .nodes.gr24.wheel import Wheel
+from .nodes.gr24.central_imu import CentralIMU
 from .nodes.gr24.pedals import Pedals
 import numpy as np
 from paho.mqtt import client as mqtt_client
@@ -14,10 +15,24 @@ def main() -> None:
     client = connect_mqtt()
 
     myPedals = Pedals()
+    wheelFR = Wheel()
+    wheelFL = Wheel()
+    wheelRR = Wheel()
+    wheelRL = Wheel()
+    myIMU = CentralIMU()
 
     for i in range (0, 1000):
         myPedals.gen_random_values()
         pedal_bytes = myPedals.generate_bytes()
+        for wheel, topic in zip([wheelFR, wheelFL, wheelRR, wheelRL], ["gr24/wheel/fr", "gr24/wheel/fl", "gr24/wheel/rr", "gr24/wheel/rl"]):
+            wheel.gen_random_values()
+            wheel_bytes = wheel.generate_bytes()
+            publish_message(client, topic, wheel_bytes)
+        
+        myIMU.gen_random_values()
+        imu_bytes = myIMU.generate_bytes()
+        publish_message(client, "gr24/imu", imu_bytes)
+        time.sleep(0.2)
         print(myPedals.APPS1)
         publish_message(client, "gr24/pedal", pedal_bytes)
         time.sleep(0.2)
@@ -42,8 +57,8 @@ def connect_mqtt() -> mqtt_client:
     """
     Connect to the MQTT broker.
     """
-    broker = os.environ.get('MQTT_HOST')
-    port = int(os.environ.get('MQTT_PORT'))
+    broker = "localhost"
+    port = 1883
     client_id = 'rigby_mqtt_' + str(random.randint(0, 100))
 
     def on_connect(client, userdata, flags, rc):
@@ -53,7 +68,7 @@ def connect_mqtt() -> mqtt_client:
             print("Failed to connect, return code %d\n", rc)
 
     client = mqtt_client.Client(client_id)
-    client.username_pw_set(os.environ.get("MQTT_USER"), os.environ.get("MQTT_PASSWORD"))
+    client.username_pw_set("rigby", "rigby")
     client.on_connect = on_connect
     client.connect(broker, port)
     return client
