@@ -1,6 +1,16 @@
 import numpy as np
 from .data_node import DataNode
 
+'''
+Suspension	Wheelspeed		Tire Pressure				
+IMU Accel X		IMU Accel Y		IMU Accel Z			
+IMU Gyro X		IMU Gyro Y		IMU Gyro Z		
+
+Brake Temp 1	Brake Temp 2	Brake Temp 3	Brake Temp 4	Brake Temp 5	Brake Temp 6	Brake Temp 7	Brake Temp 8
+
+Tire Temp 1	Tire Temp 2	Tire Temp 3	Tire Temp 4	Tire Temp 5	Tire Temp 6	Tire Temp 7	Tire Temp 8
+
+'''
 class Wheel(DataNode):
     suspension: int
     wheel_speed: int
@@ -51,8 +61,8 @@ class Wheel(DataNode):
         cls.suspension = np.random.randint(0, 99)
         cls.wheel_speed = np.random.randint(0, 99)
         cls.tire_pressure = np.random.randint(20, 40)
-        cls.imu_accel = np.random.randint(-32767, 32768, size=3).tolist()
-        cls.imu_gyro = np.random.randint(-32767, 32768, size=3).tolist()
+        cls.imu_accel = np.random.randint(0, 100, size=3).tolist()
+        cls.imu_gyro = np.random.randint(0, 100, size=3).tolist()
         cls.brake_temp = np.random.randint(0, 256, size=8).tolist()
         cls.tire_temp = np.random.randint(0, 256, size=8).tolist()
 
