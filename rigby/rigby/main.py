@@ -32,6 +32,7 @@ def main() -> None:
         myIMU.gen_random_values()
         imu_bytes = myIMU.generate_bytes()
         publish_message(client, "gr24/imu", imu_bytes)
+        
         time.sleep(0.2)
         print(myPedals.APPS1)
         publish_message(client, "gr24/pedal", pedal_bytes)
