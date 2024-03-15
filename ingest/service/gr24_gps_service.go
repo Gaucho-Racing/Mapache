@@ -3,6 +3,7 @@ package service
 import (
 	"ingest/model"
 	"ingest/utils"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -41,14 +42,18 @@ func GR24InitializeGpsIngest() {
 // parseGps function takes in a byte array and returns a Gps struct
 func parseGps(data []byte) model.GR24Gps {
 	var gps model.GR24Gps
-	if len(data) != 16 {
-		utils.SugarLogger.Warnln("Gps data length is not 16 bytes!")
+	if len(data) != 8 {
+		utils.SugarLogger.Warnln("Gps data length is not 8 bytes! Received: ", len(data))
 		return gps
 	}
 	gps.ID = uuid.NewString()
 	gps.Millis = int(time.Now().UnixMilli())
-	gps.Latitude = float64(int(data[0])<<24 | int(data[1])<<16 | int(data[2])<<8 | int(data[3]))
-	gps.Longitude = float64(int(data[4])<<24 | int(data[5])<<16 | int(data[6])<<8 | int(data[7]))
+	// latitude is a 32-bit float
+	lat32 := math.Float32frombits(uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3]))
+	// longitude is a 32-bit float
+	long32 := math.Float32frombits(uint32(data[4])<<24 | uint32(data[5])<<16 | uint32(data[6])<<8 | uint32(data[7]))
+	gps.Latitude = float64(lat32)
+	gps.Longitude = float64(long32)
 	gps = scale(gps)
 	return gps
 }
