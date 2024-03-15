@@ -5,6 +5,7 @@ import os
 from .nodes.gr24.wheel import Wheel
 from .nodes.gr24.central_imu import CentralIMU
 from .nodes.gr24.pedals import Pedals
+from .nodes.gr24.gps import GPS
 import numpy as np
 from paho.mqtt import client as mqtt_client
 
@@ -20,10 +21,20 @@ def main() -> None:
     wheelRR = Wheel()
     wheelRL = Wheel()
     myIMU = CentralIMU()
+    myGPS = GPS()
+
+    myGPS.gen_random_values()
+    print(myGPS.latitude)
+    print(myGPS.longitude)
+    gps_bytes = myGPS.generate_bytes()
+    print(gps_bytes)
+
 
     for i in range (0, 1000):
         myPedals.gen_random_values()
         pedal_bytes = myPedals.generate_bytes()
+        publish_message(client, "gr24/pedal", pedal_bytes)
+
         for wheel, topic in zip([wheelFR, wheelFL, wheelRR, wheelRL], ["gr24/wheel/fr", "gr24/wheel/fl", "gr24/wheel/rr", "gr24/wheel/rl"]):
             wheel.gen_random_values()
             wheel_bytes = wheel.generate_bytes()
@@ -33,9 +44,10 @@ def main() -> None:
         imu_bytes = myIMU.generate_bytes()
         publish_message(client, "gr24/imu", imu_bytes)
         
-        time.sleep(0.2)
-        print(myPedals.APPS1)
-        publish_message(client, "gr24/pedal", pedal_bytes)
+        myGPS.gen_random_values()
+        gps_bytes = myGPS.generate_bytes()
+        publish_message(client, "gr24/gps", gps_bytes)
+
         time.sleep(0.2)
 
 
