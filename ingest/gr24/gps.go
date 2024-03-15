@@ -1,31 +1,41 @@
-package service
+package gr24
 
 import (
-	"ingest/gr24"
-	"ingest/model"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
+	"ingest/service"
 	"ingest/utils"
 	"math"
 	"os"
 	"strconv"
 	"time"
-
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/google/uuid"
 )
 
-var gpsCallbacks []func(gps model.GR24Gps)
+type GPS struct {
+	ID        string    `json:"id" gorm:"primaryKey"`
+	Millis    int       `json:"millis" gorm:"index"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+}
 
-func gpsNotify(gps model.GR24Gps) {
+func (GPS) TableName() string {
+	return "gr24_gps"
+}
+
+var gpsCallbacks []func(gps GPS)
+
+func gpsNotify(gps GPS) {
 	for _, callback := range gpsCallbacks {
 		callback(gps)
 	}
 }
 
-func GR24GpsSubscribe(callback func(gps model.GR24Gps)) {
+func SubscribeGPS(callback func(gps GPS)) {
 	gpsCallbacks = append(gpsCallbacks, callback)
 }
 
-func GR24InitializeGpsIngest() {
+func InitializeGpsIngest() {
 	callback := func(client mqtt.Client, msg mqtt.Message) {
 		utils.SugarLogger.Infoln("[MQ] Received gps frame")
 		gps := parseGps(msg.Payload())
@@ -37,12 +47,12 @@ func GR24InitializeGpsIngest() {
 			}
 		}
 	}
-	RabbitClient.Subscribe("gr24/gps", 0, callback)
+	service.RabbitClient.Subscribe("gr24/gps", 0, callback)
 }
 
 // parseGps function takes in a byte array and returns a Gps struct
-func parseGps(data []byte) model.GR24Gps {
-	var gps model.GR24Gps
+func parseGps(data []byte) GPS {
+	var gps GPS
 	if len(data) != 8 {
 		utils.SugarLogger.Warnln("Gps data length is not 8 bytes! Received: ", len(data))
 		return gps
@@ -55,12 +65,11 @@ func parseGps(data []byte) model.GR24Gps {
 	long32 := math.Float32frombits(uint32(data[4])<<24 | uint32(data[5])<<16 | uint32(data[6])<<8 | uint32(data[7]))
 	gps.Latitude = float64(lat32)
 	gps.Longitude = float64(long32)
-	//gps = scaleGps(gps)
-	gps = gr24.AutoScale(gps)
+	gps = scaleGps(gps)
 	return gps
 }
 
-func scaleGps(gps model.GR24Gps) model.GR24Gps {
+func scaleGps(gps GPS) GPS {
 	gps.Latitude = gps.Latitude * getGpsScale("Latitude")
 	gps.Longitude = gps.Longitude * getGpsScale("Longitude")
 	return gps
@@ -78,8 +87,8 @@ func getGpsScale(variable string) float64 {
 	return 1
 }
 
-func CreateGps(gps model.GR24Gps) error {
-	if result := DB.Create(&gps); result.Error != nil {
+func CreateGps(gps GPS) error {
+	if result := service.DB.Create(&gps); result.Error != nil {
 		return result.Error
 	}
 	return nil
