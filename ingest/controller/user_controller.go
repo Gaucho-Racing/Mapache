@@ -8,6 +8,11 @@ import (
 )
 
 func GetAllUsers(c *gin.Context) {
+	if service.GetRequestUserID(c) == "" {
+		c.JSON(http.StatusForbidden, gin.H{"message": "You are not authorized to access this resource"})
+		return
+	}
+
 	result := service.GetAllUsers()
 	c.JSON(http.StatusOK, result)
 }
