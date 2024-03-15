@@ -49,6 +49,20 @@ wow data very cool
 
 To get a local copy of Mapache up and running follow these steps.
 
+
+Several components:
+### Rigby, a python virtualization
+```poetry run rigby```
+### Ingest, a GoLang data ingestion service
+```go run main.go```
+### Dashboard, a ReactJS front-end
+```npm run dev```
+### RabbitMQ, a message broker
+```docker-compose up -d```
+go to https://localhost:15672/ -> admin -> create a new user rigby:rigby -> set perms /*
+
+
+
 ### Prerequisites
 
 

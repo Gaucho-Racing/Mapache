@@ -8,6 +8,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 paho-mqtt = "^1.6.1"
+numpy = "^1.26.4"
 
 [tool.poetry.scripts]
 rigby = "rigby.main:main"

@@ -75,7 +75,6 @@ class ACU(DataNode):
             *cls.to_bytes(cls.target_cell_temp, 2),
             cls.target_cell_errors,
 
-            *[element for row in [[cls.cell_voltage[i], cls.cell_temp[i]] for i in range(144)] for element in row]
-
-            
+            *[element for row in [[cls.cell_voltage[i], cls.cell_temp[i]] for i in range(144)] for element in row],   
         ]
+        return bytes(init_list)
