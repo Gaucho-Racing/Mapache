@@ -31,24 +31,24 @@ def main() -> None:
 
 
     for i in range (0, 1000):
-        myPedals.gen_random_values()
-        pedal_bytes = myPedals.generate_bytes()
-        publish_message(client, "gr24/pedal", pedal_bytes)
+        # myPedals.gen_random_values()
+        # pedal_bytes = myPedals.generate_bytes()
+        # publish_message(client, "gr24/pedal", pedal_bytes)
 
-        for wheel, topic in zip([wheelFR, wheelFL, wheelRR, wheelRL], ["gr24/wheel/fr", "gr24/wheel/fl", "gr24/wheel/rr", "gr24/wheel/rl"]):
-            wheel.gen_random_values()
-            wheel_bytes = wheel.generate_bytes()
-            publish_message(client, topic, wheel_bytes)
+        # for wheel, topic in zip([wheelFR, wheelFL, wheelRR, wheelRL], ["gr24/wheel/fr", "gr24/wheel/fl", "gr24/wheel/rr", "gr24/wheel/rl"]):
+        #     wheel.gen_random_values()
+        #     wheel_bytes = wheel.generate_bytes()
+        #     publish_message(client, topic, wheel_bytes)
         
-        myIMU.gen_random_values()
-        imu_bytes = myIMU.generate_bytes()
-        publish_message(client, "gr24/imu", imu_bytes)
+        # myIMU.gen_random_values()
+        # imu_bytes = myIMU.generate_bytes()
+        # publish_message(client, "gr24/imu", imu_bytes)
         
         myGPS.gen_random_values()
         gps_bytes = myGPS.generate_bytes()
         publish_message(client, "gr24/gps", gps_bytes)
 
-        time.sleep(0.2)
+        time.sleep(1)
 
 
 if __name__ == "__main__":

@@ -55,4 +55,5 @@ func sub(client mqtt.Client) {
 
 func InitializeGR24Subscriptions() {
 	GR24InitializePedalIngest()
+	GR24InitializeGpsIngest()
 }

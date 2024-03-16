@@ -11,16 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-var callbacks []func(Pedal model.GR24Pedal)
+var pedalCallbacks []func(pedal model.GR24Pedal)
 
-func notify(pedal model.GR24Pedal) {
-	for _, callback := range callbacks {
+func pedalNotify(pedal model.GR24Pedal) {
+	for _, callback := range pedalCallbacks {
 		callback(pedal)
 	}
 }
 
 func GR24PedalSubscribe(callback func(Pedal model.GR24Pedal)) {
-	callbacks = append(callbacks, callback)
+	pedalCallbacks = append(pedalCallbacks, callback)
 }
 
 func GR24InitializePedalIngest() {
@@ -28,7 +28,7 @@ func GR24InitializePedalIngest() {
 		utils.SugarLogger.Infoln("[MQ] Received pedal frame")
 		pedal := parsePedal(msg.Payload())
 		if pedal.ID != "" {
-			notify(pedal)
+			pedalNotify(pedal)
 			err := CreatePedal(pedal)
 			if err != nil {
 				utils.SugarLogger.Errorln(err)
@@ -51,19 +51,19 @@ func parsePedal(data []byte) model.GR24Pedal {
 	pedal.APPSTwo = float64(int(data[2])<<8 | int(data[3]))
 	pedal.BrakePressureFront = float64(int(data[4])<<8 | int(data[5]))
 	pedal.BrakePressureRear = float64(int(data[6])<<8 | int(data[7]))
-	pedal = scale(pedal)
+	pedal = scalePedal(pedal)
 	return pedal
 }
 
-func scale(pedal model.GR24Pedal) model.GR24Pedal {
-	pedal.APPSOne = pedal.APPSOne * getScale("APPSOne")
-	pedal.APPSTwo = pedal.APPSTwo * getScale("APPSTwo")
-	pedal.BrakePressureFront = pedal.BrakePressureFront * getScale("BrakePressureFront")
-	pedal.BrakePressureRear = pedal.BrakePressureRear * getScale("BrakePressureRear")
+func scalePedal(pedal model.GR24Pedal) model.GR24Pedal {
+	pedal.APPSOne = pedal.APPSOne * getPedalScale("APPSOne")
+	pedal.APPSTwo = pedal.APPSTwo * getPedalScale("APPSTwo")
+	pedal.BrakePressureFront = pedal.BrakePressureFront * getPedalScale("BrakePressureFront")
+	pedal.BrakePressureRear = pedal.BrakePressureRear * getPedalScale("BrakePressureRear")
 	return pedal
 }
 
-func getScale(variable string) float64 {
+func getPedalScale(variable string) float64 {
 	scaleVar := os.Getenv("SCALE_GR24_PEDAL_" + variable)
 	if scaleVar != "" {
 		scaleFloat, err := strconv.ParseFloat(scaleVar, 64)
