@@ -1,16 +1,14 @@
 package service
 
 import (
-	"ingest/gr24"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"ingest/model"
 	"ingest/utils"
 	"math"
 	"os"
 	"strconv"
 	"time"
-
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/google/uuid"
 )
 
 var gpsCallbacks []func(gps model.GR24Gps)
@@ -55,8 +53,7 @@ func parseGps(data []byte) model.GR24Gps {
 	long32 := math.Float32frombits(uint32(data[4])<<24 | uint32(data[5])<<16 | uint32(data[6])<<8 | uint32(data[7]))
 	gps.Latitude = float64(lat32)
 	gps.Longitude = float64(long32)
-	//gps = scaleGps(gps)
-	gps = gr24.AutoScale(gps)
+	gps = scaleGps(gps)
 	return gps
 }
 
