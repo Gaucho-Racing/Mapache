@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-var pedalUpgrader = websocket.Upgrader{
+var gpsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
@@ -18,29 +18,25 @@ var pedalUpgrader = websocket.Upgrader{
 	},
 }
 
-func GR24PedalSocket(c *gin.Context) {
-	conn, err := pedalUpgrader.Upgrade(c.Writer, c.Request, nil)
+func GR24GpsSocket(c *gin.Context) {
+	conn, err := gpsUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		utils.SugarLogger.Errorln("[WS - gr24/pedal] error while Upgrading websocket connection\n", err.Error())
+		utils.SugarLogger.Errorln("[WS - gr24/gps] error while Upgrading websocket connection\n", err.Error())
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 	defer conn.Close()
-	service.GR24PedalSubscribe(func(pedal model.GR24Pedal) {
+	service.GR24GpsSubscribe(func(pedal model.GR24Gps) {
 		_ = conn.WriteJSON(pedal)
 	})
 
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
-			utils.SugarLogger.Errorln("[WS - gr24/pedal] error while reading message\n", err.Error())
+			utils.SugarLogger.Errorln("[WS - gr24/gps] error while reading message\n", err.Error())
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
-		utils.SugarLogger.Infoln("[WS - gr24/pedal] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
+		utils.SugarLogger.Infoln("[WS - gr24/gps] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
 	}
-}
-
-func GR24GetAllPedals(c *gin.Context) {
-
 }
