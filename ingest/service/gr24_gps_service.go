@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"ingest/database"
 	"ingest/model"
+	"ingest/rabbitmq"
 	"ingest/utils"
 	"math"
 	"os"
@@ -36,7 +37,7 @@ func GR24InitializeGpsIngest() {
 			}
 		}
 	}
-	RabbitClient.Subscribe("gr24/gps", 0, callback)
+	rabbitmq.Client.Subscribe("gr24/gps", 0, callback)
 }
 
 // parseGps function takes in a byte array and returns a Gps struct

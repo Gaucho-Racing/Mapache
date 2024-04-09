@@ -4,7 +4,7 @@ import (
 	"ingest/config"
 	"ingest/controller"
 	"ingest/database"
-	"ingest/service"
+	"ingest/rabbitmq"
 	"ingest/utils"
 	"time"
 
@@ -39,7 +39,7 @@ func main() {
 	router = setupRouter()
 	controller.InitializeRoutes(router)
 	database.InitializeDB()
-	service.InitializeRabbit()
+	rabbitmq.InitializeRabbit()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {

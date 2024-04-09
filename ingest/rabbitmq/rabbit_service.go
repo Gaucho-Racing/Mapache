@@ -1,4 +1,4 @@
-package service
+package rabbitmq
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var RabbitClient mqtt.Client
+var Client mqtt.Client
 
 var clientID string
 
@@ -29,9 +29,8 @@ func InitializeRabbit() {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		utils.SugarLogger.Fatalln(token.Error())
 	}
-	RabbitClient = client
-	sub(RabbitClient)
-	InitializeGR24Subscriptions()
+	Client = client
+	sub(Client)
 }
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -51,9 +50,4 @@ func sub(client mqtt.Client) {
 	token := client.Subscribe(topic, 1, nil)
 	token.Wait()
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: ", topic)
-}
-
-func InitializeGR24Subscriptions() {
-	GR24InitializePedalIngest()
-	GR24InitializeGpsIngest()
 }

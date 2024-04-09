@@ -3,6 +3,7 @@ package service
 import (
 	"ingest/database"
 	"ingest/model"
+	"ingest/rabbitmq"
 	"ingest/utils"
 	"os"
 	"strconv"
@@ -36,7 +37,7 @@ func GR24InitializePedalIngest() {
 			}
 		}
 	}
-	RabbitClient.Subscribe("gr24/pedal", 0, callback)
+	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
