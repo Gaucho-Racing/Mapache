@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"ingest/config"
+	"ingest/database"
 	"ingest/model"
 	"ingest/utils"
 	"time"
@@ -85,18 +86,18 @@ func createSkeletonUser(user model.User) interface{} {
 	user.FirstName = ""
 	user.LastName = ""
 	user.Subteam = ""
-	return DB.Create(&user)
+	return database.DB.Create(&user)
 }
 
 func GetIDForEmail(email string) string {
 	var id string
-	DB.Table("user").Where("email = ?", email).Select("id").Scan(&id)
+	database.DB.Table("user").Where("email = ?", email).Select("id").Scan(&id)
 	return id
 }
 
 func GetPasswordForEmail(email string) string {
 	var password string
-	DB.Table("user").Where("email = ?", email).Select("password").Scan(&password)
+	database.DB.Table("user").Where("email = ?", email).Select("password").Scan(&password)
 	return password
 }
 

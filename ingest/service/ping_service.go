@@ -3,6 +3,7 @@ package service
 import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"ingest/database"
 	"ingest/utils"
 	"time"
 )
@@ -33,7 +34,7 @@ func PingQuery() (bool, int) {
 
 func PingSingleStore() (bool, int) {
 	start := time.Now()
-	err := PingDB()
+	err := database.PingDB()
 	if err != nil {
 		utils.SugarLogger.Errorln("Failed to ping singlestore: ", err)
 		return false, int(time.Since(start).Milliseconds())

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"ingest/database"
 	"ingest/model"
 	"ingest/utils"
 	"os"
@@ -76,7 +77,7 @@ func getPedalScale(variable string) float64 {
 }
 
 func CreatePedal(pedal model.GR24Pedal) error {
-	if result := DB.Create(&pedal); result.Error != nil {
+	if result := database.DB.Create(&pedal); result.Error != nil {
 		return result.Error
 	}
 	return nil

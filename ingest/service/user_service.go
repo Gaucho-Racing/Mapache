@@ -1,6 +1,7 @@
 package service
 
 import (
+	"ingest/database"
 	"ingest/model"
 	"ingest/utils"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 func GetAllUsers() []model.User {
 	var users []model.User
-	DB.Find(&users)
+	database.DB.Find(&users)
 	for i := range users {
 		users[i].Password = ""
 		users[i].Roles = GetRolesForUser(users[i].ID)
@@ -18,14 +19,14 @@ func GetAllUsers() []model.User {
 
 func GetUserByID(id string) model.User {
 	var user model.User
-	DB.Where("id = ?", id).First(&user)
+	database.DB.Where("id = ?", id).First(&user)
 	user.Password = ""
 	user.Roles = GetRolesForUser(user.ID)
 	return user
 }
 
 func CreateUser(user model.User) error {
-	result := DB.Where("id = ?", user.ID).Updates(&user)
+	result := database.DB.Where("id = ?", user.ID).Updates(&user)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -36,7 +37,7 @@ func CreateUser(user model.User) error {
 func GetRolesForUser(userID string) []string {
 	var roles []model.UserRole
 	var roleNames = make([]string, 0)
-	result := DB.Where("user_id = ?", userID).Find(&roles)
+	result := database.DB.Where("user_id = ?", userID).Find(&roles)
 	if result.Error != nil {
 		return roleNames
 	}
@@ -50,7 +51,7 @@ func SetRolesForUser(userID string, roles []string) []string {
 	existingRoles := GetRolesForUser(userID)
 	for _, nr := range roles {
 		if !contains(existingRoles, nr) {
-			result := DB.Create(&model.UserRole{
+			result := database.DB.Create(&model.UserRole{
 				UserID:    userID,
 				Role:      nr,
 				CreatedAt: time.Time{},
@@ -62,7 +63,7 @@ func SetRolesForUser(userID string, roles []string) []string {
 	}
 	for _, er := range existingRoles {
 		if !contains(roles, er) {
-			DB.Where("user_id = ? AND role = ?", userID, er).Delete(&model.UserRole{})
+			database.DB.Where("user_id = ? AND role = ?", userID, er).Delete(&model.UserRole{})
 		}
 	}
 	return GetRolesForUser(userID)

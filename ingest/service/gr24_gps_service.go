@@ -3,6 +3,7 @@ package service
 import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"ingest/database"
 	"ingest/model"
 	"ingest/utils"
 	"math"
@@ -76,7 +77,7 @@ func getGpsScale(variable string) float64 {
 }
 
 func CreateGps(gps model.GR24Gps) error {
-	if result := DB.Create(&gps); result.Error != nil {
+	if result := database.DB.Create(&gps); result.Error != nil {
 		return result.Error
 	}
 	return nil
