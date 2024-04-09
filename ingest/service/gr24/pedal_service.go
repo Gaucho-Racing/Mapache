@@ -4,9 +4,8 @@ import (
 	"ingest/database"
 	"ingest/model/gr24"
 	"ingest/rabbitmq"
+	"ingest/service"
 	"ingest/utils"
-	"os"
-	"strconv"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -58,23 +57,11 @@ func parsePedal(data []byte) gr24model.Pedal {
 }
 
 func scalePedal(pedal gr24model.Pedal) gr24model.Pedal {
-	pedal.APPSOne = pedal.APPSOne * getPedalScale("APPSOne")
-	pedal.APPSTwo = pedal.APPSTwo * getPedalScale("APPSTwo")
-	pedal.BrakePressureFront = pedal.BrakePressureFront * getPedalScale("BrakePressureFront")
-	pedal.BrakePressureRear = pedal.BrakePressureRear * getPedalScale("BrakePressureRear")
+	pedal.APPSOne = pedal.APPSOne * service.GetScaleEnvVar("GR24", "Pedal", "APPSOne")
+	pedal.APPSTwo = pedal.APPSTwo * service.GetScaleEnvVar("GR24", "Pedal", "APPSTwo")
+	pedal.BrakePressureFront = pedal.BrakePressureFront * service.GetScaleEnvVar("GR24", "Pedal", "BrakePressureFront")
+	pedal.BrakePressureRear = pedal.BrakePressureRear * service.GetScaleEnvVar("GR24", "Pedal", "BrakePressureRear")
 	return pedal
-}
-
-func getPedalScale(variable string) float64 {
-	scaleVar := os.Getenv("SCALE_GR24_PEDAL_" + variable)
-	if scaleVar != "" {
-		scaleFloat, err := strconv.ParseFloat(scaleVar, 64)
-		if err != nil {
-			return 1
-		}
-		return scaleFloat
-	}
-	return 1
 }
 
 func CreatePedal(pedal gr24model.Pedal) error {

@@ -6,31 +6,30 @@ import (
 	"ingest/database"
 	gr24model "ingest/model/gr24"
 	"ingest/rabbitmq"
+	"ingest/service"
 	"ingest/utils"
 	"math"
-	"os"
-	"strconv"
 	"time"
 )
 
 var gpsCallbacks []func(gps gr24model.GPS)
 
-func notify(gps gr24model.GPS) {
+func gpsNotify(gps gr24model.GPS) {
 	for _, callback := range gpsCallbacks {
 		callback(gps)
 	}
 }
 
-func SubscribeGPS(callback func(gps gr24model.GPS)) {
+func GPSSubscribe(callback func(gps gr24model.GPS)) {
 	gpsCallbacks = append(gpsCallbacks, callback)
 }
 
-func GR24InitializeGpsIngest() {
+func InitializeGPSIngest() {
 	callback := func(client mqtt.Client, msg mqtt.Message) {
 		utils.SugarLogger.Infoln("[MQ] Received gps frame")
-		gps := parse(msg.Payload())
+		gps := parseGPS(msg.Payload())
 		if gps.ID != "" {
-			notify(gps)
+			gpsNotify(gps)
 			err := CreateGps(gps)
 			if err != nil {
 				utils.SugarLogger.Errorln(err)
@@ -40,7 +39,7 @@ func GR24InitializeGpsIngest() {
 	rabbitmq.Client.Subscribe("gr24/gps", 0, callback)
 }
 
-func parse(data []byte) gr24model.GPS {
+func parseGPS(data []byte) gr24model.GPS {
 	var gps gr24model.GPS
 	if len(data) != 8 {
 		utils.SugarLogger.Warnln("GPS data length is not 8 bytes! Received: ", len(data))
@@ -54,26 +53,14 @@ func parse(data []byte) gr24model.GPS {
 	long32 := math.Float32frombits(uint32(data[4])<<24 | uint32(data[5])<<16 | uint32(data[6])<<8 | uint32(data[7]))
 	gps.Latitude = float64(lat32)
 	gps.Longitude = float64(long32)
-	gps = scale(gps)
+	gps = scaleGPS(gps)
 	return gps
 }
 
-func scale(gps gr24model.GPS) gr24model.GPS {
-	gps.Latitude = gps.Latitude * getScaleEnv("Latitude")
-	gps.Longitude = gps.Longitude * getScaleEnv("Longitude")
+func scaleGPS(gps gr24model.GPS) gr24model.GPS {
+	gps.Latitude = gps.Latitude * service.GetScaleEnvVar("GR24", "GPS", "Latitude")
+	gps.Longitude = gps.Longitude * service.GetScaleEnvVar("GR24", "GPS", "Longitude")
 	return gps
-}
-
-func getScaleEnv(variable string) float64 {
-	scaleVar := os.Getenv("SCALE_GR24_GPS_" + variable)
-	if scaleVar != "" {
-		scaleFloat, err := strconv.ParseFloat(scaleVar, 64)
-		if err != nil {
-			return 1
-		}
-		return scaleFloat
-	}
-	return 1
 }
 
 func CreateGps(gps gr24model.GPS) error {

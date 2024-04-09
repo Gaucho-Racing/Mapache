@@ -17,7 +17,7 @@ func CreateGPSSocketConnection(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-	gr24service.SubscribeGPS(func(pedal gr24model.GPS) {
+	gr24service.GPSSubscribe(func(pedal gr24model.GPS) {
 		_ = conn.WriteJSON(pedal)
 	})
 
