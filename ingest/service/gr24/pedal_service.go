@@ -1,8 +1,8 @@
-package service
+package gr24service
 
 import (
 	"ingest/database"
-	"ingest/model"
+	"ingest/model/gr24"
 	"ingest/rabbitmq"
 	"ingest/utils"
 	"os"
@@ -13,15 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
-var pedalCallbacks []func(pedal model.GR24Pedal)
+var pedalCallbacks []func(pedal gr24model.Pedal)
 
-func pedalNotify(pedal model.GR24Pedal) {
+func pedalNotify(pedal gr24model.Pedal) {
 	for _, callback := range pedalCallbacks {
 		callback(pedal)
 	}
 }
 
-func GR24PedalSubscribe(callback func(Pedal model.GR24Pedal)) {
+func PedalSubscribe(callback func(Pedal gr24model.Pedal)) {
 	pedalCallbacks = append(pedalCallbacks, callback)
 }
 
@@ -41,8 +41,8 @@ func GR24InitializePedalIngest() {
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
-func parsePedal(data []byte) model.GR24Pedal {
-	var pedal model.GR24Pedal
+func parsePedal(data []byte) gr24model.Pedal {
+	var pedal gr24model.Pedal
 	if len(data) != 16 {
 		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes!")
 		return pedal
@@ -57,7 +57,7 @@ func parsePedal(data []byte) model.GR24Pedal {
 	return pedal
 }
 
-func scalePedal(pedal model.GR24Pedal) model.GR24Pedal {
+func scalePedal(pedal gr24model.Pedal) gr24model.Pedal {
 	pedal.APPSOne = pedal.APPSOne * getPedalScale("APPSOne")
 	pedal.APPSTwo = pedal.APPSTwo * getPedalScale("APPSTwo")
 	pedal.BrakePressureFront = pedal.BrakePressureFront * getPedalScale("BrakePressureFront")
@@ -77,7 +77,7 @@ func getPedalScale(variable string) float64 {
 	return 1
 }
 
-func CreatePedal(pedal model.GR24Pedal) error {
+func CreatePedal(pedal gr24model.Pedal) error {
 	if result := database.DB.Create(&pedal); result.Error != nil {
 		return result.Error
 	}

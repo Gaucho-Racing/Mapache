@@ -3,8 +3,8 @@ package controller
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"ingest/model"
-	"ingest/service"
+	"ingest/model/gr24"
+	"ingest/service/gr24"
 	"ingest/utils"
 	"net/http"
 	"strconv"
@@ -26,7 +26,7 @@ func GR24PedalSocket(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
-	service.GR24PedalSubscribe(func(pedal model.GR24Pedal) {
+	gr24service.GR24PedalSubscribe(func(pedal gr24model.GR24Pedal) {
 		_ = conn.WriteJSON(pedal)
 	})
 

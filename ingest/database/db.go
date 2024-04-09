@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"ingest/config"
 	"ingest/model"
+	gr24model "ingest/model/gr24"
 	"ingest/utils"
 	"strconv"
 	"time"
@@ -23,15 +24,15 @@ func InitializeDB() {
 	if err != nil {
 		if dbRetries < 10 {
 			dbRetries++
-			utils.SugarLogger.Errorln("failed to connect database, retrying in 5s... ")
+			utils.SugarLogger.Errorln("Failed to connect database, retrying in 5s... ")
 			time.Sleep(time.Second * 5)
 			InitializeDB()
 		} else {
-			utils.SugarLogger.Fatalln("failed to connect database after 15 attempts, terminating program...")
+			utils.SugarLogger.Fatalln("Failed to connect database after 10 attempts, terminating program...")
 		}
 	} else {
-		utils.SugarLogger.Infoln("Connected to singlestore database")
-		err := db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, model.GR24VDM{}, model.GR24Wheel{}, model.GR24Pedal{}, model.GR24Gps{})
+		utils.SugarLogger.Infoln("Connected to database")
+		err := db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, gr24model.Pedal{}, &gr24model.GPS{})
 		if err != nil {
 			utils.SugarLogger.Fatalln("AutoMigration failed", err)
 		}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	gr24controller "ingest/controller/gr24"
 	"ingest/service"
 	"ingest/utils"
 	"strings"
@@ -20,7 +21,12 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/vehicles", GetAllVehicles)
 	router.GET("/vehicles/:vehicleID", GetVehicleByID)
 	router.POST("/vehicles/:vehicleID", CreateVehicle)
-	router.GET("/ws/gr24/pedal", GR24PedalSocket)
+	InitializeWebsocketRoutes(router)
+}
+
+func InitializeWebsocketRoutes(router *gin.Engine) {
+	router.GET("/ws/gr24/gps", gr24controller.CreateGPSSocketConnection)
+	router.GET("/ws/gr24/pedal", gr24controller.CreateGPSSocketConnection)
 }
 
 func RequestLogger() gin.HandlerFunc {
