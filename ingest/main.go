@@ -5,6 +5,7 @@ import (
 	"ingest/controller"
 	"ingest/database"
 	"ingest/rabbitmq"
+	gr24service "ingest/service/gr24"
 	"ingest/utils"
 	"time"
 
@@ -40,6 +41,7 @@ func main() {
 	controller.InitializeRoutes(router)
 	database.InitializeDB()
 	rabbitmq.InitializeRabbit()
+	gr24service.RegisterIngestCronJob()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {

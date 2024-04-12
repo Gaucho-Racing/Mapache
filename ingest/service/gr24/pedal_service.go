@@ -24,7 +24,7 @@ func PedalSubscribe(callback func(Pedal gr24model.Pedal)) {
 	pedalCallbacks = append(pedalCallbacks, callback)
 }
 
-func GR24InitializePedalIngest() {
+func InitializePedalIngest() {
 	callback := func(client mqtt.Client, msg mqtt.Message) {
 		utils.SugarLogger.Infoln("[MQ] Received pedal frame")
 		pedal := parsePedal(msg.Payload())
@@ -37,6 +37,7 @@ func GR24InitializePedalIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
