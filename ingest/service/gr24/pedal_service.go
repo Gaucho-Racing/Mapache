@@ -1,25 +1,26 @@
-package service
+package gr24service
 
 import (
-	"ingest/model"
+	"ingest/database"
+	"ingest/model/gr24"
+	"ingest/rabbitmq"
+	"ingest/service"
 	"ingest/utils"
-	"os"
-	"strconv"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 )
 
-var pedalCallbacks []func(pedal model.GR24Pedal)
+var pedalCallbacks []func(pedal gr24model.Pedal)
 
-func pedalNotify(pedal model.GR24Pedal) {
+func pedalNotify(pedal gr24model.Pedal) {
 	for _, callback := range pedalCallbacks {
 		callback(pedal)
 	}
 }
 
-func GR24PedalSubscribe(callback func(Pedal model.GR24Pedal)) {
+func PedalSubscribe(callback func(Pedal gr24model.Pedal)) {
 	pedalCallbacks = append(pedalCallbacks, callback)
 }
 
@@ -35,12 +36,12 @@ func GR24InitializePedalIngest() {
 			}
 		}
 	}
-	RabbitClient.Subscribe("gr24/pedal", 0, callback)
+	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
-func parsePedal(data []byte) model.GR24Pedal {
-	var pedal model.GR24Pedal
+func parsePedal(data []byte) gr24model.Pedal {
+	var pedal gr24model.Pedal
 	if len(data) != 16 {
 		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes!")
 		return pedal
@@ -55,28 +56,16 @@ func parsePedal(data []byte) model.GR24Pedal {
 	return pedal
 }
 
-func scalePedal(pedal model.GR24Pedal) model.GR24Pedal {
-	pedal.APPSOne = pedal.APPSOne * getPedalScale("APPSOne")
-	pedal.APPSTwo = pedal.APPSTwo * getPedalScale("APPSTwo")
-	pedal.BrakePressureFront = pedal.BrakePressureFront * getPedalScale("BrakePressureFront")
-	pedal.BrakePressureRear = pedal.BrakePressureRear * getPedalScale("BrakePressureRear")
+func scalePedal(pedal gr24model.Pedal) gr24model.Pedal {
+	pedal.APPSOne = pedal.APPSOne * service.GetScaleEnvVar("GR24", "Pedal", "APPSOne")
+	pedal.APPSTwo = pedal.APPSTwo * service.GetScaleEnvVar("GR24", "Pedal", "APPSTwo")
+	pedal.BrakePressureFront = pedal.BrakePressureFront * service.GetScaleEnvVar("GR24", "Pedal", "BrakePressureFront")
+	pedal.BrakePressureRear = pedal.BrakePressureRear * service.GetScaleEnvVar("GR24", "Pedal", "BrakePressureRear")
 	return pedal
 }
 
-func getPedalScale(variable string) float64 {
-	scaleVar := os.Getenv("SCALE_GR24_PEDAL_" + variable)
-	if scaleVar != "" {
-		scaleFloat, err := strconv.ParseFloat(scaleVar, 64)
-		if err != nil {
-			return 1
-		}
-		return scaleFloat
-	}
-	return 1
-}
-
-func CreatePedal(pedal model.GR24Pedal) error {
-	if result := DB.Create(&pedal); result.Error != nil {
+func CreatePedal(pedal gr24model.Pedal) error {
+	if result := database.DB.Create(&pedal); result.Error != nil {
 		return result.Error
 	}
 	return nil

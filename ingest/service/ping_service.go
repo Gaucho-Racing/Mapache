@@ -3,6 +3,8 @@ package service
 import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"ingest/database"
+	"ingest/rabbitmq"
 	"ingest/utils"
 	"time"
 )
@@ -33,7 +35,7 @@ func PingQuery() (bool, int) {
 
 func PingSingleStore() (bool, int) {
 	start := time.Now()
-	err := PingDB()
+	err := database.PingDB()
 	if err != nil {
 		utils.SugarLogger.Errorln("Failed to ping singlestore: ", err)
 		return false, int(time.Since(start).Milliseconds())
@@ -46,13 +48,13 @@ func PingRabbitMQ() (bool, int) {
 	start := time.Now()
 	ping, _ := uuid.NewUUID()
 	topic := "meta/ping"
-	token := RabbitClient.Subscribe(topic, 1, func(client mqtt.Client, msg mqtt.Message) {
+	token := rabbitmq.Client.Subscribe(topic, 1, func(client mqtt.Client, msg mqtt.Message) {
 		if string(msg.Payload()) == ping.String() {
-			go RabbitClient.Unsubscribe(topic)
+			go rabbitmq.Client.Unsubscribe(topic)
 		}
 	})
 	token.Wait()
-	token = RabbitClient.Publish(topic, 1, false, ping.String())
+	token = rabbitmq.Client.Publish(topic, 1, false, ping.String())
 	sent := token.WaitTimeout(5 * time.Second)
 	if sent {
 		utils.SugarLogger.Infoln("Pinged rabbitmq in ", time.Since(start).Milliseconds(), "ms")

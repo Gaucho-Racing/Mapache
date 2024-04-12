@@ -3,11 +3,11 @@ package main
 import (
 	"ingest/config"
 	"ingest/controller"
-	"ingest/service"
+	"ingest/database"
+	"ingest/rabbitmq"
 	"ingest/utils"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -32,25 +32,17 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
-	PrintStartupBanner()
+	config.PrintStartupBanner()
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
 
 	router = setupRouter()
 	controller.InitializeRoutes(router)
-	service.InitializeDB()
-	service.InitializeRabbit()
+	database.InitializeDB()
+	rabbitmq.InitializeRabbit()
 
 	err := router.Run(":" + config.Port)
 	if err != nil {
 		utils.SugarLogger.Fatalln(err)
 	}
-}
-
-func PrintStartupBanner() {
-	banner := color.New(color.Bold, color.FgHiMagenta).PrintlnFunc()
-	banner(config.Banner)
-	version := color.New(color.Bold, color.FgMagenta).PrintlnFunc()
-	version("Running v" + config.Version + " [ENV: " + config.Env + "]")
-	println()
 }

@@ -1,4 +1,4 @@
-package service
+package database
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"ingest/config"
 	"ingest/model"
+	gr24model "ingest/model/gr24"
 	"ingest/utils"
 	"strconv"
 	"time"
@@ -21,17 +22,20 @@ func InitializeDB() {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DatabaseUser, config.DatabasePassword, config.DatabaseHost, config.DatabasePort, config.DatabaseName)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		if dbRetries < 15 {
+		if dbRetries < 10 {
 			dbRetries++
-			utils.SugarLogger.Errorln("failed to connect database, retrying in 5s... ")
+			utils.SugarLogger.Errorln("Failed to connect database, retrying in 5s... ")
 			time.Sleep(time.Second * 5)
 			InitializeDB()
 		} else {
-			utils.SugarLogger.Fatalln("failed to connect database after 15 attempts, terminating program...")
+			utils.SugarLogger.Fatalln("Failed to connect database after 10 attempts, terminating program...")
 		}
 	} else {
-		utils.SugarLogger.Infoln("Connected to singlestore database")
-		db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, model.GR24VDM{}, model.GR24Wheel{}, model.GR24Pedal{}, model.GR24Gps{})
+		utils.SugarLogger.Infoln("Connected to database")
+		err := db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, gr24model.Pedal{}, &gr24model.GPS{})
+		if err != nil {
+			utils.SugarLogger.Fatalln("AutoMigration failed", err)
+		}
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}

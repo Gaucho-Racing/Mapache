@@ -1,10 +1,8 @@
-package model
+package gr24model
 
-import (
-	"time"
-)
+import "time"
 
-type GR24Gps struct {
+type GPS struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
@@ -12,6 +10,6 @@ type GR24Gps struct {
 	Longitude float64   `json:"longitude"`
 }
 
-func (GR24Gps) TableName() string {
+func (GPS) TableName() string {
 	return "gr24_gps"
 }

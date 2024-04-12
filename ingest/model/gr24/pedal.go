@@ -1,10 +1,10 @@
-package model
+package gr24model
 
 import (
 	"time"
 )
 
-type GR24Pedal struct {
+type Pedal struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
 	Millis    int       `json:"millis" gorm:"index"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
@@ -15,6 +15,6 @@ type GR24Pedal struct {
 	BrakePressureRear  float64 `json:"brake_pressure_rear"`
 }
 
-func (GR24Pedal) TableName() string {
+func (Pedal) TableName() string {
 	return "gr24_pedal"
 }
