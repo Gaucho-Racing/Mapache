@@ -25,8 +25,8 @@ func InitializeRoutes(router *gin.Engine) {
 }
 
 func InitializeWebsocketRoutes(router *gin.Engine) {
-	router.GET("/ws/gr24/gps", gr24controller.CreateGPSSocketConnection)
-	router.GET("/ws/gr24/pedal", gr24controller.CreateGPSSocketConnection)
+	router.GET("/ws/gr24/gps", gr24controller.ConnectGPSSocket)
+	router.GET("/ws/gr24/pedal", gr24controller.ConnectPedalSocket)
 }
 
 func RequestLogger() gin.HandlerFunc {

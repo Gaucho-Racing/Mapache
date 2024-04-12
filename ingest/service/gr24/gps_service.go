@@ -37,6 +37,7 @@ func InitializeGPSIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/gps", 0, callback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/gps")
 }
 
 func parseGPS(data []byte) gr24model.GPS {
