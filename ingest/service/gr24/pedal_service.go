@@ -37,7 +37,7 @@ func InitializePedalIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
-	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
+	//utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct

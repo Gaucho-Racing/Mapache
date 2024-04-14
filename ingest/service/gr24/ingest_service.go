@@ -25,4 +25,5 @@ func RegisterIngestCronJob() {
 func SubscribeRabbitIngest() {
 	InitializeGPSIngest()
 	InitializePedalIngest()
+	InitializeBCMIngest()
 }
