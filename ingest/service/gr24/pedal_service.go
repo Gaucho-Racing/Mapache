@@ -44,7 +44,7 @@ func InitializePedalIngest() {
 func parsePedal(data []byte) gr24model.Pedal {
 	var pedal gr24model.Pedal
 	if len(data) != 16 {
-		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes!")
+		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes! Received: ", len(data))
 		return pedal
 	}
 	pedal.ID = uuid.NewString()
