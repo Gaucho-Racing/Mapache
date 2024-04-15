@@ -1,6 +1,5 @@
 import numpy as np
 from .wheel import Wheel
-from .data_node import DataNode
 
 '''
 Suspension	Wheelspeed		Tire Pressure				
@@ -12,7 +11,7 @@ Brake Temp 1	Brake Temp 2	Brake Temp 3	Brake Temp 4	Brake Temp 5	Brake Temp 6	Br
 Tire Temp 1	Tire Temp 2	Tire Temp 3	Tire Temp 4	Tire Temp 5	Tire Temp 6	Tire Temp 7	Tire Temp 8
 
 '''
-class BCM(DataNode):
+class BCM:
     wheels: list[Wheel]
     imu_accel: list[int]
     imu_gyro: list[int]

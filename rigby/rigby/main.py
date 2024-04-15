@@ -1,60 +1,33 @@
-import random
-import time
-import sys
+from time import sleep
 import os
-from .nodes.gr24.wheel import Wheel
-from .nodes.gr24.central_imu import CentralIMU
+from rigby.utils.mqtt import MQTT
 from .nodes.gr24.pedals import Pedals
 from .nodes.gr24.gps import GPS
-from .utils.binary import BinFactory
-from .utils.generator import Valgen
-import numpy as np
-from paho.mqtt import client as mqtt_client
 
 def main() -> None:
     """
     Run the main application logic.
     """
-    client = connect_mqtt()
+    mqtt_client = MQTT(
+        broker = os.getenv('MQTT_BROKER', 'localhost'),
+        port = int(os.getenv('MQTT_PORT', '1883')),
+        username = os.getenv('MQTT_USERNAME', 'rigby'),
+        password = os.getenv('MQTT_PASSWORD', 'rigby')
+    )
+    mqtt_client.publish_message("meta", "Rigby is online!")
 
-    val = 0
+    pedals = Pedals()
+    gps = GPS()
+
     while True:
-        val = Valgen.smart_rand(0, 255, val, 5)
-        print(val)
-        time.sleep(0.2)
+        pedals.generate()
+        mqtt_client.publish_message("gr24/pedal", pedals.export_bytes())
+        
+        gps.generate()
+        mqtt_client.publish_message("gr24/gps", gps.export_bytes())
+        
+        sleep(0.1)
 
 
 if __name__ == "__main__":
     main()
-
-def publish_message(client: mqtt_client, queue: str, message: str) -> None:
-    """
-    Publish a message to the specified queue.
-    """
-    result = client.publish(queue, message)
-    status = result[0]
-    if status == 0:
-        print(f"Send `{message}` to topic `{queue}`")
-    else:
-        print(f"Failed to send message to topic {queue}")
-
-
-def connect_mqtt() -> mqtt_client:
-    """
-    Connect to the MQTT broker.
-    """
-    broker = "localhost"
-    port = 1883
-    client_id = 'rigby_mqtt_' + str(random.randint(0, 100))
-
-    def on_connect(client, userdata, flags, rc):
-        if rc == 0:
-            print(f"Connected to MQTT Broker as ${client_id}!")
-        else:
-            print("Failed to connect, return code %d\n", rc)
-
-    client = mqtt_client.Client(client_id)
-    client.username_pw_set("rigby", "rigby")
-    client.on_connect = on_connect
-    client.connect(broker, port)
-    return client

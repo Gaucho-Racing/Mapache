@@ -10,13 +10,12 @@ class Valgen:
         return np.random.randint(min_val, max_val+1)
     
     @classmethod
-    def smart_rand(cls, min_val: int, max_val: int, prev_val: int, max_step: int) -> int:
+    def smart_rand(cls, min_val: int, max_val: int, prev_val: int, max_step: int, skew_point = 0.5) -> int:
         """
         Generates a random integer between min_val and max_val (inclusive) that is within max_step of prev_val.
-        If prev_val is closer to the minimum value, the new value will be more likely to be higher.
-        If prev_val is closer to the maximum value, the new value will be more likely to be lower.
+        If prev_val is closer to the skew_point, the new value will be more likely to be higher, else it will be more likely to be lower.
         """
-        if prev_val < (min_val + max_val) / 2:
+        if prev_val < (min_val + max_val) * skew_point:
             dir = np.random.choice([1, 1, -1])
         else:
             dir = np.random.choice([-1, -1, 1])

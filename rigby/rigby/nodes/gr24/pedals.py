@@ -1,32 +1,30 @@
 import numpy as np
-from .data_node import DataNode
+from ...utils.binary import BinFactory
+from ...utils.generator import Valgen
 
 '''
 APPS 1		APPS 1		Brake Pressure F		Brake Pressure R
 Anything
 '''
 
-class Pedals(DataNode):
-    APPS1 : int
-    APPS2 : int
-    brake_pressure_front : int
-    brake_pressure_rear : int
-    #pedal_ping_response : anything
+class Pedals:
+    APPS1: int
+    APPS2: int
+    brake_pressure_front: int
+    brake_pressure_rear: int
 
-    @classmethod
-    def gen_random_values(cls):
-        cls.APPS1 = np.random.randint(0, 100)
-        cls.APPS2 = np.random.randint(0, 100)
-        cls.brake_pressure_front = np.random.randint(0, 100)
-        cls.brake_pressure_rear = np.random.randint(0, 100)
+    def __init__(self):
+        self.APPS1 = 0
+        self.APPS2 = 0
+        self.brake_pressure_front = 0
+        self.brake_pressure_rear = 0
 
-    @classmethod
-    def generate_bytes(cls):
-        init_list = [
-            *cls.to_bytes(cls.APPS1, 2),
-            *cls.to_bytes(cls.APPS2, 2),
-            *cls.to_bytes(cls.brake_pressure_front, 2),
-            *cls.to_bytes(cls.brake_pressure_rear, 2),
-            *([0]*8) #excludes pedal ping response
-        ]
-        return bytes(init_list)
+    def generate(self):
+        self.APPS1 = Valgen.smart_rand(0, 100, self.APPS1, 10, 0.6)
+        self.APPS2 = Valgen.smart_rand(0, 100, self.APPS2, 10, 0.6)
+        self.brake_pressure_front = Valgen.smart_rand(0, 256, self.brake_pressure_front, 10)
+        self.brake_pressure_rear = Valgen.smart_rand(0, 256, self.brake_pressure_rear, 10)
+
+    def export_bytes(self):
+        bytes = BinFactory.uint_to_bin(self.APPS1, 2) + BinFactory.uint_to_bin(self.APPS2, 2) + BinFactory.uint_to_bin(self.brake_pressure_front, 2) + BinFactory.uint_to_bin(self.brake_pressure_rear, 2)
+        return BinFactory.bin_to_byte_array(bytes)
