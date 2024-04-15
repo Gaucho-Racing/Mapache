@@ -1,5 +1,5 @@
 import pytest
-from rigby.utils.bin_factory import BinFactory
+from rigby.utils.binary import BinFactory
 
 def test_int_to_bin():
     assert BinFactory.int_to_bin(0, 2) == "0000000000000000"
