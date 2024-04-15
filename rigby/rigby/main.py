@@ -28,7 +28,7 @@ def main() -> None:
         # gps.generate()
         # mqtt_client.publish_message("gr24/gps", gps.to_bytes())
 
-        bcm.generate()
+        bcm.test_generate()
         mqtt_client.publish_message("gr24/bcm", bcm.to_bytes())
         
         sleep(1)

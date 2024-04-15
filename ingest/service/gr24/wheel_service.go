@@ -19,21 +19,21 @@ func parseWheel(data []byte) gr24model.Wheel {
 	// first byte is the suspension
 	wheel.Suspension = float64(data[0])
 	// next 2 bytes are the wheel speed
-	wheel.WheelSpeed = float64(int(data[1])<<8 | int(data[2]))
+	wheel.WheelSpeed = float64(int16(data[1])<<8 | int16(data[2]))
 	// next 1 bytes are the tire pressure
 	wheel.TirePressure = float64(data[3])
 	// bytes 9-10 are the IMU Accel X
-	wheel.IMUAccelX = float64(int(data[4])<<8 | int(data[5]))
+	wheel.IMUAccelX = float64(int16(data[4])<<8 | int16(data[5]))
 	// bytes 11-12 are the IMU Accel Y
-	wheel.IMUAccelY = float64(int(data[6])<<8 | int(data[7]))
+	wheel.IMUAccelY = float64(int16(data[6])<<8 | int16(data[7]))
 	// bytes 13-14 are the IMU Accel Z
-	wheel.IMUAccelZ = float64(int(data[8])<<8 | int(data[9]))
+	wheel.IMUAccelZ = float64(int16(data[8])<<8 | int16(data[9]))
 	// bytes 17-18 are the IMU Gyro X
-	wheel.IMUGyroX = float64(int(data[10])<<8 | int(data[11]))
+	wheel.IMUGyroX = float64(int16(data[10])<<8 | int16(data[11]))
 	// bytes 19-20 are the IMU Gyro Y
-	wheel.IMUGyroY = float64(int(data[12])<<8 | int(data[13]))
+	wheel.IMUGyroY = float64(int16(data[12])<<8 | int16(data[13]))
 	// bytes 21-22 are the IMU Gyro Z
-	wheel.IMUGyroZ = float64(int(data[14])<<8 | int(data[15]))
+	wheel.IMUGyroZ = float64(int16(data[14])<<8 | int16(data[15]))
 	// byte 25 is Brake Temp 1
 	wheel.BrakeTempOne = float64(data[16])
 	// byte 26 is Brake Temp 2

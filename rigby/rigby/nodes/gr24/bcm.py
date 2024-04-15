@@ -21,6 +21,13 @@ class BCM:
         self.imu_gyro = [Valgen.smart_rand(-32768, 32767, self.imu_gyro[i], 100) for i in range(3)]
         self.imu_mag = [Valgen.smart_rand(-32768, 32767, self.imu_mag[i], 100) for i in range(3)]
 
+    def test_generate(self):
+        for wheel in self.wheels:
+            wheel.generate()
+        self.imu_accel = [-23952, 32199, 0]
+        self.imu_gyro = [32199, 963, -19249]
+        self.imu_mag = [10, 0, -19]
+
     def to_bytes(self):
         bytes = ""
         for wheel in self.wheels:
