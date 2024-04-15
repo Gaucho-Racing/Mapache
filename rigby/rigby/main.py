@@ -3,6 +3,7 @@ import os
 from rigby.utils.mqtt import MQTT
 from .nodes.gr24.pedals import Pedals
 from .nodes.gr24.gps import GPS
+from .nodes.gr24.bcm import BCM
 
 def main() -> None:
     """
@@ -18,15 +19,19 @@ def main() -> None:
 
     pedals = Pedals()
     gps = GPS()
+    bcm = BCM()
 
     while True:
-        pedals.generate()
-        mqtt_client.publish_message("gr24/pedal", pedals.export_bytes())
+        # pedals.generate()
+        # mqtt_client.publish_message("gr24/pedal", pedals.to_bytes())
         
-        gps.generate()
-        mqtt_client.publish_message("gr24/gps", gps.export_bytes())
+        # gps.generate()
+        # mqtt_client.publish_message("gr24/gps", gps.to_bytes())
+
+        bcm.generate()
+        mqtt_client.publish_message("gr24/bcm", bcm.to_bytes())
         
-        sleep(0.1)
+        sleep(1)
 
 
 if __name__ == "__main__":

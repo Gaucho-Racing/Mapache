@@ -1,4 +1,3 @@
-import numpy as np
 from ...utils.binary import BinFactory
 from ...utils.generator import Valgen
 
@@ -22,9 +21,27 @@ class Wheel:
     
     def generate(self):
         self.suspension = Valgen.smart_rand(0, 255, self.suspension, 10, 0.6)
-        self.wheel_speed = np.random.randint(0, 99)
-        self.tire_pressure = np.random.randint(20, 40)
-        self.imu_accel = [np.random.randint(-32768, 32767) for _ in range(3)]
-        self.imu_gyro = [np.random.randint(-32768, 32767) for _ in range(3)]
-        self.brake_temp = [np.random.randint(0, 99) for _ in range(8)]
-        self.tire_temp = [np.random.randint(0, 99) for _ in range(8)]
+        self.wheel_speed = Valgen.smart_rand(0, 100, self.wheel_speed, 10)
+        self.tire_pressure = Valgen.smart_rand(20, 40, self.tire_pressure, 2)
+        self.imu_accel = [Valgen.smart_rand(-32768, 32767, self.imu_accel[i], 100) for i in range(3)]
+        self.imu_gyro = [Valgen.smart_rand(-32768, 32767, self.imu_gyro[i], 100) for i in range(3)]
+        self.brake_temp = [Valgen.smart_rand(0, 255, self.brake_temp[i], 100) for i in range(8)]
+        self.tire_temp = [Valgen.smart_rand(0, 255, self.tire_temp[i], 100) for i in range(8)]
+
+    def to_bytes(self):
+        bytes = BinFactory.uint_to_bin(self.suspension, 1)
+        bytes += BinFactory.uint_to_bin(self.wheel_speed, 2)
+        bytes += BinFactory.uint_to_bin(self.tire_pressure, 1)
+        bytes += BinFactory.fill_bytes(4)
+        for i in range(3):
+            bytes += BinFactory.int_to_bin(self.imu_accel[i], 2)
+        bytes += BinFactory.fill_bytes(2)
+        for i in range(3):
+            bytes += BinFactory.int_to_bin(self.imu_gyro[i], 2)
+        bytes += BinFactory.fill_bytes(2)
+        for i in range(8):
+            bytes += BinFactory.uint_to_bin(self.brake_temp[i], 1)
+        for i in range(8):
+            bytes += BinFactory.uint_to_bin(self.tire_temp[i], 1)
+        # return BinFactory.bin_to_byte_array(bytes)
+        return bytes

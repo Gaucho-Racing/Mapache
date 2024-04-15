@@ -1,6 +1,13 @@
 import struct
 
 class BinFactory:
+
+    @classmethod
+    def fill_bytes(cls, num_bytes) -> str:
+        """
+        Fills a binary string with zeros to a specified number of bytes.
+        """
+        return '0' * num_bytes * 8
     
     @classmethod
     def int_to_bin(cls, raw_val, num_bytes) -> str:

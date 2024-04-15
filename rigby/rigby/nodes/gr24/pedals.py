@@ -25,6 +25,6 @@ class Pedals:
         self.brake_pressure_front = Valgen.smart_rand(0, 256, self.brake_pressure_front, 10)
         self.brake_pressure_rear = Valgen.smart_rand(0, 256, self.brake_pressure_rear, 10)
 
-    def export_bytes(self):
+    def to_bytes(self):
         bytes = BinFactory.uint_to_bin(self.APPS1, 2) + BinFactory.uint_to_bin(self.APPS2, 2) + BinFactory.uint_to_bin(self.brake_pressure_front, 2) + BinFactory.uint_to_bin(self.brake_pressure_rear, 2)
         return BinFactory.bin_to_byte_array(bytes)

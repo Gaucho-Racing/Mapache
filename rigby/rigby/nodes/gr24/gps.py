@@ -20,7 +20,7 @@ class GPS:
     self.latitude = 34.414718
     self.longitude = -119.841912
   
-  def export_bytes(self):
+  def to_bytes(self):
     lat_bytes = BinFactory.float32_to_bin(self.latitude)
     lon_bytes = BinFactory.float32_to_bin(self.longitude)
     return BinFactory.bin_to_byte_array(lat_bytes + lon_bytes)
