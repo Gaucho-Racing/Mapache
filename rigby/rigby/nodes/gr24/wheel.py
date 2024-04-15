@@ -22,19 +22,7 @@ class Wheel(DataNode):
 
     @classmethod
     def generate_bytes(cls):
-        init_list = [
-            *cls.to_bytes(cls.suspension, 1),
-            *cls.to_bytes(cls.wheel_speed, 2),
-            *cls.to_bytes(cls.tire_pressure, 1),
-            *([0] * 4),
-            *[element for row in [cls.to_bytes(cls.imu_accel[i], 2) for i in range(3)] for element in row],
-            *([0] * 2),
-            *[element for row in [cls.to_bytes(cls.imu_gyro[i], 2) for i in range(3)] for element in row],
-            *([0] * 2),
-            *[element for row in [cls.to_bytes(cls.brake_temp[i], 1) for i in range(8)] for element in row],
-            *[element for row in [cls.to_bytes(cls.tire_temp[i], 1) for i in range(8)] for element in row]
-        ]
-        return bytes(init_list)
+        print(cls.suspension)
 
     @classmethod
     def decode_byte_array(cls, byte_list): #solely for testing purposes
