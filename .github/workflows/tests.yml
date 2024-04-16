@@ -36,5 +36,5 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          files: ./coverage.lcov
+          files: ./rigby/coverage.lcov
           verbose: true
