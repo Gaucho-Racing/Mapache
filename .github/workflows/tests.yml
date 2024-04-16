@@ -1,7 +1,7 @@
 name: Mapache Tests
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   rigby_test_job:
