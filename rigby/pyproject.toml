@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "rigby"
 version = "1.0.0"
-description = "Mock data engine for testing Mapache ingest."
-authors = ["Bharat Kathi <bharat1031@gmail.com>"]
+description = "Mock data engine for Mapache."
+authors = ["Bharat Kathi <bkathi@ucsb.edu>", "Jacob Jurek <jacobjurek@ucsb.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -12,7 +12,17 @@ numpy = "^1.26.4"
 
 [tool.poetry.scripts]
 rigby = "rigby.main:main"
+test = "tests.test:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pytest-cov = "^5.0.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+source = ["rigby"]
+omit = ["tests/*"]
+branch = true

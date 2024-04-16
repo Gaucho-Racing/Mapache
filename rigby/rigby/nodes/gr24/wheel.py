@@ -1,17 +1,7 @@
-import numpy as np
-from .data_node import DataNode
+from ...utils.binary import BinFactory
+from ...utils.generator import Valgen
 
-'''
-Suspension	Wheelspeed		Tire Pressure				
-IMU Accel X		IMU Accel Y		IMU Accel Z			
-IMU Gyro X		IMU Gyro Y		IMU Gyro Z		
-
-Brake Temp 1	Brake Temp 2	Brake Temp 3	Brake Temp 4	Brake Temp 5	Brake Temp 6	Brake Temp 7	Brake Temp 8
-
-Tire Temp 1	Tire Temp 2	Tire Temp 3	Tire Temp 4	Tire Temp 5	Tire Temp 6	Tire Temp 7	Tire Temp 8
-
-'''
-class Wheel(DataNode):
+class Wheel:
     suspension: int
     wheel_speed: int
     tire_pressure: int
@@ -20,49 +10,47 @@ class Wheel(DataNode):
     brake_temp: list[int]
     tire_temp: list[int]
 
-    @classmethod
-    def generate_bytes(cls):
-        init_list = [
-            *cls.to_bytes(cls.suspension, 1),
-            *cls.to_bytes(cls.wheel_speed, 2),
-            *cls.to_bytes(cls.tire_pressure, 1),
-            *([0] * 4),
-            *[element for row in [cls.to_bytes(cls.imu_accel[i], 2) for i in range(3)] for element in row],
-            *([0] * 2),
-            *[element for row in [cls.to_bytes(cls.imu_gyro[i], 2) for i in range(3)] for element in row],
-            *([0] * 2),
-            *[element for row in [cls.to_bytes(cls.brake_temp[i], 1) for i in range(8)] for element in row],
-            *[element for row in [cls.to_bytes(cls.tire_temp[i], 1) for i in range(8)] for element in row]
-        ]
-        return bytes(init_list)
-
-    @classmethod
-    def decode_byte_array(cls, byte_list): #solely for testing purposes
-        cls.suspension = byte_list[0]
-        cls.wheel_speed = cls.to_dec(byte_list[1:3], 2)
-        cls.tire_pressure = byte_list[3]
-        #cls.imu_accel = [*cls.to_dec(byte_list[8:14], 2)]
-        #cls.imu_gyro = [*cls.to_dec(byte_list[16:22], 2)]
-        cls.imu_accel = [
-            cls.to_dec(byte_list[8:10], 2),
-            cls.to_dec(byte_list[10:12], 2),
-            cls.to_dec(byte_list[12:14], 2)
-            ]
-        cls.imu_gyro = [
-            cls.to_dec(byte_list[16:18], 2),
-            cls.to_dec(byte_list[18:20], 2),
-            cls.to_dec(byte_list[20:22], 2)
-            ]
-        cls.brake_temp = byte_list[24:32]
-        cls.tire_temp = byte_list[32:40]
+    def __init__(self):
+        self.suspension = 0
+        self.wheel_speed = 0
+        self.tire_pressure = 0
+        self.imu_accel = [0, 0, 0]
+        self.imu_gyro = [0, 0, 0]
+        self.brake_temp = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.tire_temp = [0, 0, 0, 0, 0, 0, 0, 0]
     
-    @classmethod
-    def gen_random_values(cls):
-        cls.suspension = np.random.randint(0, 99)
-        cls.wheel_speed = np.random.randint(0, 99)
-        cls.tire_pressure = np.random.randint(20, 40)
-        cls.imu_accel = np.random.randint(0, 100, size=3).tolist()
-        cls.imu_gyro = np.random.randint(0, 100, size=3).tolist()
-        cls.brake_temp = np.random.randint(0, 256, size=8).tolist()
-        cls.tire_temp = np.random.randint(0, 256, size=8).tolist()
+    def generate(self):
+        self.suspension = Valgen.smart_rand(0, 255, self.suspension, 10, 0.6)
+        self.wheel_speed = Valgen.smart_rand(0, 100, self.wheel_speed, 10)
+        self.tire_pressure = Valgen.smart_rand(20, 40, self.tire_pressure, 2)
+        self.imu_accel = [Valgen.smart_rand(-32768, 32767, self.imu_accel[i], 100) for i in range(3)]
+        self.imu_gyro = [Valgen.smart_rand(-32768, 32767, self.imu_gyro[i], 100) for i in range(3)]
+        self.brake_temp = [Valgen.smart_rand(0, 255, self.brake_temp[i], 100) for i in range(8)]
+        self.tire_temp = [Valgen.smart_rand(0, 255, self.tire_temp[i], 100) for i in range(8)]
 
+    def test_generate(self):
+        self.suspension = 128
+        self.wheel_speed = 50
+        self.tire_pressure = 30
+        self.imu_accel = [-23952, 32199, 0]
+        self.imu_gyro = [32199, 963, -19249]
+        self.brake_temp = [255, 0, 129, 41, 100, 23, 19, 199]
+        self.tire_temp = [0, 255, 199, 2, 100, 43, 92, 72]
+
+    def to_bytes(self):
+        bytes = BinFactory.uint_to_bin(self.suspension, 1)
+        bytes += BinFactory.uint_to_bin(self.wheel_speed, 2)
+        bytes += BinFactory.uint_to_bin(self.tire_pressure, 1)
+        bytes += BinFactory.fill_bytes(4)
+        for i in range(3):
+            bytes += BinFactory.int_to_bin(self.imu_accel[i], 2)
+        bytes += BinFactory.fill_bytes(2)
+        for i in range(3):
+            bytes += BinFactory.int_to_bin(self.imu_gyro[i], 2)
+        bytes += BinFactory.fill_bytes(2)
+        for i in range(8):
+            bytes += BinFactory.uint_to_bin(self.brake_temp[i], 1)
+        for i in range(8):
+            bytes += BinFactory.uint_to_bin(self.tire_temp[i], 1)
+        # return BinFactory.bin_to_byte_array(bytes)
+        return bytes

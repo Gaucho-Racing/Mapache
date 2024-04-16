@@ -37,14 +37,14 @@ func InitializePedalIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
-	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
+	//utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
 func parsePedal(data []byte) gr24model.Pedal {
 	var pedal gr24model.Pedal
-	if len(data) != 16 {
-		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes!")
+	if len(data) != 8 {
+		utils.SugarLogger.Warnln("Pedal data length is not 8 bytes! Received: ", len(data))
 		return pedal
 	}
 	pedal.ID = uuid.NewString()
