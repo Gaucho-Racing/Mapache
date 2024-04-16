@@ -1,8 +1,7 @@
 name: Mapache Tests
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
-on:
-  push:
+on: [push, pull_request]
 
 jobs:
   rigby_test_job:
@@ -37,4 +36,32 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./rigby/coverage.lcov
+          verbose: true
+
+  ingest_test_job:
+    runs-on: ubuntu-latest
+    name: Test Ingest
+    defaults:
+      run:
+        working-directory: ./ingest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.0'
+      - name: Install dependencies
+        run: |
+            go get .
+      - name: Run tests
+        run: |
+            go test ./... -race -covermode=atomic -coverprofile=cover.out -v
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: ./ingest/coverage.out
           verbose: true
