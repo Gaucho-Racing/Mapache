@@ -67,24 +67,24 @@ func parseBCM(data []byte) gr24model.BCM {
 	rlWheel.ParentID = bcm.ID
 	rlWheel.Location = "RL"
 	bcm.Wheels = append(bcm.Wheels, rlWheel)
-	// bytes 161-162 are the IMU Accel X
+	// next 2 bytes are accel x
 	bcm.AccelerationX = float64(int16(data[160])<<8 | int16(data[161]))
-	// bytes 163-164 are the IMU Accel Y
+	// next 2 bytes are accel y
 	bcm.AccelerationY = float64(int16(data[162])<<8 | int16(data[163]))
-	// bytes 165-166 are the IMU Accel Z
+	// next 2 bytes are accel z
 	bcm.AccelerationZ = float64(int16(data[164])<<8 | int16(data[165]))
-	// bytes 169-170 are the IMU Gyro X
-	bcm.GyroX = float64(int16(data[166])<<8 | int16(data[167]))
-	// bytes 171-172 are the IMU Gyro Y
-	bcm.GyroY = float64(int16(data[168])<<8 | int16(data[169]))
-	// bytes 173-174 are the IMU Gyro Z
-	bcm.GyroZ = float64(int16(data[170])<<8 | int16(data[171]))
-	// bytes 177-178 are the IMU Mag X
-	bcm.MagX = float64(int16(data[172])<<8 | int16(data[173]))
-	// bytes 179-180 are the IMU Mag Y
-	bcm.MagY = float64(int16(data[174])<<8 | int16(data[175]))
-	// bytes 181-182 are the IMU Mag Z
-	bcm.MagZ = float64(int16(data[176])<<8 | int16(data[177]))
+	// next 2 bytes are gyro x
+	bcm.GyroX = float64(int16(data[168])<<8 | int16(data[169]))
+	// next 2 bytes are gyro y
+	bcm.GyroY = float64(int16(data[170])<<8 | int16(data[171]))
+	// next 2 bytes are gyro z
+	bcm.GyroZ = float64(int16(data[172])<<8 | int16(data[173]))
+	// next 2 bytes are mag x
+	bcm.MagX = float64(int16(data[176])<<8 | int16(data[177]))
+	// next 2 bytes are mag y
+	bcm.MagY = float64(int16(data[178])<<8 | int16(data[179]))
+	// next 2 bytes are mag z
+	bcm.MagZ = float64(int16(data[180])<<8 | int16(data[181]))
 	bcm = scaleBCM(bcm)
 	return bcm
 }

@@ -23,7 +23,7 @@ class BCM:
 
     def test_generate(self):
         for wheel in self.wheels:
-            wheel.generate()
+            wheel.test_generate()
         self.imu_accel = [-23952, 32199, 0]
         self.imu_gyro = [32199, 963, -19249]
         self.imu_mag = [10, 0, -19]

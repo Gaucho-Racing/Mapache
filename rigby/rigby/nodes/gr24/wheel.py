@@ -34,8 +34,8 @@ class Wheel:
         self.tire_pressure = 30
         self.imu_accel = [-23952, 32199, 0]
         self.imu_gyro = [32199, 963, -19249]
-        self.brake_temp = [100, 100, 100, 100, 100, 100, 100, 100]
-        self.tire_temp = [100, 100, 100, 100, 100, 100, 100, 100]
+        self.brake_temp = [255, 0, 129, 41, 100, 23, 19, 199]
+        self.tire_temp = [0, 255, 199, 2, 100, 43, 92, 72]
 
     def to_bytes(self):
         bytes = BinFactory.uint_to_bin(self.suspension, 1)
