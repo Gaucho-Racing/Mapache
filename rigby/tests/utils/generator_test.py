@@ -24,4 +24,4 @@ def test_smart_rand():
     assert Valgen.smart_rand(0, 2, 0, 1) in [0, 1, 2, 3]
     assert Valgen.smart_rand(1, 2, 1, 1) in [0, 1, 2, 3]
     assert Valgen.smart_rand(2, 2, 20, 1) in [1, 2, 3]
-    assert Valgen.smart_rand(-1, 1, -20, 1) in []
+    assert Valgen.smart_rand(-1, 1, -20, 1) in [-1, 0, 1, 2]
