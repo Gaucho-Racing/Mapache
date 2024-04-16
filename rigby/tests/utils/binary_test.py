@@ -1,6 +1,12 @@
 import pytest
 from rigby.utils.binary import BinFactory
 
+def test_fill_bytes():
+    assert BinFactory.fill_bytes(1) == "00000000"
+    assert BinFactory.fill_bytes(2) == "0000000000000000"
+    assert BinFactory.fill_bytes(3) == "000000000000000000000000"
+    assert BinFactory.fill_bytes(4) == "00000000000000000000000000000000"
+
 def test_int_to_bin():
     assert BinFactory.int_to_bin(0, 2) == "0000000000000000"
     assert BinFactory.int_to_bin(1, 2) == "0000000000000001"
