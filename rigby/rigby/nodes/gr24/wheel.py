@@ -28,6 +28,15 @@ class Wheel:
         self.brake_temp = [Valgen.smart_rand(0, 255, self.brake_temp[i], 100) for i in range(8)]
         self.tire_temp = [Valgen.smart_rand(0, 255, self.tire_temp[i], 100) for i in range(8)]
 
+    def test_generate(self):
+        self.suspension = 128
+        self.wheel_speed = 50
+        self.tire_pressure = 30
+        self.imu_accel = [-23952, 32199, 0]
+        self.imu_gyro = [32199, 963, -19249]
+        self.brake_temp = [100, 100, 100, 100, 100, 100, 100, 100]
+        self.tire_temp = [100, 100, 100, 100, 100, 100, 100, 100]
+
     def to_bytes(self):
         bytes = BinFactory.uint_to_bin(self.suspension, 1)
         bytes += BinFactory.uint_to_bin(self.wheel_speed, 2)
