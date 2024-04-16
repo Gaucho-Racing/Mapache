@@ -15,4 +15,4 @@ fi
 
 echo "Building container for Mapache Ingest v$1"
 # Build the docker container
-docker build -t gauchoracing/mp_ingest:$1 -t bk1031/mp_ingest:latest --platform linux/amd64,linux/arm64 --push --progress=plain .
+docker build -t gauchoracing/mp_ingest:"$1" -t bk1031/mp_ingest:latest --platform linux/amd64,linux/arm64 --push --progress=plain .
