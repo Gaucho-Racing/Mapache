@@ -57,7 +57,7 @@ jobs:
             go get .
       - name: Run tests
         run: |
-            go test ./... -race -covermode=atomic -coverprofile=cover.out -v
+            go test ./... -race -covermode=atomic -coverprofile=coverage.out -v
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         env:
