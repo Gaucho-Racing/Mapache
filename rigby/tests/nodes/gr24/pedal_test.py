@@ -15,5 +15,4 @@ def test_to_bytes():
     pedal.APPS2 = 50
     pedal.brake_pressure_front = 200
     pedal.brake_pressure_rear = 300
-    print(pedal.to_bytes())
     assert pedal.to_bytes() == bytearray(b'\x00d\x002\x00\xc8\x01,')
