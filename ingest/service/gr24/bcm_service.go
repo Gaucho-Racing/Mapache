@@ -106,3 +106,23 @@ func CreateBCM(bcm gr24model.BCM) error {
 	}
 	return nil
 }
+
+func GetAllBCMs() []gr24model.BCM {
+	var bcms []gr24model.BCM
+	if result := database.DB.Find(&bcms); result.Error != nil {
+		utils.SugarLogger.Errorln(result.Error)
+	}
+	for i := range bcms {
+		bcms[i].Wheels = GetAllWheelsForBCM(bcms[i].ID)
+	}
+	return bcms
+}
+
+func GetBCMByID(id string) gr24model.BCM {
+	var bcm gr24model.BCM
+	if result := database.DB.Where("id = ?", id).First(&bcm); result.Error != nil {
+		utils.SugarLogger.Errorln(result.Error)
+	}
+	bcm.Wheels = GetAllWheelsForBCM(bcm.ID)
+	return bcm
+}

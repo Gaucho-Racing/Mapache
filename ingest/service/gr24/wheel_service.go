@@ -82,3 +82,27 @@ func CreateWheel(wheel gr24model.Wheel) error {
 	}
 	return nil
 }
+
+func GetAllWheels() []gr24model.Wheel {
+	var wheels []gr24model.Wheel
+	if result := database.DB.Find(&wheels); result.Error != nil {
+		utils.SugarLogger.Errorln(result.Error)
+	}
+	return wheels
+}
+
+func GetAllWheelsForBCM(bcmID string) []gr24model.Wheel {
+	var wheels []gr24model.Wheel
+	if result := database.DB.Where("parent_id = ?", bcmID).Find(&wheels); result.Error != nil {
+		utils.SugarLogger.Errorln(result.Error)
+	}
+	return wheels
+}
+
+func GetWheelByID(id string) gr24model.Wheel {
+	var wheel gr24model.Wheel
+	if result := database.DB.Where("id = ?", id).First(&wheel); result.Error != nil {
+		utils.SugarLogger.Errorln(result.Error)
+	}
+	return wheel
+}

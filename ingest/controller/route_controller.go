@@ -29,6 +29,12 @@ func InitializeWebsocketRoutes(router *gin.Engine) {
 	router.GET("/ws/gr24/pedal", gr24controller.ConnectPedalSocket)
 }
 
+func InitializeGR24Routes(router *gin.Engine) {
+	router.GET("/gr24/bcm", gr24controller.GR24GetAllBCMs)
+	router.GET("/gr24/bcm/:id", gr24controller.GR24GetBCMByID)
+	router.GET("/gr24/pedals", gr24controller.GR24GetAllPedals)
+}
+
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
