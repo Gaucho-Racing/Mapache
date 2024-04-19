@@ -1,7 +1,7 @@
 from time import sleep
 import os
 from rigby.utils.mqtt import MQTT
-from .nodes.gr24.pedals import Pedals
+from .nodes.gr24.pedal import Pedal
 from .nodes.gr24.gps import GPS
 from .nodes.gr24.bcm import BCM
 
@@ -17,7 +17,7 @@ def main() -> None:
     )
     mqtt_client.publish_message("meta", "Rigby is online!")
 
-    pedals = Pedals()
+    pedals = Pedal()
     gps = GPS()
     bcm = BCM()
 
