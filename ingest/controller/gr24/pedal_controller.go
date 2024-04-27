@@ -33,5 +33,14 @@ func ConnectPedalSocket(c *gin.Context) {
 }
 
 func GR24GetAllPedals(c *gin.Context) {
+	c.JSON(http.StatusOK, gr24service.GetAllPedals())
+}
 
+func GR24GetPedalByID(c *gin.Context) {
+	pedal := gr24service.GetPedalByID(c.Param("id"))
+	if pedal.ID == "" {
+		c.JSON(http.StatusNotFound, gin.H{"message": "No node found with given id: " + c.Param("id")})
+	} else {
+		c.JSON(http.StatusOK, pedal)
+	}
 }

@@ -22,6 +22,7 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/vehicles/:vehicleID", GetVehicleByID)
 	router.POST("/vehicles/:vehicleID", CreateVehicle)
 	InitializeWebsocketRoutes(router)
+	InitializeGR24Routes(router)
 }
 
 func InitializeWebsocketRoutes(router *gin.Engine) {
@@ -32,7 +33,8 @@ func InitializeWebsocketRoutes(router *gin.Engine) {
 func InitializeGR24Routes(router *gin.Engine) {
 	router.GET("/gr24/bcm", gr24controller.GR24GetAllBCMs)
 	router.GET("/gr24/bcm/:id", gr24controller.GR24GetBCMByID)
-	router.GET("/gr24/pedals", gr24controller.GR24GetAllPedals)
+	router.GET("/gr24/pedal", gr24controller.GR24GetAllPedals)
+	router.GET("/gr24/pedal/:id", gr24controller.GR24GetPedalByID)
 }
 
 func RequestLogger() gin.HandlerFunc {

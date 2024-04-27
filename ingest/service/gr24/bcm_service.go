@@ -36,7 +36,6 @@ func InitializeBCMIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/bcm", 0, callback)
-	//utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/bcm")
 }
 
 func parseBCM(data []byte) gr24model.BCM {

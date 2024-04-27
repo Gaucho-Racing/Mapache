@@ -3,6 +3,7 @@ package main
 import (
 	"ingest/config"
 	"ingest/controller"
+	gr24controller "ingest/controller/gr24"
 	"ingest/database"
 	"ingest/rabbitmq"
 	gr24service "ingest/service/gr24"
@@ -29,6 +30,7 @@ func setupRouter() *gin.Engine {
 	}))
 	r.Use(controller.RequestLogger())
 	r.Use(controller.AuthChecker())
+	r.Use(gr24controller.AuthMiddleware())
 	return r
 }
 
