@@ -25,11 +25,11 @@ def main() -> None:
         pedals.generate()
         mqtt_client.publish_message("gr24/pedal", pedals.to_bytes())
         
-        gps.generate()
-        mqtt_client.publish_message("gr24/gps", gps.to_bytes())
+        # gps.generate()
+        # mqtt_client.publish_message("gr24/gps", gps.to_bytes())
 
-        bcm.test_generate()
-        mqtt_client.publish_message("gr24/bcm", bcm.to_bytes())
+        # bcm.test_generate()
+        # mqtt_client.publish_message("gr24/bcm", bcm.to_bytes())
         
         sleep(1)
 

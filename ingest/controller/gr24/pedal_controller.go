@@ -3,6 +3,7 @@ package gr24controller
 import (
 	"github.com/gin-gonic/gin"
 	gr24model "ingest/model/gr24"
+	"ingest/service"
 	gr24service "ingest/service/gr24"
 	"ingest/utils"
 	"net/http"
@@ -32,15 +33,29 @@ func ConnectPedalSocket(c *gin.Context) {
 	}
 }
 
-func GR24GetAllPedals(c *gin.Context) {
+func GetAllPedals(c *gin.Context) {
 	c.JSON(http.StatusOK, gr24service.GetAllPedals())
 }
 
-func GR24GetPedalByID(c *gin.Context) {
+func GetPedalByID(c *gin.Context) {
 	pedal := gr24service.GetPedalByID(c.Param("id"))
 	if pedal.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No node found with given id: " + c.Param("id")})
 	} else {
 		c.JSON(http.StatusOK, pedal)
 	}
+}
+
+func GetAllPedalsForTripID(c *gin.Context) {
+	trip := service.GetTripByID(c.Param("tripID"))
+	if trip.ID == "" {
+		c.JSON(http.StatusNotFound, gin.H{"message": "No trip found with given id: " + c.Param("tripID")})
+		return
+	}
+	vehicle := service.GetVehicleByID(trip.VehicleID)
+	if vehicle.ID != "gr24" {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Given trip not for gr24 but for vehicle: " + trip.VehicleID})
+		return
+	}
+	c.JSON(http.StatusOK, gr24service.GetAllPedalsForTrip(trip))
 }

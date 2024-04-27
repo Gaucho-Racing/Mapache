@@ -32,11 +32,11 @@ func ConnectBCMSocket(c *gin.Context) {
 	}
 }
 
-func GR24GetAllBCMs(c *gin.Context) {
+func GetAllBCMs(c *gin.Context) {
 	c.JSON(http.StatusOK, gr24service.GetAllBCMs())
 }
 
-func GR24GetBCMByID(c *gin.Context) {
+func GetBCMByID(c *gin.Context) {
 	bcm := gr24service.GetBCMByID(c.Param("id"))
 	if bcm.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No node found with given id: " + c.Param("id")})

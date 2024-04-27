@@ -2,6 +2,7 @@ package gr24service
 
 import (
 	"ingest/database"
+	"ingest/model"
 	"ingest/model/gr24"
 	"ingest/rabbitmq"
 	"ingest/service"
@@ -81,4 +82,15 @@ func GetPedalByID(id string) gr24model.Pedal {
 	var pedal gr24model.Pedal
 	database.DB.Where("id = ?", id).First(&pedal)
 	return pedal
+}
+
+func GetAllPedalsForTrip(trip model.Trip) []gr24model.Pedal {
+	var pedals []gr24model.Pedal
+	if trip.StartTime == trip.EndTime {
+		println("Ongoing trip")
+		database.DB.Where("created_at >= ?", trip.StartTime).Find(&pedals)
+	} else {
+		database.DB.Where("created_at >= ? AND created_at <= ?", trip.StartTime, trip.EndTime).Find(&pedals)
+	}
+	return pedals
 }
