@@ -7,7 +7,7 @@ APPS 1		APPS 1		Brake Pressure F		Brake Pressure R
 Anything
 '''
 
-class Pedals:
+class Pedal:
     APPS1: int
     APPS2: int
     brake_pressure_front: int

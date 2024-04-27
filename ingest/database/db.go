@@ -19,7 +19,7 @@ var dbKeepalive = 0
 var dbRetries = 0
 
 func InitializeDB() {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", config.DatabaseUser, config.DatabasePassword, config.DatabaseHost, config.DatabasePort, config.DatabaseName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Utc", config.DatabaseUser, config.DatabasePassword, config.DatabaseHost, config.DatabasePort, config.DatabaseName)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		if dbRetries < 10 {
@@ -32,7 +32,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to database")
-		err := db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, gr24model.Pedal{}, &gr24model.GPS{}, &gr24model.BCM{}, &gr24model.Wheel{})
+		err := db.AutoMigrate(model.Meta{}, model.User{}, model.UserRole{}, model.Vehicle{}, model.Trip{}, gr24model.Pedal{}, gr24model.GPS{}, gr24model.BCM{}, gr24model.Wheel{})
 		if err != nil {
 			utils.SugarLogger.Fatalln("AutoMigration failed", err)
 		}

@@ -2,6 +2,7 @@ package gr24service
 
 import (
 	"ingest/database"
+	"ingest/model"
 	"ingest/model/gr24"
 	"ingest/rabbitmq"
 	"ingest/service"
@@ -37,7 +38,6 @@ func InitializePedalIngest() {
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)
-	//utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/pedal")
 }
 
 // parsePedal function takes in a byte array and returns a Pedal struct
@@ -70,4 +70,27 @@ func CreatePedal(pedal gr24model.Pedal) error {
 		return result.Error
 	}
 	return nil
+}
+
+func GetAllPedals() []gr24model.Pedal {
+	var pedals []gr24model.Pedal
+	database.DB.Find(&pedals)
+	return pedals
+}
+
+func GetPedalByID(id string) gr24model.Pedal {
+	var pedal gr24model.Pedal
+	database.DB.Where("id = ?", id).First(&pedal)
+	return pedal
+}
+
+func GetAllPedalsForTrip(trip model.Trip) []gr24model.Pedal {
+	var pedals []gr24model.Pedal
+	if trip.StartTime == trip.EndTime {
+		println("Ongoing trip")
+		database.DB.Where("created_at >= ?", trip.StartTime).Find(&pedals)
+	} else {
+		database.DB.Where("created_at >= ? AND created_at <= ?", trip.StartTime, trip.EndTime).Find(&pedals)
+	}
+	return pedals
 }
