@@ -7,7 +7,6 @@ import (
 	"ingest/config"
 	"ingest/database"
 	"ingest/utils"
-	"log"
 	"os"
 	"testing"
 )
@@ -23,11 +22,11 @@ func TestMain(m *testing.M) {
 		mysql.WithPassword(config.DatabasePassword),
 	)
 	if err != nil {
-		log.Fatalf("failed to start container: %s", err)
+		utils.SugarLogger.Fatalf("failed to start container: %s", err)
 	}
 	defer func() {
 		if err := mysqlContainer.Terminate(ctx); err != nil {
-			log.Fatalf("failed to terminate container: %s", err)
+			utils.SugarLogger.Fatalf("failed to terminate container: %s", err)
 		}
 	}()
 
