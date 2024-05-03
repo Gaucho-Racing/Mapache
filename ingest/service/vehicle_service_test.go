@@ -30,6 +30,7 @@ func TestMain(m *testing.M) {
 		if err := mysqlContainer.Terminate(ctx); err != nil {
 			utils.SugarLogger.Fatalf("failed to terminate container: %s", err)
 		}
+		utils.SugarLogger.Info("container terminated")
 	}()
 	//name, err := mysqlContainer.Name(ctx)
 	//config.DatabaseHost = name
