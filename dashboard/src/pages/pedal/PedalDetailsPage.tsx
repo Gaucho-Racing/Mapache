@@ -23,6 +23,9 @@ function PedalDetailsPage() {
     init();
     if (lastMessage !== null) {
       setMessageHistory((prev) => prev.concat(lastMessage));
+      if (messageHistory.length > 999) {
+        setMessageHistory([]);
+      }
     }
   }, [lastMessage, setMessageHistory]);
 
