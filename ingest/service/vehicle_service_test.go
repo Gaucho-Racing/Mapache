@@ -31,7 +31,9 @@ func TestMain(m *testing.M) {
 			utils.SugarLogger.Fatalf("failed to terminate container: %s", err)
 		}
 	}()
-	mysqlContainer.MappedPort(ctx, "3306")
+	name, err := mysqlContainer.Name(ctx)
+	config.DatabaseHost = name
+
 	database.InitializeDB()
 	exitVal := m.Run()
 	os.Exit(exitVal)
@@ -40,9 +42,13 @@ func TestMain(m *testing.M) {
 func TestGetAllVehicles(t *testing.T) {
 	t.Run("Get All Vehicles 1", func(t *testing.T) {
 		// Arrange
+		database.DB.Where("1 = 1").Delete(&model.Vehicle{})
 		// Act
 		vehicles := GetAllVehicles()
 		// Assert
+		for _, vehicle := range vehicles {
+			println(vehicle.ID)
+		}
 		if len(vehicles) != 0 {
 			t.Errorf("Expected vehicles length to be 0, got %v", len(vehicles))
 		}
