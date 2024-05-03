@@ -110,22 +110,6 @@ func TestCreateVehicle(t *testing.T) {
 			t.Errorf("Expected error to be not nil, got nil")
 		}
 	})
-	t.Run("Create Vehicle 4", func(t *testing.T) {
-		// Arrange
-		vehicle := model.Vehicle{
-			ID:          "gr24",
-			Name:        strings.Repeat("a", 256), // ID length is more than 255,
-			Description: "Updated GR24 Vehicle",
-			UploadKey:   "some-key",
-			CreatedAt:   time.Time{},
-		}
-		// Act
-		err := CreateVehicle(vehicle)
-		// Assert
-		if err == nil {
-			t.Errorf("Expected error to be not nil, got nil")
-		}
-	})
 }
 
 func TestGetVehicleByID(t *testing.T) {

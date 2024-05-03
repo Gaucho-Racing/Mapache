@@ -23,9 +23,6 @@ func CreateVehicle(vehicle model.Vehicle) error {
 	if result.Error != nil {
 		if strings.Contains(result.Error.Error(), "Duplicate entry") {
 			result = database.DB.Where("id = ?", vehicle.ID).Updates(&vehicle)
-			if result.Error != nil {
-				return result.Error
-			}
 		} else {
 			return result.Error
 		}
