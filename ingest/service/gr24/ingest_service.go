@@ -18,7 +18,7 @@ func RegisterIngestCronJob() {
 		println("Failed to register CRON Job: " + err.Error())
 		return
 	}
-	//c.Start()
+	c.Start()
 	println("Registered CRON Job: " + strconv.Itoa(int(entryID)))
 }
 
