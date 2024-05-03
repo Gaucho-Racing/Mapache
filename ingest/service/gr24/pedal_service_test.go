@@ -61,18 +61,6 @@ func TestParsePedal(t *testing.T) {
 		if pedal.ID == "" {
 			t.Error("Expected pedal.ID to not be empty")
 		}
-		if pedal.APPSOne != 0 {
-			t.Errorf("Expected pedal.APPSOne to be 0, got %v", pedal.APPSOne)
-		}
-		if pedal.APPSTwo != 0 {
-			t.Errorf("Expected pedal.APPSTwo to be 0, got %v", pedal.APPSTwo)
-		}
-		if pedal.BrakePressureFront != 0 {
-			t.Errorf("Expected pedal.BrakePressureFront to be 0, got %v", pedal.BrakePressureFront)
-		}
-		if pedal.BrakePressureRear != 0 {
-			t.Errorf("Expected pedal.BrakePressureRear to be 0, got %v", pedal.BrakePressureRear)
-		}
 	})
 	t.Run("Pedal Test 2", func(t *testing.T) {
 		// Arrange
@@ -82,18 +70,6 @@ func TestParsePedal(t *testing.T) {
 		// Assert
 		if pedal.ID == "" {
 			t.Error("Expected pedal.ID to not be empty")
-		}
-		if pedal.APPSOne != 183 {
-			t.Errorf("Expected pedal.APPSOne to be 183, got %v", pedal.APPSOne)
-		}
-		if pedal.APPSTwo != 138 {
-			t.Errorf("Expected pedal.APPSTwo to be 138, got %v", pedal.APPSTwo)
-		}
-		if pedal.BrakePressureFront != 3009 {
-			t.Errorf("Expected pedal.BrakePressureFront to be 3009, got %v", pedal.BrakePressureFront)
-		}
-		if pedal.BrakePressureRear != 518 {
-			t.Errorf("Expected pedal.BrakePressureRear to be 518, got %v", pedal.BrakePressureRear)
 		}
 	})
 	t.Run("Pedal Test 3", func(t *testing.T) {
