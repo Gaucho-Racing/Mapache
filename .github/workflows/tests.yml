@@ -10,6 +10,7 @@ jobs:
     defaults:
       run:
         working-directory: ./rigby
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +45,7 @@ jobs:
     defaults:
       run:
         working-directory: ./ingest
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,7 +59,8 @@ jobs:
             go get .
       - name: Run tests
         run: |
-            go test ./... -race -covermode=atomic -coverprofile=coverage.out -v
+            . ./scripts/test-env.sh
+            sh scripts/test.sh
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         env:
