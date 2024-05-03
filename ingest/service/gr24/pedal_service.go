@@ -3,7 +3,7 @@ package gr24service
 import (
 	"ingest/database"
 	"ingest/model"
-	"ingest/model/gr24"
+	gr24model "ingest/model/gr24"
 	"ingest/rabbitmq"
 	"ingest/service"
 	"ingest/utils"
@@ -60,6 +60,21 @@ func parsePedal(data []byte) gr24model.Pedal {
 }
 
 func scalePedal(pedal gr24model.Pedal) gr24model.Pedal {
+	// Scaling pedal.APPSOne from raw value range 50100:0 to 44256:100
+	if pedal.APPSOne >= 44256 && pedal.APPSOne <= 50100 {
+		pedal.APPSOne = 100.0 - ((pedal.APPSOne - 44256) / (50100 - 44256) * 100)
+	} else if pedal.APPSOne < 44256 {
+		pedal.APPSOne = 100.0
+	} else {
+		pedal.APPSOne = 0.0
+	}
+	// Scaling pedal.APPSTwo from raw value range 41810:0 to 38750:100
+	if pedal.APPSTwo >= 38750 && pedal.APPSTwo <= 41810 {
+		pedal.APPSTwo = 100.0 - ((pedal.APPSTwo - 38750) / (41810 - 38750) * 100)
+	} else if pedal.APPSTwo < 38750 {
+	} else {
+		pedal.APPSTwo = 0.0
+	}
 	pedal.APPSOne = pedal.APPSOne * service.GetScaleEnvVar("GR24", "Pedal", "APPSOne")
 	pedal.APPSTwo = pedal.APPSTwo * service.GetScaleEnvVar("GR24", "Pedal", "APPSTwo")
 	pedal.BrakePressureFront = pedal.BrakePressureFront * service.GetScaleEnvVar("GR24", "Pedal", "BrakePressureFront")

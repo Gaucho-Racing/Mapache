@@ -75,14 +75,14 @@ function PedalDetailsPage() {
                   <div>Last Message ID: {JSON.parse(lastMessage.data).id}</div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).apps_one}
+                    value={Math.floor(JSON.parse(lastMessage.data).apps_one)}
                   />
                   <div className="mt-2">
                     APPS One: {JSON.parse(lastMessage.data).apps_one}
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).apps_two}
+                    value={Math.floor(JSON.parse(lastMessage.data).apps_two)}
                   />
                   <div className="mt-2">
                     APPS Two: {JSON.parse(lastMessage.data).apps_two}
