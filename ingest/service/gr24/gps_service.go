@@ -30,10 +30,12 @@ func InitializeGPSIngest() {
 		gps := parseGPS(msg.Payload())
 		if gps.ID != "" {
 			gpsNotify(gps)
-			err := CreateGps(gps)
-			if err != nil {
-				utils.SugarLogger.Errorln(err)
-			}
+			go func() {
+				err := CreateGps(gps)
+				if err != nil {
+					utils.SugarLogger.Errorln(err)
+				}
+			}()
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/gps", 0, callback)

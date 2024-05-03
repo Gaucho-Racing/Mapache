@@ -29,10 +29,12 @@ func InitializeBCMIngest() {
 		bcm := parseBCM(msg.Payload())
 		if bcm.ID != "" {
 			bcmNotify(bcm)
-			err := CreateBCM(bcm)
-			if err != nil {
-				utils.SugarLogger.Errorln(err)
-			}
+			go func() {
+				err := CreateBCM(bcm)
+				if err != nil {
+					utils.SugarLogger.Errorln(err)
+				}
+			}()
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/bcm", 0, callback)

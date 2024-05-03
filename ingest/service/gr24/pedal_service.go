@@ -31,10 +31,12 @@ func InitializePedalIngest() {
 		pedal := parsePedal(msg.Payload())
 		if pedal.ID != "" {
 			pedalNotify(pedal)
-			err := CreatePedal(pedal)
-			if err != nil {
-				utils.SugarLogger.Errorln(err)
-			}
+			go func() {
+				err := CreatePedal(pedal)
+				if err != nil {
+					utils.SugarLogger.Errorln(err)
+				}
+			}()
 		}
 	}
 	rabbitmq.Client.Subscribe("gr24/pedal", 0, callback)

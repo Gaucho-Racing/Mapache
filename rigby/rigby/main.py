@@ -31,7 +31,7 @@ def main() -> None:
         bcm.test_generate()
         mqtt_client.publish_message("gr24/bcm", bcm.to_bytes())
         
-        sleep(1)
+        sleep(0.1)
 
 
 if __name__ == "__main__":
