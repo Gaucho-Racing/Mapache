@@ -109,6 +109,9 @@ function PedalDetailsPage() {
               )}
             </div>
             <div className="m-4 w-1/2 text-wrap text-start text-slate-500">
+              <h1 className="text-xl text-white">
+                Message Count: {messageHistory.length}
+              </h1>
               {messageHistory.reverse().map((message, idx) => (
                 <div key={idx}>{message.data}</div>
               ))}
