@@ -25,6 +25,7 @@
 ![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/gaucho-racing/mapache?filename=ingest%2Fgo.mod&style=flat)
 ![Python 3.10.10](https://img.shields.io/badge/python-3.10-blue.svg)
 [![codecov](https://codecov.io/gh/Gaucho-Racing/Mapache/graph/badge.svg?token=FTX4H3ZT5V)](https://codecov.io/gh/Gaucho-Racing/Mapache)
+[![Mapache Tests](https://github.com/Gaucho-Racing/Mapache/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Gaucho-Racing/Mapache/actions/workflows/tests.yml)
 ![GitHub License](https://img.shields.io/github/license/Gaucho-Racing/Mapache?style=flat)
 
 </div>
