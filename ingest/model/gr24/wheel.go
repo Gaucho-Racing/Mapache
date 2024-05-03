@@ -7,7 +7,7 @@ type Wheel struct {
 	ParentID  string    `json:"bcm_id" gorm:"index"`
 	Millis    int       `json:"millis" gorm:"index"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
-	Location  string    `json:"location"`
+	Location  string    `json:"location" gorm:"type:varchar(100)"`
 	// Frame 1
 	Suspension   float64 `json:"suspension"`
 	WheelSpeed   float64 `json:"wheel_speed"`

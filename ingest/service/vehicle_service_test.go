@@ -6,9 +6,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/mysql"
 	"ingest/config"
 	"ingest/database"
+	"ingest/model"
 	"ingest/utils"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -43,6 +45,60 @@ func TestGetAllVehicles(t *testing.T) {
 		// Assert
 		if len(vehicles) != 0 {
 			t.Errorf("Expected vehicles length to be 0, got %v", len(vehicles))
+		}
+	})
+}
+
+func TestCreateVehicle(t *testing.T) {
+	t.Run("Create Vehicle 1", func(t *testing.T) {
+		// Arrange
+		vehicle := model.Vehicle{
+			ID:          "gr24",
+			Name:        "GR24",
+			Description: "GR24 Vehicle",
+			UploadKey:   "some-key",
+			CreatedAt:   time.Time{},
+		}
+		// Act
+		err := CreateVehicle(vehicle)
+		// Assert
+		if err != nil {
+			t.Errorf("Expected error to be nil, got %v", err)
+		}
+		vehicle = GetVehicleByID("gr24")
+		if vehicle.ID != "gr24" {
+			t.Errorf("Expected vehicle ID to be gr24, got %v", vehicle.ID)
+		}
+	})
+	t.Run("Create Vehicle 2", func(t *testing.T) {
+		vehicle := model.Vehicle{
+			ID:          "gr24",
+			Name:        "GR24",
+			Description: "Updated GR24 Vehicle",
+			UploadKey:   "some-key",
+			CreatedAt:   time.Time{},
+		}
+		// Act
+		err := CreateVehicle(vehicle)
+		// Assert
+		if err != nil {
+			t.Errorf("Expected error to be nil, got %v", err)
+		}
+		vehicle = GetVehicleByID("gr24")
+		if vehicle.Description != "Updated GR24 Vehicle" {
+			t.Errorf("Expected vehicle description to be \"Updated GR24 Vehicle\", got %v", vehicle.Description)
+		}
+	})
+}
+
+func TestGetVehicleByID(t *testing.T) {
+	t.Run("Get Vehicle By ID 1", func(t *testing.T) {
+		// Arrange
+		// Act
+		vehicle := GetVehicleByID("gr24")
+		// Assert
+		if vehicle.ID != "gr24" {
+			t.Errorf("Expected vehicle ID to be gr24, got %v", vehicle.ID)
 		}
 	})
 }
