@@ -9,6 +9,7 @@ import (
 	"ingest/model"
 	"ingest/utils"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -47,9 +48,6 @@ func TestGetAllVehicles(t *testing.T) {
 		// Act
 		vehicles := GetAllVehicles()
 		// Assert
-		for _, vehicle := range vehicles {
-			println(vehicle.ID)
-		}
 		if len(vehicles) != 0 {
 			t.Errorf("Expected vehicles length to be 0, got %v", len(vehicles))
 		}
@@ -96,6 +94,23 @@ func TestCreateVehicle(t *testing.T) {
 			t.Errorf("Expected vehicle description to be \"Updated GR24 Vehicle\", got %v", vehicle.Description)
 		}
 	})
+	t.Run("Create Vehicle 3", func(t *testing.T) {
+		// Arrange
+		vehicle := model.Vehicle{
+			ID:          strings.Repeat("a", 256), // ID length is more than 255
+			Name:        "LongIDVehicle",
+			Description: "Vehicle with a very long ID",
+			UploadKey:   "some-key",
+			CreatedAt:   time.Time{},
+		}
+		// Act
+		err := CreateVehicle(vehicle)
+		// Assert
+		if err == nil {
+			t.Errorf("Expected error to be not nil, got nil")
+		}
+	})
+
 }
 
 func TestGetVehicleByID(t *testing.T) {
