@@ -15,7 +15,6 @@ import (
 
 func TestMain(m *testing.M) {
 	utils.InitializeLogger()
-
 	ctx := context.Background()
 	mysqlContainer, err := mysql.RunContainer(ctx,
 		testcontainers.WithImage("mysql:8.3"),
@@ -30,18 +29,12 @@ func TestMain(m *testing.M) {
 		if err := mysqlContainer.Terminate(ctx); err != nil {
 			utils.SugarLogger.Fatalf("failed to terminate container: %s", err)
 		}
-		utils.SugarLogger.Info("container terminated")
 	}()
 	p, err := mysqlContainer.MappedPort(ctx, "3306")
 	if err != nil {
 		utils.SugarLogger.Fatalf("failed to get mapped port: %s", err)
 	}
 	config.DatabasePort = p.Port()
-	//name, err := mysqlContainer.Name(ctx)
-	//config.DatabaseHost = name
-	s, err := mysqlContainer.ConnectionString(ctx, "charset=utf8mb4", "parseTime=True", "loc=UTC")
-	println(s)
-
 	database.InitializeDB()
 	exitVal := m.Run()
 	os.Exit(exitVal)
