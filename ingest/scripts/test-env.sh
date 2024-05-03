@@ -11,5 +11,5 @@ export MQTT_PASSWORD=ingest
 export DB_HOST="localhost"
 export DB_PORT="3306"
 export DB_NAME="mapache"
-export DB_USER="user"
+export DB_USER="admin"
 export DB_PASSWORD="password"

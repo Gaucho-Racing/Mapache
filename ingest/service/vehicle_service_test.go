@@ -32,6 +32,7 @@ func TestMain(m *testing.M) {
 		}
 		utils.SugarLogger.Info("container terminated")
 	}()
+	_, _ = mysqlContainer.MappedPort(ctx, "3306")
 	//name, err := mysqlContainer.Name(ctx)
 	//config.DatabaseHost = name
 	s, err := mysqlContainer.ConnectionString(ctx)
