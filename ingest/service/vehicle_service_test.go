@@ -16,7 +16,7 @@ func TestMain(m *testing.M) {
 
 	ctx := context.Background()
 	mysqlContainer, err := mysql.RunContainer(ctx,
-		testcontainers.WithImage("mysql:8.0.36"),
+		testcontainers.WithImage("mysql:8.3"),
 		mysql.WithDatabase(config.DatabaseName),
 		mysql.WithUsername(config.DatabaseUser),
 		mysql.WithPassword(config.DatabasePassword),
@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 			utils.SugarLogger.Fatalf("failed to terminate container: %s", err)
 		}
 	}()
-
+	mysqlContainer.MappedPort(ctx, "3306")
 	database.InitializeDB()
 	exitVal := m.Run()
 	os.Exit(exitVal)

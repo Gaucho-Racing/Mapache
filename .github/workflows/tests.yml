@@ -10,6 +10,7 @@ jobs:
     defaults:
       run:
         working-directory: ./rigby
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +45,7 @@ jobs:
     defaults:
       run:
         working-directory: ./ingest
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
