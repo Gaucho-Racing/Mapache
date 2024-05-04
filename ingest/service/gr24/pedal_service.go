@@ -56,6 +56,7 @@ func parsePedal(data []byte) gr24model.Pedal {
 	pedal.BrakePressureFront = float64(int(data[4])<<8 | int(data[5]))
 	pedal.BrakePressureRear = float64(int(data[6])<<8 | int(data[7]))
 	pedal = scalePedal(pedal)
+	pedal.CreatedAt = time.Now().UTC()
 	return pedal
 }
 
