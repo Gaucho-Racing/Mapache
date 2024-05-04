@@ -45,16 +45,16 @@ func InitializePedalIngest() {
 // parsePedal function takes in a byte array and returns a Pedal struct
 func parsePedal(data []byte) gr24model.Pedal {
 	var pedal gr24model.Pedal
-	if len(data) != 8 {
-		utils.SugarLogger.Warnln("Pedal data length is not 8 bytes! Received: ", len(data))
+	if len(data) != 16 {
+		utils.SugarLogger.Warnln("Pedal data length is not 16 bytes! Received: ", len(data))
 		return pedal
 	}
 	pedal.ID = uuid.NewString()
-	pedal.Millis = int(time.Now().UnixMilli())
 	pedal.APPSOne = float64(int(data[0])<<8 | int(data[1]))
 	pedal.APPSTwo = float64(int(data[2])<<8 | int(data[3]))
 	pedal.BrakePressureFront = float64(int(data[4])<<8 | int(data[5]))
 	pedal.BrakePressureRear = float64(int(data[6])<<8 | int(data[7]))
+	pedal.Millis = int(data[8])<<24 | int(data[9])<<16 | int(data[10])<<8 | int(data[11])
 	pedal = scalePedal(pedal)
 	pedal.CreatedAt = time.Now().UTC()
 	return pedal

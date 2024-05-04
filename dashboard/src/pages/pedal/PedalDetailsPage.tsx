@@ -92,7 +92,11 @@ function PedalDetailsPage() {
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).brake_pressure_front}
+                    value={Math.floor(
+                      (JSON.parse(lastMessage.data).brake_pressure_front /
+                        256) *
+                        100,
+                    )}
                   />
                   <div className="mt-2">
                     Brake Pressure Front:{" "}
@@ -100,7 +104,10 @@ function PedalDetailsPage() {
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).brake_pressure_rear}
+                    value={Math.floor(
+                      (JSON.parse(lastMessage.data).brake_pressure_rear / 256) *
+                        100,
+                    )}
                   />
                   <div className="mt-2">
                     Brake Pressure Rear:{" "}
