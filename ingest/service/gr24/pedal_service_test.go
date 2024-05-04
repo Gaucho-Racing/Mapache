@@ -54,7 +54,7 @@ func TestParsePedal(t *testing.T) {
 	utils.InitializeLogger()
 	t.Run("Pedal Test 1", func(t *testing.T) {
 		// Arrange
-		data := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		data := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		// Act
 		pedal := parsePedal(data)
 		// Assert
@@ -64,7 +64,7 @@ func TestParsePedal(t *testing.T) {
 	})
 	t.Run("Pedal Test 2", func(t *testing.T) {
 		// Arrange
-		data := []byte{0, 183, 0, 138, 11, 193, 2, 6}
+		data := []byte{0, 183, 0, 138, 11, 193, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0}
 		// Act
 		pedal := parsePedal(data)
 		// Assert
