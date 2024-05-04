@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
+import DashboardHeader from "@/components/DashboardHeader";
 
 function DashboardPage() {
   const { toast } = useToast();
@@ -28,38 +29,33 @@ function DashboardPage() {
 
   const LoadingComponent = () => {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-32">
-        <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+      <div className="mx-auto h-screen bg-black text-center">
+        <div className="flex h-full flex-col items-center justify-center p-32">
+          <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+        </div>
       </div>
     );
   };
 
   return (
     <>
-      <div className=""></div>
-      <div className="flex">
-        <div className="h-screen w-1/5 overflow-y-auto bg-gradient-to-r from-gr-pink to-gr-purple">
-          <div className="flex flex-col p-8">
-            <h1 className="text-4xl font-extrabold tracking-tight">Mapache</h1>
+      {loading ? (
+        <LoadingComponent />
+      ) : (
+        <div className="mt-24 w-full items-center justify-center">
+          <DashboardHeader />
+          <div className="m-4">
+            Wow this dashboard looks so cool!
+            <Button
+              className="mt-4 w-full"
+              onClick={() => navigate("/pedal")}
+              variant="outline"
+            >
+              Pedals
+            </Button>
           </div>
         </div>
-        <div className="mx-auto h-screen w-1/2 bg-black text-center">
-          {loading ? (
-            <LoadingComponent />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center p-32">
-              Wow this dashboard looks so cool!
-              <Button
-                className="mt-4 w-full"
-                onClick={() => navigate("/pedal")}
-                variant="outline"
-              >
-                Pedals
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </>
   );
 }
