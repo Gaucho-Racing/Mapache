@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
 import DashboardHeader from "@/components/DashboardHeader";
+import GR24PedalLiveWidget from "../gr24/pedal/PedalLiveWidget";
+import { Card } from "@/components/ui/card";
 
 function DashboardPage() {
   const { toast } = useToast();
@@ -45,7 +47,8 @@ function DashboardPage() {
         <div className="mt-24 w-full items-center justify-center">
           <DashboardHeader />
           <div className="m-4">
-            Wow this dashboard looks so cool!
+            <h1>Dashboard</h1>
+            <p className="mt-2 text-neutral-400">I love singlestore</p>
             <Button
               className="mt-4 w-full"
               onClick={() => navigate("/pedal")}
@@ -53,6 +56,9 @@ function DashboardPage() {
             >
               Pedals
             </Button>
+            <Card className="m-2 w-72 overflow-hidden bg-background">
+              <GR24PedalLiveWidget />
+            </Card>
           </div>
         </div>
       )}

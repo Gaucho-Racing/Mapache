@@ -24,7 +24,7 @@ const DashboardHeader = (props: HeaderProps) => {
 
   return (
     <nav
-      className={`fixed top-0 w-full items-center justify-start bg-black ${props.className}`}
+      className={`bg- fixed top-0 w-full items-center justify-start ${props.className}`}
       style={props.style}
     >
       <div className="flex flex-row items-center justify-between">
@@ -60,12 +60,13 @@ const DashboardHeader = (props: HeaderProps) => {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                className="cursor-pointer"
                 onClick={() => {
                   logout();
                   navigate("/auth/register");
                 }}
               >
-                <div className="flex flex-col">Logout</div>
+                <div className="flex flex-col text-red-500">Sign Out</div>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

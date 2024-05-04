@@ -1,6 +1,14 @@
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 import React, { useCallback } from "react";
 import { checkCredentials } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +27,8 @@ function PedalDetailsPage() {
   const [messageHistory, setMessageHistory] = React.useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
 
+  const [jsonData, setJsonData] = React.useState([{}]);
+
   React.useEffect(() => {
     init();
     if (lastMessage !== null) {
@@ -26,6 +36,9 @@ function PedalDetailsPage() {
       if (messageHistory.length > 999) {
         setMessageHistory([]);
       }
+      setJsonData((prev) => [
+        ...prev.concat(JSON.parse(lastMessage.data)).slice(-100),
+      ]);
     }
   }, [lastMessage, setMessageHistory]);
 
@@ -122,8 +135,8 @@ function PedalDetailsPage() {
               <h1 className="text-xl text-white">
                 Message Count: {messageHistory.length}
               </h1>
-              {messageHistory.reverse().map((message, idx) => (
-                <div key={idx}>{message.data}</div>
+              {jsonData.reverse().map((message, idx) => (
+                <div key={idx}>{JSON.stringify(message)}</div>
               ))}
             </div>
           </div>
