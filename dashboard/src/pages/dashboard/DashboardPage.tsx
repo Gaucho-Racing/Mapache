@@ -56,7 +56,10 @@ function DashboardPage() {
             >
               Pedals
             </Button>
-            <Card className="m-2 w-72 overflow-hidden bg-background">
+            <Card
+              className="m-2 overflow-hidden bg-background"
+              style={{ width: "300px", height: "300px" }}
+            >
               <GR24PedalLiveWidget />
             </Card>
           </div>

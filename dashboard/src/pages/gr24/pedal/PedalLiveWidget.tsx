@@ -1,14 +1,17 @@
-import axios from "axios";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import React, { useCallback } from "react";
+import React from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCircleCheck,
+  faCircleXmark,
+} from "@fortawesome/free-regular-svg-icons";
 
 function GR24PedalLiveWidget() {
   const [socketUrl] = React.useState("ws://localhost:7001/ws/gr24/pedal");
-  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
+  const { lastMessage, readyState } = useWebSocket(socketUrl);
 
   React.useEffect(() => {
     if (lastMessage !== null) {
@@ -24,37 +27,98 @@ function GR24PedalLiveWidget() {
   }[readyState];
 
   const LoadingComponent = () => {
-    return (
-      <div className="flex h-full flex-col items-center justify-center p-32">
-        <Loader2 className="mr-2 h-8 w-8 animate-spin" />
-      </div>
-    );
+    if (readyState === ReadyState.CONNECTING) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center">
+          <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+          <p className="mt-2 text-neutral-400">Connecting...</p>
+        </div>
+      );
+    } else if (readyState === ReadyState.CLOSED) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center">
+          <FontAwesomeIcon
+            icon={faCircleXmark}
+            className="mr-2 h-8 w-8 text-red-500"
+          />
+          <p className="mt-2 text-neutral-400">Connection Closed</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex h-full flex-col items-center justify-center">
+          <Loader2 className="mr-2 h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
   };
 
   return (
     <>
-      <div className="h-full w-full bg-green-200 p-4">
+      <div className="h-full w-full p-4">
         {lastMessage ? (
-          <div className="flex flex-row">
-            <div className="items-center justify-center bg-sky-500 text-center">
-              <div className="">
+          <div className="">
+            <div className="flex items-center justify-center">
+              <div className="w-1/3 text-start">
+                <p>APPS 1:</p>
+                <h3>
+                  {parseFloat(JSON.parse(lastMessage.data).apps_one).toFixed(2)}
+                </h3>
+              </div>
+              <div className="w-2/3">
                 <Progress
                   value={Math.floor(JSON.parse(lastMessage.data).apps_one)}
                 />
-              </div>
-              <div className="text-center">
-                {parseFloat(JSON.parse(lastMessage.data).apps_one).toFixed(2)}
               </div>
             </div>
-            <div className="flex-grow items-center justify-center bg-sky-500 text-center">
-              <div className="">
+            <div className="flex items-center justify-center">
+              <div className="w-1/3 text-start">
+                <p>APPS 2:</p>
+                <h3>
+                  {parseFloat(JSON.parse(lastMessage.data).apps_two).toFixed(2)}
+                </h3>
+              </div>
+              <div className="w-2/3">
                 <Progress
-                  value={Math.floor(JSON.parse(lastMessage.data).apps_one)}
+                  value={Math.floor(JSON.parse(lastMessage.data).apps_two)}
                 />
               </div>
-              <div className="mt-32 text-center">A2:</div>
-              <div className="text-center">
-                {parseFloat(JSON.parse(lastMessage.data).apps_two).toFixed(2)}
+            </div>
+            <Separator className="my-2" />
+            <div className="flex items-center justify-center">
+              <div className="w-1/3 text-start">
+                <p>Brake F:</p>
+                <h3>
+                  {parseFloat(
+                    JSON.parse(lastMessage.data).brake_pressure_front,
+                  ).toFixed(2)}
+                </h3>
+              </div>
+              <div className="w-2/3">
+                <Progress
+                  value={Math.floor(
+                    (JSON.parse(lastMessage.data).brake_pressure_front / 256) *
+                      100,
+                  )}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <div className="w-1/3 text-start">
+                <p>Brake R:</p>
+                <h3>
+                  {parseFloat(
+                    JSON.parse(lastMessage.data).brake_pressure_rear,
+                  ).toFixed(2)}
+                </h3>
+              </div>
+              <div className="w-2/3">
+                <Progress
+                  value={Math.floor(
+                    (JSON.parse(lastMessage.data).brake_pressure_front / 256) *
+                      100,
+                  )}
+                />
               </div>
             </div>
           </div>
