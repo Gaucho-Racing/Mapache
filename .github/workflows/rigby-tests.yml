@@ -6,7 +6,7 @@ on: [push]
 jobs:
   rigby_test_job:
     runs-on: ubuntu-latest
-    name: Test Rigby
+    name: Unit Tests
     defaults:
       run:
         working-directory: ./rigby
