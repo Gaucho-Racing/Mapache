@@ -9,18 +9,18 @@ export interface User {
   roles: string[];
 }
 
-function setUser(user: User, userInput: any): void {
-  user.id = userInput.id || user.id;
-  user.firstName = userInput.firstName || user.firstName;
-  user.lastName = userInput.lastName || user.lastName;
-  user.email = userInput.email || user.email;
-  user.subteam = userInput.subteam || user.subteam;
-  user.createdAt = userInput.createdAt || user.createdAt;
-  user.updatedAt = userInput.updatedAt || user.updatedAt;
-  user.roles = userInput.roles || user.roles;
-}
+// function setUser(user: User, userInput: any): void {
+//   user.id = userInput.id || user.id;
+//   user.firstName = userInput.firstName || user.firstName;
+//   user.lastName = userInput.lastName || user.lastName;
+//   user.email = userInput.email || user.email;
+//   user.subteam = userInput.subteam || user.subteam;
+//   user.createdAt = userInput.createdAt || user.createdAt;
+//   user.updatedAt = userInput.updatedAt || user.updatedAt;
+//   user.roles = userInput.roles || user.roles;
+// }
 
-export var initUser = {
+export const initUser = {
   id: "",
   firstName: "",
   lastName: "",

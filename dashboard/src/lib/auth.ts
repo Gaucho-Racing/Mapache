@@ -9,7 +9,7 @@ export const checkCredentials = async () => {
     return 1;
   } else if (currentUser.id == "") {
     try {
-      var userId = localStorage.getItem("id");
+      const userId = localStorage.getItem("id");
       const response = await axios.get(`${MAPACHE_API_URL}/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,

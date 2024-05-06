@@ -1,5 +1,5 @@
 import "./App.css";
-import React, { useReducer } from "react";
+import React from "react";
 import axios from "axios";
 import { MAPACHE_API_URL } from "./consts/config";
 import { Button } from "./components/ui/button";
@@ -11,14 +11,9 @@ import {
   getAxiosErrorMessage,
 } from "./lib/axios-error-handler";
 import { useNavigate } from "react-router-dom";
-import { checkCredentials } from "./lib/auth";
 
 function App() {
   const navigate = useNavigate();
-  const [, forceUpdate] = useReducer((x) => x + 1, 0);
-
-  const [connected, setConnected] = React.useState(false);
-  const [pingResponse, setPingResponse] = React.useState<any>({});
 
   const [loginLoading, setLoginLoading] = React.useState(false);
   const [loginEmail, setLoginEmail] = React.useState("");
@@ -26,26 +21,7 @@ function App() {
 
   React.useEffect(() => {
     init();
-    checkVpnConnection();
-    const interval = setInterval(() => {
-      // checkVpnConnection();
-    }, 1000);
-
-    return () => clearInterval(interval);
   }, []);
-
-  const checkVpnConnection = async () => {
-    try {
-      const response = await axios.get(`${MAPACHE_API_URL}/ping`);
-      if (response.status == 200) {
-        setConnected(true);
-        setPingResponse(response.data);
-      }
-    } catch (error) {
-      setConnected(false);
-      return;
-    }
-  };
 
   const init = async () => {
     if (

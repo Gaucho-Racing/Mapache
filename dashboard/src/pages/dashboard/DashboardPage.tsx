@@ -1,9 +1,5 @@
 import React from "react";
-import axios from "axios";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { MAPACHE_API_URL, currentUser } from "@/consts/config";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
@@ -12,7 +8,6 @@ import GR24PedalLiveWidget from "../gr24/pedal/PedalLiveWidget";
 import { Card } from "@/components/ui/card";
 
 function DashboardPage() {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
 
@@ -21,7 +16,7 @@ function DashboardPage() {
   }, []);
 
   const init = async () => {
-    var status = await checkCredentials();
+    const status = await checkCredentials();
     if (status != 0) {
       navigate("/auth/register");
     } else {
