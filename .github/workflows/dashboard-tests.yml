@@ -4,9 +4,13 @@ run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ git
 on: [push]
 
 jobs:
-    next_build_job:
+    dashboard_build_job:
       runs-on: ubuntu-latest
       name: Build
+      defaults:
+        run:
+          working-directory: ./dashboard
+          shell: bash
       steps:
         - uses: actions/checkout@v4
           with:
@@ -22,9 +26,13 @@ jobs:
           run: |
             npm run build
   
-    next_lint_job:
+    dashboard_lint_job:
       runs-on: ubuntu-latest
       name: Lint
+      defaults:
+        run:
+          working-directory: ./dashboard
+          shell: bash
       steps:
         - uses: actions/checkout@v4
           with:
@@ -40,9 +48,13 @@ jobs:
           run: |
             npm run lint
   
-    next_check_job:
+    dashboard_check_job:
       runs-on: ubuntu-latest
       name: Prettier Check
+      defaults:
+        run:
+          working-directory: ./dashboard
+          shell: bash
       steps:
         - uses: actions/checkout@v4
           with:
