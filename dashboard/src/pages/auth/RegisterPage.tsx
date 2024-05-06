@@ -38,7 +38,7 @@ function RegisterPage() {
       navigate("/");
     }
     try {
-      var userId = localStorage.getItem("id");
+      const userId = localStorage.getItem("id");
       const response = await axios.get(`${MAPACHE_API_URL}/users/${userId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -81,7 +81,7 @@ function RegisterPage() {
       return;
     setCreateAccountLoading(true);
     try {
-      var userId = localStorage.getItem("id");
+      const userId = localStorage.getItem("id");
       const response = await axios.post(
         `${MAPACHE_API_URL}/users/${userId}`,
         {

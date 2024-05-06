@@ -4,27 +4,11 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCircleCheck,
-  faCircleXmark,
-} from "@fortawesome/free-regular-svg-icons";
+import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 
 function GR24PedalLiveWidget() {
   const [socketUrl] = React.useState("ws://localhost:7001/ws/gr24/pedal");
   const { lastMessage, readyState } = useWebSocket(socketUrl);
-
-  React.useEffect(() => {
-    if (lastMessage !== null) {
-    }
-  }, [lastMessage]);
-
-  const connectionStatus = {
-    [ReadyState.CONNECTING]: "Connecting",
-    [ReadyState.OPEN]: "Open",
-    [ReadyState.CLOSING]: "Closing",
-    [ReadyState.CLOSED]: "Closed",
-    [ReadyState.UNINSTANTIATED]: "Uninstantiated",
-  }[readyState];
 
   const LoadingComponent = () => {
     if (readyState === ReadyState.CONNECTING) {

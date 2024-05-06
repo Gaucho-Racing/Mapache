@@ -1,14 +1,4 @@
-import axios from "axios";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import {
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from "recharts";
 import React, { useCallback } from "react";
 import { checkCredentials } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
@@ -17,14 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 function PedalDetailsPage() {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
 
-  const [socketUrl, setSocketUrl] = React.useState(
-    "ws://localhost:7001/ws/gr24/pedal",
-  );
-  const [messageHistory, setMessageHistory] = React.useState([]);
+  const [socketUrl] = React.useState("ws://localhost:7001/ws/gr24/pedal");
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
 
   const [jsonData, setJsonData] = React.useState([{}]);
@@ -32,15 +18,11 @@ function PedalDetailsPage() {
   React.useEffect(() => {
     init();
     if (lastMessage !== null) {
-      setMessageHistory((prev) => prev.concat(lastMessage));
-      if (messageHistory.length > 999) {
-        setMessageHistory([]);
-      }
       setJsonData((prev) => [
         ...prev.concat(JSON.parse(lastMessage.data)).slice(-100),
       ]);
     }
-  }, [lastMessage, setMessageHistory]);
+  }, [lastMessage]);
 
   const handleClickSendMessage = useCallback(() => sendMessage("Hello"), []);
 
@@ -54,7 +36,7 @@ function PedalDetailsPage() {
 
   const init = async () => {
     const currentRoute = window.location.pathname + window.location.search;
-    var status = await checkCredentials();
+    const status = await checkCredentials();
     if (status != 0) {
       navigate(`/auth/register?route=${currentRoute}`);
     } else {
@@ -133,7 +115,7 @@ function PedalDetailsPage() {
             </div>
             <div className="m-4 w-1/2 text-wrap text-start text-slate-500">
               <h1 className="text-xl text-white">
-                Message Count: {messageHistory.length}
+                Message Count: {jsonData.length}
               </h1>
               {jsonData.reverse().map((message, idx) => (
                 <div key={idx}>{JSON.stringify(message)}</div>
