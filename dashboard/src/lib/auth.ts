@@ -37,3 +37,14 @@ export const checkCredentials = async () => {
     return 0;
   }
 };
+
+export const logout = () => {
+  localStorage.removeItem("id");
+  localStorage.removeItem("token");
+  currentUser.id = "";
+  currentUser.firstName = "";
+  currentUser.lastName = "";
+  currentUser.email = "";
+  currentUser.subteam = "";
+  currentUser.roles = [];
+};

@@ -149,6 +149,11 @@ function App() {
               onChange={(e) => {
                 setLoginPassword(e.target.value);
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  register();
+                }
+              }}
             />
             <Button
               disabled={loginLoading}

@@ -1,6 +1,14 @@
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from "recharts";
 import React, { useCallback } from "react";
 import { checkCredentials } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
@@ -19,10 +27,18 @@ function PedalDetailsPage() {
   const [messageHistory, setMessageHistory] = React.useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
 
+  const [jsonData, setJsonData] = React.useState([{}]);
+
   React.useEffect(() => {
     init();
     if (lastMessage !== null) {
       setMessageHistory((prev) => prev.concat(lastMessage));
+      if (messageHistory.length > 999) {
+        setMessageHistory([]);
+      }
+      setJsonData((prev) => [
+        ...prev.concat(JSON.parse(lastMessage.data)).slice(-100),
+      ]);
     }
   }, [lastMessage, setMessageHistory]);
 
@@ -75,21 +91,25 @@ function PedalDetailsPage() {
                   <div>Last Message ID: {JSON.parse(lastMessage.data).id}</div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).apps_one}
+                    value={Math.floor(JSON.parse(lastMessage.data).apps_one)}
                   />
                   <div className="mt-2">
                     APPS One: {JSON.parse(lastMessage.data).apps_one}
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).apps_two}
+                    value={Math.floor(JSON.parse(lastMessage.data).apps_two)}
                   />
                   <div className="mt-2">
                     APPS Two: {JSON.parse(lastMessage.data).apps_two}
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).brake_pressure_front}
+                    value={Math.floor(
+                      (JSON.parse(lastMessage.data).brake_pressure_front /
+                        256) *
+                        100,
+                    )}
                   />
                   <div className="mt-2">
                     Brake Pressure Front:{" "}
@@ -97,7 +117,10 @@ function PedalDetailsPage() {
                   </div>
                   <Progress
                     className="mt-4"
-                    value={JSON.parse(lastMessage.data).brake_pressure_rear}
+                    value={Math.floor(
+                      (JSON.parse(lastMessage.data).brake_pressure_rear / 256) *
+                        100,
+                    )}
                   />
                   <div className="mt-2">
                     Brake Pressure Rear:{" "}
@@ -109,8 +132,11 @@ function PedalDetailsPage() {
               )}
             </div>
             <div className="m-4 w-1/2 text-wrap text-start text-slate-500">
-              {messageHistory.reverse().map((message, idx) => (
-                <div key={idx}>{message.data}</div>
+              <h1 className="text-xl text-white">
+                Message Count: {messageHistory.length}
+              </h1>
+              {jsonData.reverse().map((message, idx) => (
+                <div key={idx}>{JSON.stringify(message)}</div>
               ))}
             </div>
           </div>

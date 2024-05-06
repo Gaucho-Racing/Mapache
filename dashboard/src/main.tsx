@@ -4,7 +4,7 @@ import App from "./App.tsx";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 import { Toaster } from "./components/ui/sonner.tsx";
-import PedalDetailsPage from "./pages/pedal/PedalDetailsPage.tsx";
+import PedalDetailsPage from "./pages/gr24/pedal/PedalDetailsPage.tsx";
 import RegisterPage from "./pages/auth/RegisterPage.tsx";
 import DashboardPage from "./pages/dashboard/DashboardPage.tsx";
 

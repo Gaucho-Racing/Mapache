@@ -9,8 +9,8 @@ func RegisterIngestCronJob() {
 	SubscribeRabbitIngest()
 	c := cron.New(cron.WithSeconds())
 	// purpose of this cron job is literally to handle mqtt disconnects
-	// most definitely a more efficient way to do this (like in the actaul
-	// mqtt recconect handler) but it works lmfao
+	// most definitely a more efficient way to do this (like in the actual
+	// mqtt reconnect handler) but it works lmao
 	entryID, err := c.AddFunc("*/5 * * * * *", func() {
 		SubscribeRabbitIngest()
 	})
