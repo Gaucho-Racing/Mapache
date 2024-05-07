@@ -17,13 +17,13 @@ interface HeaderProps {
   style?: React.CSSProperties;
 }
 
-const DashboardHeader = (props: HeaderProps) => {
+const Header = (props: HeaderProps) => {
   const navigate = useNavigate();
 
   return (
     <nav
-      className={`bg- fixed top-0 w-full items-center justify-start ${props.className}`}
-      style={props.style}
+      className={`fixed top-0 z-10 w-full items-center justify-start bg-green-800 transition-all duration-200 ${props.className}`}
+      style={{ ...props.style }}
     >
       <div className="flex flex-row items-center justify-between">
         <div className="flex flex-row items-center p-4">
@@ -75,4 +75,4 @@ const DashboardHeader = (props: HeaderProps) => {
   );
 };
 
-export default DashboardHeader;
+export default Header;
