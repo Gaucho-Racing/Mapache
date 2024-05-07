@@ -15,21 +15,19 @@ import { logout } from "@/lib/auth";
 interface HeaderProps {
   className?: string;
   style?: React.CSSProperties;
+  scroll: number;
 }
 
-const DashboardHeader = (props: HeaderProps) => {
+const Header = (props: HeaderProps) => {
   const navigate = useNavigate();
 
   return (
     <nav
-      className={`bg- fixed top-0 w-full items-center justify-start ${props.className}`}
-      style={props.style}
+      className={`fixed top-0 z-20 w-full items-center justify-start transition-all duration-200 ${props.scroll > 24 ? "bg-card shadow-lg" : "bg-background"} ${props.className}`}
+      style={{ ...props.style }}
     >
       <div className="flex flex-row items-center justify-between">
-        <div className="flex flex-row items-center p-4">
-          <img src="logo/mapache.png" className="h-12 pr-4" />
-          <h1 className="">Mapache</h1>
-        </div>
+        <div className="flex flex-row items-center p-4">bruh</div>
         <div className="mr-4 flex flex-row p-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -70,9 +68,9 @@ const DashboardHeader = (props: HeaderProps) => {
           </DropdownMenu>
         </div>
       </div>
-      <Separator />
+      {props.scroll > 24 ? <Separator /> : null}
     </nav>
   );
 };
 
-export default DashboardHeader;
+export default Header;
