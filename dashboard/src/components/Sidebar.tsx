@@ -25,6 +25,23 @@ interface SidebarProps {
 const Sidebar = (props: SidebarProps) => {
   const navigate = useNavigate();
 
+  const MapacheTitle = () => {
+    return (
+      <div className="flex flex-row items-center p-4">
+        <img src="logo/mapache.png" className="h-12 pr-4" />
+        <h1 className="">Mapache</h1>
+      </div>
+    );
+  };
+
+  const MapacheLogo = () => {
+    return (
+      <div className="items-center justify-center p-4">
+        <img src="logo/mapache.png" className="h-12" />
+      </div>
+    );
+  };
+
   return (
     <nav
       className={`fixed left-0 top-0 z-30 border-r bg-card transition-all duration-200 ${props.className}`}
@@ -37,10 +54,7 @@ const Sidebar = (props: SidebarProps) => {
     >
       <div className="flex h-full flex-col items-start justify-between">
         <div>
-          <div className="flex flex-row items-center p-4">
-            <img src="logo/mapache.png" className="h-12 pr-4" />
-            <h1 className="">Mapache</h1>
-          </div>
+          {props.isSidebarExpanded ? <MapacheTitle /> : <MapacheLogo />}
         </div>
         <div>user</div>
       </div>
