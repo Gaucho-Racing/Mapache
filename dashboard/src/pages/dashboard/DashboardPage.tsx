@@ -9,7 +9,7 @@ function DashboardPage() {
 
   return (
     <>
-      <Layout>
+      <Layout activeTab="dash">
         <h1>Dashboard</h1>
         <p className="mt-2 text-neutral-400">I love singlestore</p>
         <Button

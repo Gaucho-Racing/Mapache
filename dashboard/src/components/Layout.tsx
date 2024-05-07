@@ -5,7 +5,12 @@ import { checkCredentials } from "@/lib/auth";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 
-const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+interface LayoutProps {
+  activeTab?: string;
+  children: React.ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ activeTab, children }) => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = React.useState(true);
@@ -91,7 +96,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children }) => {
       ) : (
         <div className="flex">
           <Sidebar
-            selectedPage="dashboard"
+            selectedPage={activeTab}
             isSidebarExpanded={isSidebarExpanded}
             sidebarWidth={sidebarWidth}
             toggleSidebar={toggleSidebar}
