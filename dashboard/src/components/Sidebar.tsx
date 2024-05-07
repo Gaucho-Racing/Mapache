@@ -27,7 +27,7 @@ const Sidebar = (props: SidebarProps) => {
 
   return (
     <nav
-      className={`fixed left-0 top-0 z-10 bg-sky-800 transition-all duration-200 ${props.className}`}
+      className={`fixed left-0 top-0 z-30 border-r bg-card transition-all duration-200 ${props.className}`}
       style={{
         height: "100vh",
         width: props.sidebarWidth,
@@ -36,7 +36,12 @@ const Sidebar = (props: SidebarProps) => {
       onClick={props.toggleSidebar}
     >
       <div className="flex h-full flex-col items-start justify-between">
-        <div>sidebar</div>
+        <div>
+          <div className="flex flex-row items-center p-4">
+            <img src="logo/mapache.png" className="h-12 pr-4" />
+            <h1 className="">Mapache</h1>
+          </div>
+        </div>
         <div>user</div>
       </div>
     </nav>

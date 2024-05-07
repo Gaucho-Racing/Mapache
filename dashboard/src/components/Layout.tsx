@@ -1,4 +1,4 @@
-import React, { PropsWithChildren } from "react";
+import React, { useState, PropsWithChildren } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
@@ -7,13 +7,40 @@ import Sidebar from "@/components/Sidebar";
 
 const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   const navigate = useNavigate();
+
   const [loading, setLoading] = React.useState(true);
 
   const [isSidebarExpanded, setSidebarExpanded] = React.useState(true);
   const [sidebarWidth, setSidebarWidth] = React.useState(300);
 
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [scrollY, setScrollY] = useState(0);
+
+  const handleResize = () => {
+    const width = window.innerWidth;
+
+    if (width < 768) {
+      collapseSidebar();
+    } else {
+      expandSidebar();
+    }
+
+    setWindowWidth(width);
+  };
+
+  const scrollHandler = () => {
+    setScrollY(window.scrollY);
+  };
+
   React.useEffect(() => {
     init();
+    window.addEventListener("scroll", scrollHandler);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("scroll", scrollHandler);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const init = async () => {
@@ -27,6 +54,9 @@ const Layout: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   const expandSidebar = () => {
+    if (windowWidth < 768) {
+      return;
+    }
     setSidebarExpanded(true);
     setSidebarWidth(300);
   };
@@ -66,8 +96,14 @@ const Layout: React.FC<PropsWithChildren> = ({ children }) => {
             sidebarWidth={sidebarWidth}
             toggleSidebar={toggleSidebar}
           />
-          <div className="w-full bg-red-900">
-            <Header style={{ left: sidebarWidth }} />
+          <div className="w-full">
+            <Header
+              scroll={scrollY}
+              style={{
+                left: sidebarWidth,
+                width: windowWidth - sidebarWidth,
+              }}
+            />
             <div
               className="mt-24 p-4 transition-all duration-200"
               style={{ marginLeft: sidebarWidth }}
