@@ -1,4 +1,4 @@
-import React, { useState, PropsWithChildren } from "react";
+import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
@@ -63,12 +63,12 @@ const Layout: React.FC<LayoutProps> = ({ activeTab, children }) => {
       return;
     }
     setSidebarExpanded(true);
-    setSidebarWidth(300);
+    setSidebarWidth(275);
   };
 
   const collapseSidebar = () => {
     setSidebarExpanded(false);
-    setSidebarWidth(100);
+    setSidebarWidth(90);
   };
 
   const toggleSidebar = () => {

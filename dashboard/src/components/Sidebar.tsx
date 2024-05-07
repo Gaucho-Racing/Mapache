@@ -1,17 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "./ui/separator";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { currentUser } from "@/consts/config";
-import { SHA256 } from "crypto-js";
 import { useNavigate } from "react-router-dom";
-import { logout } from "@/lib/auth";
-import React, { createContext, useState, useContext } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBell, faHospital } from "@fortawesome/free-regular-svg-icons";
 
@@ -29,9 +17,9 @@ const Sidebar = (props: SidebarProps) => {
 
   const MapacheTitle = () => {
     return (
-      <div className="h-18 flex items-center p-4">
+      <div className="flex items-center p-4">
         <img src="logo/mapache.png" className="h-10 pr-4" />
-        <h1>Mapache</h1>
+        <h2>Mapache</h2>
       </div>
     );
   };
@@ -66,11 +54,11 @@ const Sidebar = (props: SidebarProps) => {
           />
         </div>
         <div className={`${props.isSidebarExpanded ? "w-3/4" : "w-0"}`}>
-          <h4
-            className={`bg-clip-text text-transparent transition-all duration-200 ${props.isSidebarExpanded ? "block opacity-100" : "hidden opacity-0"} ${props.isSelected ? "bg-white" : "bg-neutral-400"}`}
+          <p
+            className={`bg-clip-text font-semibold tracking-tight text-transparent transition-all duration-200 ${props.isSidebarExpanded ? "block opacity-100" : "hidden opacity-0"} ${props.isSelected ? "bg-white" : "bg-neutral-400"}`}
           >
             {props.text}
-          </h4>
+          </p>
         </div>
       </div>
     );
