@@ -141,7 +141,7 @@ function RegisterPage() {
               <p className="text-lg">
                 &ldquo;Theory will take you only so far&rdquo;
               </p>
-              <footer className="text-sm">J. Robert Oppenheimer</footer>
+              <footer className="text-sm">Tien Nguyen</footer>
             </blockquote>
           </div>
         </div>
