@@ -41,7 +41,8 @@ function DashboardPage() {
           {widgets.map((widget) => (
             <Card
               key={widget.id}
-              style={{ width: widget.width, height: widget.height, margin: 8 }}
+              style={{ width: widget.width, height: widget.height }}
+              className="my-4 mr-8"
             >
               {widget.component}
             </Card>
