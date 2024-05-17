@@ -97,9 +97,51 @@ const Sidebar = (props: SidebarProps) => {
           />
           <SidebarItem
             icon={faCircle}
+            text="ACU"
+            link={`/${currentCar.type}/acu`}
+            isSelected={props.selectedPage === "acu"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
+            text="BCM"
+            link={`/${currentCar.type}/bcm`}
+            isSelected={props.selectedPage === "bcm"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
+            text="Dash Panel"
+            link={`/${currentCar.type}/dpanel`}
+            isSelected={props.selectedPage === "dpanel"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
+            text="Inverter"
+            link={`/${currentCar.type}/inverter`}
+            isSelected={props.selectedPage === "inverter"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
             text="Pedals"
             link={`/${currentCar.type}/pedal`}
             isSelected={props.selectedPage === "pedal"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
+            text="VDM"
+            link={`/${currentCar.type}/vdm`}
+            isSelected={props.selectedPage === "vdm"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
+            text="Wheels"
+            link={`/${currentCar.type}/wheel`}
+            isSelected={props.selectedPage === "wheel"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
         </div>
