@@ -1,7 +1,8 @@
 import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBell, faHospital } from "@fortawesome/free-regular-svg-icons";
+import { faCircle, faHospital } from "@fortawesome/free-regular-svg-icons";
+import { currentCar } from "@/consts/config";
 
 interface SidebarProps {
   selectedPage?: string;
@@ -18,7 +19,7 @@ const Sidebar = (props: SidebarProps) => {
   const MapacheTitle = () => {
     return (
       <div className="flex items-center p-4">
-        <img src="logo/mapache.png" className="h-10 pr-4" />
+        <img src="/logo/mapache.png" className="h-10 pr-4" />
         <h2>Mapache</h2>
       </div>
     );
@@ -27,7 +28,7 @@ const Sidebar = (props: SidebarProps) => {
   const MapacheLogo = () => {
     return (
       <div className="flex w-full items-center justify-center p-4">
-        <img src="logo/mapache.png" className="h-10" />
+        <img src="/logo/mapache.png" className="h-10" />
       </div>
     );
   };
@@ -83,14 +84,21 @@ const Sidebar = (props: SidebarProps) => {
           <SidebarItem
             icon={faHospital}
             text="Dashboard"
-            link="/dash"
+            link={`/${currentCar.type}/dash`}
             isSelected={props.selectedPage === "dash"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={faBell}
+            icon={faCircle}
+            text="Nodes"
+            link={`/${currentCar.type}/nodes`}
+            isSelected={props.selectedPage === "nodes"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
             text="Pedals"
-            link="/pedal"
+            link={`/${currentCar.type}/pedal`}
             isSelected={props.selectedPage === "pedal"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
