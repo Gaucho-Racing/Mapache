@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ activeTab, children }) => {
   const [loading, setLoading] = React.useState(true);
 
   const [isSidebarExpanded, setSidebarExpanded] = React.useState(true);
-  const [sidebarWidth, setSidebarWidth] = React.useState(300);
+  const [sidebarWidth, setSidebarWidth] = React.useState(275);
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [scrollY, setScrollY] = useState(0);
@@ -110,7 +110,7 @@ const Layout: React.FC<LayoutProps> = ({ activeTab, children }) => {
               }}
             />
             <div
-              className="mt-24 p-4 transition-all duration-200"
+              className="mt-24 p-8 transition-all duration-200"
               style={{ marginLeft: sidebarWidth }}
             >
               {children}
