@@ -1,7 +1,7 @@
 import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import React, { useMemo } from "react";
-import ReactFlow from "reactflow";
+import ReactFlow, { Handle, Position } from "reactflow";
 
 import "reactflow/dist/style.css";
 
@@ -20,6 +20,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -33,6 +43,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -46,6 +66,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -59,6 +89,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -72,6 +112,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -85,6 +135,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -98,6 +158,16 @@ function NodesPage() {
             }}
           >
             {data.label}
+            <Handle
+              type="target"
+              position={Position.Top}
+              className="!bg-gr-pink opacity-0"
+            />
+            <Handle
+              type="source"
+              position={Position.Bottom}
+              className="!bg-gr-pink opacity-0"
+            />
           </div>
         );
       },
@@ -131,19 +201,19 @@ function NodesPage() {
     },
     {
       id: "acu",
-      position: { x: 142.5, y: 700 },
+      position: { x: 135, y: 700 },
       data: { label: "ACU" },
       type: "acu",
     },
     {
       id: "inverter",
-      position: { x: 165, y: 600 },
+      position: { x: 160, y: 600 },
       data: { label: "Inverter" },
       type: "inverter",
     },
     {
       id: "vdm",
-      position: { x: 165, y: 400 },
+      position: { x: 160, y: 400 },
       data: { label: "VDM" },
       type: "ecu",
     },
@@ -161,7 +231,7 @@ function NodesPage() {
     },
     {
       id: "pedal",
-      position: { x: 180, y: 120 },
+      position: { x: 185, y: 120 },
       data: { label: "Pedals" },
       type: "node_small",
     },
@@ -178,7 +248,76 @@ function NodesPage() {
       type: "dpanel",
     },
   ];
-  const initialEdges = [{ id: "e1-2", source: "1", target: "2" }];
+  const animated = false;
+  const initialEdges = [
+    { id: "1", target: "bcm", source: "tcm", animated: animated },
+    {
+      id: "2",
+      source: "tcm",
+      target: "pedal",
+      animated: animated,
+    },
+    {
+      id: "2",
+      source: "pedal",
+      target: "dpanel",
+      animated: animated,
+    },
+    {
+      id: "3",
+      source: "pedal",
+      target: "dpanel",
+      animated: animated,
+    },
+    {
+      id: "4",
+      source: "dpanel",
+      target: "steering",
+      animated: animated,
+    },
+    {
+      id: "5",
+      source: "steering",
+      target: "vdm",
+      animated: animated,
+    },
+    {
+      id: "6",
+      source: "vdm",
+      target: "inverter",
+      animated: animated,
+    },
+    {
+      id: "7",
+      source: "inverter",
+      target: "acu",
+      animated: animated,
+    },
+    {
+      id: "8",
+      target: "wheel/fl",
+      source: "bcm",
+      animated: animated,
+    },
+    {
+      id: "9",
+      target: "wheel/fr",
+      source: "bcm",
+      animated: animated,
+    },
+    {
+      id: "10",
+      target: "wheel/rl",
+      source: "bcm",
+      animated: animated,
+    },
+    {
+      id: "11",
+      target: "wheel/rr",
+      source: "bcm",
+      animated: animated,
+    },
+  ];
 
   return (
     <>
@@ -194,14 +333,12 @@ function NodesPage() {
           </div>
         </p>
         <div className="flex flex-wrap">
-          <Card
-            style={{ width: "50vw", height: "70vh" }}
-            className="my-4 border-none bg-black"
-          >
+          <Card style={{ width: "50vw", height: "70vh" }} className="my-4">
             <ReactFlow
               nodes={initialNodes}
               edges={initialEdges}
               nodeTypes={nodeTypes}
+              proOptions={{ hideAttribution: true }}
             ></ReactFlow>
           </Card>
         </div>
