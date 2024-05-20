@@ -295,14 +295,14 @@ function NodesPage() {
     },
     {
       id: "8",
-      target: "wheel/fl",
-      source: "bcm",
+      source: "wheel/fl",
+      target: "wheel/rl",
       animated: animated,
     },
     {
-      id: "9",
-      target: "wheel/fr",
-      source: "bcm",
+      id: "8",
+      source: "wheel/fr",
+      target: "wheel/rr",
       animated: animated,
     },
     {
@@ -317,6 +317,30 @@ function NodesPage() {
       source: "bcm",
       animated: animated,
     },
+    // {
+    //   id: "8",
+    //   target: "wheel/fl",
+    //   source: "bcm",
+    //   animated: animated,
+    // },
+    // {
+    //   id: "9",
+    //   target: "wheel/fr",
+    //   source: "bcm",
+    //   animated: animated,
+    // },
+    // {
+    //   id: "10",
+    //   target: "wheel/rl",
+    //   source: "bcm",
+    //   animated: animated,
+    // },
+    // {
+    //   id: "11",
+    //   target: "wheel/rr",
+    //   source: "bcm",
+    //   animated: animated,
+    // },
   ];
 
   return (
