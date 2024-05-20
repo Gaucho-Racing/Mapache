@@ -142,9 +142,9 @@ function NodesPage() {
       type: "inverter",
     },
     {
-      id: "ecu",
+      id: "vdm",
       position: { x: 165, y: 400 },
-      data: { label: "ECU" },
+      data: { label: "VDM" },
       type: "ecu",
     },
     {
