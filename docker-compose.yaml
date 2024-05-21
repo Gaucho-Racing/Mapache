@@ -23,6 +23,26 @@ services:
       volumes:
         - mysql:/var/lib/mysql
 
+  rincon:
+    image: bk1031/rincon:latest
+    container_name: rincon
+    restart: unless-stopped
+    environment:
+      ENV: "DEV"
+      PORT: "10311"
+      STORAGE_MODE: "sql"
+      OVERWRITE_ROUTES: "true"
+      HEARTBEAT_TYPE: "server"
+      HEARTBEAT_INTERVAL: "60"
+      DB_DRIVER: "mysql"
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: "rincon"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "10311:10311"
+
   rabbitmq:
     image: rabbitmq:management-alpine
     container_name: rabbitmq
