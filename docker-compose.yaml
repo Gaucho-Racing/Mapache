@@ -30,16 +30,10 @@ services:
     environment:
       ENV: "DEV"
       PORT: "10311"
-      STORAGE_MODE: "sql"
+      STORAGE_MODE: "local"
       OVERWRITE_ROUTES: "true"
       HEARTBEAT_TYPE: "server"
       HEARTBEAT_INTERVAL: "60"
-      DB_DRIVER: "mysql"
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: "rincon"
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
     ports:
       - "10311:10311"
 
