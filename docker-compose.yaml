@@ -30,15 +30,21 @@ services:
     environment:
       ENV: "DEV"
       PORT: "10311"
-      STORAGE_MODE: "local"
+      STORAGE_MODE: "sql"
       OVERWRITE_ROUTES: "true"
       HEARTBEAT_TYPE: "server"
       HEARTBEAT_INTERVAL: "60"
+      DB_DRIVER: "mysql"
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
     ports:
       - "10311:10311"
 
   rabbitmq:
-    image: rabbitmq:management-alpine
+    image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
     restart: unless-stopped
     build:
