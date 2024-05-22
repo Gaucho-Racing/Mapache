@@ -23,10 +23,30 @@ services:
       volumes:
         - mysql:/var/lib/mysql
 
+  kerbecs:
+    image: bk1031/kerbecs:latest
+    container_name: kerbecs
+    restart: unless-stopped
+    depends_on:
+      - rincon
+    environment:
+      ENV: "DEV"
+      PORT: "10310"
+      ADMIN_PORT: "10300"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "admin"
+      RINCON_USER: "admin"
+      RINCON_PASSWORD: "admin"
+    ports:
+      - "10310:10310"
+      - "10300:10300"
+
   rincon:
     image: bk1031/rincon:latest
     container_name: rincon
     restart: unless-stopped
+    depends_on:
+      - db
     environment:
       ENV: "DEV"
       PORT: "10311"
