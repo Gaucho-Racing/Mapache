@@ -1,4 +1,4 @@
-name: Ingest Tests
+name: GR24 Tests
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
 on: [push]
@@ -9,7 +9,7 @@ jobs:
     name: Unit Tests
     defaults:
       run:
-        working-directory: ./ingest
+        working-directory: ./gr24
         shell: bash
     steps:
       - uses: actions/checkout@v4
@@ -24,12 +24,11 @@ jobs:
             go get .
       - name: Run tests
         run: |
-            . ./scripts/test-env.sh
-            sh scripts/test.sh
+            make test
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          files: ./ingest/coverage.out
+          files: ./gr24/coverage.out
           verbose: true

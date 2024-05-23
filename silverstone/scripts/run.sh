@@ -15,5 +15,5 @@ fi
 
 set -a
 . .env
-go get
+go get .
 go run main.go

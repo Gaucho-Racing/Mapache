@@ -9,6 +9,10 @@ import (
 )
 
 func main() {
+	println(config.Service.Name)
+	println(config.RinconUser)
+	println(config.RinconPassword)
+
 	config.PrintStartupBanner()
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
