@@ -4,6 +4,7 @@ import (
 	"bahrain/config"
 	"bahrain/controller"
 	"bahrain/database"
+	"bahrain/service"
 	"bahrain/utils"
 )
 
@@ -13,6 +14,7 @@ func main() {
 	defer utils.Logger.Sync()
 
 	database.InitializeDB()
+	service.RegisterRincon()
 
 	router := controller.SetupRouter()
 	controller.InitializeRoutes(router)
