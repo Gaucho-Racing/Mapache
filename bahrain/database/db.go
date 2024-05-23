@@ -37,6 +37,7 @@ func InitializeDB() {
 		}
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
+		_ = PingDB()
 	}
 }
 
@@ -44,10 +45,10 @@ func PingDB() error {
 	dbKeepalive++
 	err := DB.Create(model.Meta{
 		ID:        uuid.New(),
-		Service:   "Ingest",
-		Version:   config.Version,
+		Service:   config.Service.FormattedName(),
+		Version:   config.Service.Version,
 		Level:     "INFO",
-		Message:   "Mapache Ingest v" + config.Version + " keepalive message " + strconv.Itoa(dbKeepalive),
+		Message:   "Mapache " + config.Service.FormattedNameWithVersion() + " keepalive message " + strconv.Itoa(dbKeepalive),
 		CreatedAt: time.Now(),
 	})
 	if err.Error != nil {
