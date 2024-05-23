@@ -28,6 +28,7 @@ services:
     container_name: kerbecs
     restart: unless-stopped
     depends_on:
+      - db
       - rincon
     environment:
       ENV: "DEV"
