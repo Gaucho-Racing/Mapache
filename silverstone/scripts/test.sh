@@ -12,6 +12,6 @@ if [ ! -f scripts/test-env.sh ]; then
     exit 1
 fi
 
-source scripts/test-env.sh
+. scripts/test-env.sh
 go test ./... -race -covermode=atomic -coverprofile=coverage.out -v
 go tool cover -html coverage.out -o coverage.html

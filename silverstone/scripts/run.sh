@@ -13,6 +13,7 @@ if [ ! -f .env ]; then
 fi
 
 
-source .env
+set -a
+. .env
 go get
 go run main.go
