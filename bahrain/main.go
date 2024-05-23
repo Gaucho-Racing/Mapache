@@ -1,7 +1,23 @@
 package main
 
-import "fmt"
+import (
+	"bahrain/config"
+	"bahrain/controller"
+	"bahrain/database"
+	"bahrain/utils"
+)
 
 func main() {
-	fmt.Println("Hello, World!")
+	config.PrintStartupBanner()
+	utils.InitializeLogger()
+	defer utils.Logger.Sync()
+
+	database.InitializeDB()
+
+	router := controller.SetupRouter()
+	controller.InitializeRoutes(router)
+	err := router.Run(":" + config.Port)
+	if err != nil {
+		utils.SugarLogger.Fatalln(err)
+	}
 }

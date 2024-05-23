@@ -1,6 +1,9 @@
 package database
 
 import (
+	"bahrain/config"
+	"bahrain/model"
+	"bahrain/utils"
 	"fmt"
 	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
@@ -28,7 +31,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to database")
-		err := db.AutoMigrate(model.User{}, model.UserRole{})
+		err := db.AutoMigrate()
 		if err != nil {
 			utils.SugarLogger.Fatalln("AutoMigration failed", err)
 		}
