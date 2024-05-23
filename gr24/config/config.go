@@ -9,7 +9,7 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "Silverstone",
+	Name:    "GR24",
 	Version: "1.0.0",
 }
 

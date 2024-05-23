@@ -1,4 +1,4 @@
-module silverstone
+module gr24
 
 go 1.22
 

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"silverstone/config"
-	"silverstone/controller"
-	"silverstone/database"
-	"silverstone/service"
-	"silverstone/utils"
+	"gr24/config"
+	"gr24/controller"
+	"gr24/database"
+	"gr24/service"
+	"gr24/utils"
 )
 
 func main() {

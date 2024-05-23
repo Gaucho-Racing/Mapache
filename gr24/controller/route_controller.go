@@ -2,7 +2,7 @@ package controller
 
 import (
 	"fmt"
-	"silverstone/config"
+	"gr24/config"
 
 	"github.com/gin-gonic/gin"
 )

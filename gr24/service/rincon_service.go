@@ -1,8 +1,8 @@
 package service
 
 import (
-	"silverstone/config"
-	"silverstone/utils"
+	"gr24/config"
+	"gr24/utils"
 	"strings"
 	"time"
 

@@ -2,9 +2,9 @@ package database
 
 import (
 	"fmt"
-	"silverstone/config"
-	"silverstone/model"
-	"silverstone/utils"
+	"gr24/config"
+	"gr24/model"
+	"gr24/utils"
 	"strconv"
 	"time"
 

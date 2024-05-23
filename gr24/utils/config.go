@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"silverstone/config"
+	"gr24/config"
 	"strings"
 )
 

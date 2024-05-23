@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"gr24/config"
 	"net/http"
-	"silverstone/config"
 
 	"github.com/gin-gonic/gin"
 )
