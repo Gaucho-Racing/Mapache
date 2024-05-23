@@ -3,6 +3,7 @@ module bahrain
 go 1.22
 
 require (
+	github.com/bk1031/rincon-go v1.1.2
 	github.com/fatih/color v1.17.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
