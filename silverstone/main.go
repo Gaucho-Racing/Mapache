@@ -13,6 +13,7 @@ func main() {
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
 
+	utils.VerifyConfig()
 	database.InitializeDB()
 	service.RegisterRincon()
 
