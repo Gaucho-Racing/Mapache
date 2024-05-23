@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"silverstone/config"
 
 	"github.com/gin-gonic/gin"
@@ -15,5 +16,5 @@ func SetupRouter() *gin.Engine {
 }
 
 func InitializeRoutes(router *gin.Engine) {
-	router.GET("/bahrain/ping", Ping)
+	router.GET(fmt.Sprintf("/%s/ping", config.Service.Name), Ping)
 }

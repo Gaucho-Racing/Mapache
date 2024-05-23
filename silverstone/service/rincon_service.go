@@ -3,6 +3,7 @@ package service
 import (
 	"silverstone/config"
 	"silverstone/utils"
+	"strings"
 	"time"
 
 	"github.com/bk1031/rincon-go"
@@ -55,7 +56,7 @@ func RegisterRincon() {
 		config.Service.HealthCheck = "http://rincon:" + config.Port + "/ping"
 	} else {
 		config.Service.Endpoint = "http://host.docker.internal:" + config.Port
-		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/ping"
+		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
 	}
 	id, err := config.RinconClient.Register(config.Service, config.Routes)
 	if err != nil {
