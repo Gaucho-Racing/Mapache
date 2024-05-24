@@ -18,7 +18,7 @@ comment:
 component_management:
   default_rules:
     statuses:
-      - type: project
+      - type: no
         target: auto
   individual_components:
     - component_id: dashboard
