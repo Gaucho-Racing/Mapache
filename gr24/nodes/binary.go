@@ -228,5 +228,15 @@ func (f Field) Encode() ([]byte, error) {
 }
 
 func main() {
-
+	pedals := []Field{
+		{"throttle", []byte{0x01, 0x02}, 0, 2, Unsigned, LittleEndian},
+		{"brake", []byte{0x03, 0x04}, 0, 2, Unsigned, LittleEndian},
+	}
+	for i, pedal := range pedals {
+		pedal.Value = pedal.Decode()
+		pedals[i] = pedal
+	}
+	for _, pedal := range pedals {
+		fmt.Printf("%s: %d\n", pedal.Name, pedal.Value)
+	}
 }
