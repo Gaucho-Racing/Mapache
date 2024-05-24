@@ -1,10 +1,23 @@
+coverage:
+  status:
+    project:
+      default:
+        threshold: 85%
+
+    patch:
+      default:
+        target: auto
+        threshold: 0%
+        base: auto
+        only_pulls: true
+
 comment:
   layout: "header, diff, flags, components"
 
 component_management:
   default_rules:
     statuses:
-      - type: patch
+      - type: project
         target: auto
   individual_components:
     - component_id: dashboard
