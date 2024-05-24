@@ -18,16 +18,13 @@ comment:
 component_management:
   default_rules:
     statuses:
-      - type: no
+      - type: off
         target: auto
   individual_components:
     - component_id: dashboard
       name: Dashboard
       paths:
         - "dashboard/**"
-    - component_id: ingest
-      paths:
-        - "ingest/**"
     - component_id: gr24
       paths:
         - "gr24/**"
