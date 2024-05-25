@@ -6,6 +6,7 @@ import (
 	"gr24/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 )
 
 var pedalCallbacks []func(pedal model.Pedal)
@@ -47,6 +48,7 @@ func PedalFromBytes(data []byte) model.Pedal {
 		utils.SugarLogger.Errorln("Failed to parse pedal:", err)
 		return pedal
 	}
+	pedal.ID = uuid.New().String()
 	pedal.AppsOne = float64(pedalFields[0].Value)
 	pedal.AppsTwo = float64(pedalFields[1].Value)
 	pedal.Millis = pedalFields[2].Value

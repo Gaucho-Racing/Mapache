@@ -1,13 +1,17 @@
 package model
 
-import "github.com/gaucho-racing/mapache-go"
+import (
+	"time"
+
+	"github.com/gaucho-racing/mapache-go"
+)
 
 type Pedal struct {
-	ID        string  `json:"id" gorm:"primaryKey"`
-	CreatedAt string  `json:"created_at" gorm:"autoCreateTime;precision:6"`
-	AppsOne   float64 `json:"apps_one"`
-	AppsTwo   float64 `json:"apps_two"`
-	Millis    int     `json:"millis" gorm:"index"`
+	ID        string    `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+	AppsOne   float64   `json:"apps_one"`
+	AppsTwo   float64   `json:"apps_two"`
+	Millis    int       `json:"millis" gorm:"index"`
 }
 
 func (Pedal) TableName() string {
