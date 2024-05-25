@@ -2,11 +2,12 @@ package rabbitmq
 
 import (
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"ingest/config"
 	"ingest/utils"
 	"math/rand"
 	"strconv"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var Client mqtt.Client
