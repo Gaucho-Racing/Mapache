@@ -1,10 +1,14 @@
 module gr24
 
-go 1.22
+go 1.22.3
+
+replace github.com/gaucho-racing/mapache => ../mapache
 
 require (
 	github.com/bk1031/rincon-go v1.1.2
+	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fatih/color v1.17.0
+	github.com/gaucho-racing/mapache v0.0.0-20240525031022-a1438b0e46fa
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
@@ -24,6 +28,7 @@ require (
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -40,6 +45,7 @@ require (
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
