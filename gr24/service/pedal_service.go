@@ -12,6 +12,7 @@ import (
 
 var pedalCallbacks []func(pedal model.Pedal)
 
+// pedalNotify calls all the functions registered to pedalCallbacks
 func pedalNotify(pedal model.Pedal) {
 	for _, callback := range pedalCallbacks {
 		callback(pedal)
