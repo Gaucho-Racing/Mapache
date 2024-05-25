@@ -27,6 +27,7 @@ var PedalIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	utils.SugarLogger.Infoln("[MQ] Received pedal frame")
 	pedal := PedalFromBytes(msg.Payload())
 	if pedal.ID != "" {
+		pedal = scalePedal(pedal)
 		utils.SugarLogger.Infoln(pedal)
 		pedalNotify(pedal)
 		go func() {
@@ -52,6 +53,17 @@ func PedalFromBytes(data []byte) model.Pedal {
 	pedal.AppsOne = float64(pedalFields[0].Value)
 	pedal.AppsTwo = float64(pedalFields[1].Value)
 	pedal.Millis = pedalFields[2].Value
+	return pedal
+}
+
+// scalePedal scales the pedal values to be between 0 and 100
+func scalePedal(pedal model.Pedal) model.Pedal {
+	apps1Min := 14070
+	apps1Max := 28440
+	apps2Min := 9965
+	apps2Max := 20280
+	pedal.AppsOne = (pedal.AppsOne - float64(apps1Min)) / float64(apps1Max-apps1Min) * 100
+	pedal.AppsTwo = (pedal.AppsTwo - float64(apps2Min)) / float64(apps2Max-apps2Min) * 100
 	return pedal
 }
 
