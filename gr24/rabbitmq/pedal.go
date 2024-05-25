@@ -1,3 +1,1 @@
-func InitializePedalIngest() {
-
-}
+package rabbitmq
