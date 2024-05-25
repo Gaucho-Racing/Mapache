@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"fmt"
 	"gr24/config"
+	"gr24/service"
 	"gr24/utils"
 	"math/rand"
 	"strconv"
@@ -31,7 +32,8 @@ func InitializeRabbit() {
 		utils.SugarLogger.Fatalln(token.Error())
 	}
 	Client = client
-	sub(Client)
+	sub(Client, "meta")
+	InitializeIngest()
 }
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -46,9 +48,17 @@ var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err
 	utils.SugarLogger.Infoln("[MQ] Connection lost: ", err)
 }
 
-func sub(client mqtt.Client) {
-	topic := "meta"
-	token := client.Subscribe(topic, 1, nil)
+func sub(client mqtt.Client, topic string) {
+	token := client.Subscribe(topic, 0, nil)
 	token.Wait()
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: ", topic)
+}
+
+func InitializeIngest() {
+	subscribePedal(Client)
+}
+
+func subscribePedal(client mqtt.Client) {
+	client.Subscribe("gr24/+/pedal", 0, service.PedalIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/pedal")
 }

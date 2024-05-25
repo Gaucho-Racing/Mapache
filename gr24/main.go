@@ -22,8 +22,6 @@ func main() {
 	database.InitializeDB()
 	service.RegisterRincon()
 	rabbitmq.InitializeRabbit()
-	p := service.PedalFromBytes([]byte{04, 102, 253, 78, 226, 63, 220, 255})
-	utils.SugarLogger.Info(p)
 
 	router := controller.SetupRouter()
 	controller.InitializeRoutes(router)
