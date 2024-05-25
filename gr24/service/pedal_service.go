@@ -4,6 +4,7 @@ import (
 	"gr24/database"
 	"gr24/model"
 	"gr24/utils"
+	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -24,9 +25,10 @@ func SubscribePedal(callback func(pedal model.Pedal)) {
 
 // PedalIngestCallback is the callback function for handling incoming mqtt pedal frames
 var PedalIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
-	utils.SugarLogger.Infoln("[MQ] Received pedal frame")
+	utils.SugarLogger.Infof("[MQ-%s] Received pedal frame", msg.Topic())
 	pedal := PedalFromBytes(msg.Payload())
 	if pedal.ID != "" {
+		pedal.VehicleID = strings.Split(msg.Topic(), "/")[1]
 		pedal = scalePedal(pedal)
 		utils.SugarLogger.Infoln(pedal)
 		pedalNotify(pedal)
