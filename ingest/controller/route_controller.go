@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	gr24controller "ingest/controller/gr24"
@@ -49,6 +50,12 @@ func InitializeGR24Routes(router *gin.Engine) {
 
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		println(c.Request.Host)
+		println(c.Request.URL.String())
+		println("Content Length:", c.Request.ContentLength)
+		for k, v := range c.Request.Header {
+			fmt.Printf("%s: %s\n", k, v)
+		}
 		c.Next()
 	}
 }
