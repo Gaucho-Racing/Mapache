@@ -2,13 +2,11 @@ module gr24
 
 go 1.22.3
 
-replace github.com/gaucho-racing/mapache => ../mapache
-
 require (
 	github.com/bk1031/rincon-go v1.1.2
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fatih/color v1.17.0
-	github.com/gaucho-racing/mapache v0.0.0-20240525031022-a1438b0e46fa
+	github.com/gaucho-racing/mapache-go v1.1.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
