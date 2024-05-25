@@ -20,18 +20,18 @@ def main() -> None:
     car_id = "test"
 
     pedals = Pedal()
-    # gps = GPS()
-    # bcm = BCM()
+    gps = GPS()
+    bcm = BCM()
 
     while True:
         pedals.generate()
         mqtt_client.publish_message(f"gr24/{car_id}/pedal", pedals.to_bytes())
         
         gps.generate()
-        mqtt_client.publish_message(f"gr24/{car_id}/gps", gps.to_bytes())
+        # mqtt_client.publish_message(f"gr24/{car_id}/gps", gps.to_bytes())
 
         bcm.test_generate()
-        mqtt_client.publish_message(f"gr24/{car_id}/bcm", bcm.to_bytes())
+        # mqtt_client.publish_message(f"gr24/{car_id}/bcm", bcm.to_bytes())
         
         sleep(0.5)
 
