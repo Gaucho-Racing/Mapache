@@ -1303,7 +1303,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 26
 		{
 			Name:   "Cell28Temp",
 			Size:   1,
@@ -1328,7 +1327,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 27
+		// Row 26
 		{
 			Name:   "Cell32Temp",
 			Size:   1,
@@ -1353,7 +1352,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 28
 		{
 			Name:   "Cell36Temp",
 			Size:   1,
@@ -1378,7 +1376,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 29
+		// Row 27
 		{
 			Name:   "Cell40Temp",
 			Size:   1,
@@ -1403,7 +1401,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 30
 		{
 			Name:   "Cell44Temp",
 			Size:   1,
@@ -1428,7 +1425,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 31
+		// Row 28
 		{
 			Name:   "Cell48Temp",
 			Size:   1,
@@ -1453,7 +1450,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 32
 		{
 			Name:   "Cell52Temp",
 			Size:   1,
@@ -1478,7 +1474,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 33
+		// Row 29
 		{
 			Name:   "Cell56Temp",
 			Size:   1,
@@ -1503,7 +1499,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 34
 		{
 			Name:   "Cell60Temp",
 			Size:   1,
@@ -1528,7 +1523,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 35
+		// Row 30
 		{
 			Name:   "Cell64Temp",
 			Size:   1,
@@ -1553,7 +1548,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 36
 		{
 			Name:   "Cell68Temp",
 			Size:   1,
@@ -1578,7 +1572,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 37
+		// Row 31
 		{
 			Name:   "Cell72Temp",
 			Size:   1,
@@ -1603,7 +1597,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 38
 		{
 			Name:   "Cell76Temp",
 			Size:   1,
@@ -1628,7 +1621,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 39
+		// Row 32
 		{
 			Name:   "Cell80Temp",
 			Size:   1,
@@ -1653,7 +1646,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 40
 		{
 			Name:   "Cell84Temp",
 			Size:   1,
@@ -1678,7 +1670,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 41
+		// Row 33
 		{
 			Name:   "Cell88Temp",
 			Size:   1,
@@ -1703,7 +1695,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 42
 		{
 			Name:   "Cell92Temp",
 			Size:   1,
@@ -1728,7 +1719,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 43
+		// Row 34
 		{
 			Name:   "Cell96Temp",
 			Size:   1,
@@ -1753,7 +1744,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 44
 		{
 			Name:   "Cell100Temp",
 			Size:   1,
@@ -1778,7 +1768,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 45
+		// Row 35
 		{
 			Name:   "Cell104Temp",
 			Size:   1,
@@ -1803,7 +1793,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 46
 		{
 			Name:   "Cell108Temp",
 			Size:   1,
@@ -1828,7 +1817,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 47
+		// Row 36
 		{
 			Name:   "Cell112Temp",
 			Size:   1,
@@ -1853,7 +1842,6 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 48
 		{
 			Name:   "Cell116Temp",
 			Size:   1,
@@ -1878,7 +1866,7 @@ func NewACUNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
-		// Row 49
+		// Row 37
 		{
 			Name:   "Cell120Temp",
 			Size:   1,
@@ -1925,6 +1913,13 @@ func NewACUNode() mapache.Node {
 		{
 			Name:   "Cell127Temp",
 			Size:   1,
+			Sign:   mapache.Unsigned,
+			Endian: mapache.BigEndian,
+		},
+		// Row 38
+		{
+			Name:   "Millis",
+			Size:   4,
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
