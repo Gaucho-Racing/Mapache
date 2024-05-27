@@ -58,6 +58,14 @@ func ACUFromBytes(data []byte) model.ACU {
 	acu.AccumulatorCurrent = float64(acuFields[1].Value)
 	acu.MaxCellTemp = float64(acuFields[2].Value)
 	acu.Errors = acuFields[3].Value
+	overTempError := acuFields[3].CheckBit(0)
+	overVoltageError := checkErrorStatus(acuFields[3].Bytes, 1)
+	overCurrentError := checkErrorStatus(acuFields[3].Bytes, 2)
+	bmsError := checkErrorStatus(acuFields[3].Bytes, 3)
+	underVoltageError := checkErrorStatus(acuFields[3].Bytes, 4)
+	prechargeError := checkErrorStatus(acuFields[3].Bytes, 5)
+	teensyError := checkErrorStatus(acuFields[3].Bytes, 6)
+	underTempError := checkErrorStatus(acuFields[3].Bytes, 7)
 	acu.Warnings = acuFields[4].Value
 	// Row 2
 	acu.TSVoltage = float64(acuFields[5].Value)
