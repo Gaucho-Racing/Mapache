@@ -7,12 +7,14 @@ import (
 )
 
 type ACU struct {
-	ID                 string    `json:"id" gorm:"primaryKey"`
-	VehicleID          string    `json:"vehicle_id"`
-	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
-	AccumulatorVoltage float64   `json:"accumulator_voltage"`
-	AccumulatorCurrent float64   `json:"accumulator_current"`
-	MaxCellTemp        float64   `json:"max_cell_temp"`
+	ID        string    `json:"id" gorm:"primaryKey"`
+	VehicleID string    `json:"vehicle_id"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+
+	AccumulatorVoltage float64 `json:"accumulator_voltage"`
+	AccumulatorCurrent float64 `json:"accumulator_current"`
+	MaxCellTemp        float64 `json:"max_cell_temp"`
+
 	// Errors
 	Errors            int  `json:"errors"`
 	OverTempError     bool `json:"over_temp_error"`
@@ -23,8 +25,18 @@ type ACU struct {
 	PrechargeError    bool `json:"precharge_error"`
 	TeensyError       bool `json:"teensy_error"`
 	UnderTempError    bool `json:"under_temp_error"`
+
 	// Warnings
-	Warnings           int     `json:"warnings"`
+	Warnings              int  `json:"warnings"`
+	OpenWireWarning       bool `json:"open_wire_warning"`
+	AdcWarning            bool `json:"adc_warning"`
+	CellWarning           bool `json:"cell_warning"`
+	HighCurrentWarning    bool `json:"high_current_warning"`
+	LowChargeStateWarning bool `json:"low_charge_state_warning"`
+	CellImbalanceWarning  bool `json:"cell_imbalance_warning"`
+	HumidityWarning       bool `json:"humidity_warning"`
+	HydrogenWarning       bool `json:"hydrogen_warning"`
+
 	TSVoltage          float64 `json:"ts_voltage"`
 	States             int     `json:"states"`
 	MaxBalResistorTemp float64 `json:"max_bal_resistor_temp"`
@@ -313,36 +325,11 @@ func (ACU) TableName() string {
 func NewACUNode() mapache.Node {
 	return []mapache.Field{
 		// Row 1
-		{
-			Name:   "AccumulatorVoltage",
-			Size:   2,
-			Sign:   mapache.Unsigned,
-			Endian: mapache.BigEndian,
-		},
-		{
-			Name:   "AccumulatorCurrent",
-			Size:   2,
-			Sign:   mapache.Unsigned,
-			Endian: mapache.BigEndian,
-		},
-		{
-			Name:   "MaxCellTemp",
-			Size:   2,
-			Sign:   mapache.Unsigned,
-			Endian: mapache.BigEndian,
-		},
-		{
-			Name:   "Errors",
-			Size:   1,
-			Sign:   mapache.Unsigned,
-			Endian: mapache.BigEndian,
-		},
-		{
-			Name:   "Warnings",
-			Size:   1,
-			Sign:   mapache.Unsigned,
-			Endian: mapache.BigEndian,
-		},
+		mapache.NewField("AccumulatorVoltage", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("AccumulatorCurrent", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("MaxCellTemp", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("Errors", 1, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("Warnings", 1, mapache.Unsigned, mapache.BigEndian),
 		// Row 2
 		{
 			Name:   "TSVoltage",

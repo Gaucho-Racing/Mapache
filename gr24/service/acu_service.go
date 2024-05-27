@@ -67,6 +67,14 @@ func ACUFromBytes(data []byte) model.ACU {
 	acu.TeensyError = acuFields[3].CheckBit(6)
 	acu.UnderTempError = acuFields[3].CheckBit(7)
 	acu.Warnings = acuFields[4].Value
+	acu.OpenWireWarning = acuFields[4].CheckBit(0)
+	acu.AdcWarning = acuFields[4].CheckBit(1)
+	acu.CellWarning = acuFields[4].CheckBit(2)
+	acu.HighCurrentWarning = acuFields[4].CheckBit(3)
+	acu.LowChargeStateWarning = acuFields[4].CheckBit(4)
+	acu.CellImbalanceWarning = acuFields[4].CheckBit(5)
+	acu.HumidityWarning = acuFields[4].CheckBit(6)
+	acu.HydrogenWarning = acuFields[4].CheckBit(7)
 	// Row 2
 	acu.TSVoltage = float64(acuFields[5].Value)
 	acu.States = acuFields[6].Value
