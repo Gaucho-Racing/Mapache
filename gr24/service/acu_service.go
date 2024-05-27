@@ -79,7 +79,7 @@ func ACUFromBytes(data []byte) model.ACU {
 	acu.MaxChargeCurrent = float64(acuFields[19].Value)
 	acu.MaxChargeVoltage = float64(acuFields[20].Value)
 	acu.CartStates = acuFields[21].Value
-	_ = acuFields[22].Value
+	// _ = acuFields[22].Value
 	// Row 5
 	acu.ExpCellNumber = acuFields[23].Value
 	acu.ExpCellVoltage = float64(acuFields[24].Value)
