@@ -55,7 +55,7 @@ func PedalFromBytes(data []byte) model.Pedal {
 	pedal.ID = uuid.New().String()
 	pedal.AppsOne = float64(pedalFields[0].Value)
 	pedal.AppsTwo = float64(pedalFields[1].Value)
-	pedal.Millis = pedalFields[2].Value
+	pedal.Millis = pedalFields[3].Value
 	return pedal
 }
 
