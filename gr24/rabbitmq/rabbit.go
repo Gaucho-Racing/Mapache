@@ -32,7 +32,6 @@ func InitializeRabbit() {
 		utils.SugarLogger.Fatalln(token.Error())
 	}
 	Client = client
-	InitializeIngest()
 }
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
