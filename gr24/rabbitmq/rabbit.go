@@ -32,8 +32,6 @@ func InitializeRabbit() {
 		utils.SugarLogger.Fatalln(token.Error())
 	}
 	Client = client
-	sub(Client, "meta")
-	InitializeIngest()
 }
 
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
@@ -42,6 +40,7 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
 	utils.SugarLogger.Infoln("[MQ] Connected to RabbitMQ as: " + clientID)
+	InitializeIngest()
 }
 
 var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
@@ -55,11 +54,13 @@ func sub(client mqtt.Client, topic string) {
 }
 
 func InitializeIngest() {
+	sub(Client, "meta")
 	subscribePedal(Client)
 	subscribeACU(Client)
 	subscribeBCM(Client)
 	subscribeWheel(Client)
 	subscribeSteeringWheel(Client)
+	subscribeVDM(Client)
 }
 
 func subscribePedal(client mqtt.Client) {
@@ -85,4 +86,9 @@ func subscribeWheel(client mqtt.Client) {
 func subscribeSteeringWheel(client mqtt.Client) {
 	client.Subscribe("gr24/+/steering_wheel", 0, service.SteeringWheelIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/steering_wheel")
+}
+
+func subscribeVDM(client mqtt.Client) {
+	client.Subscribe("gr24/+/vdm", 0, service.VDMIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/vdm")
 }
