@@ -30,6 +30,7 @@ var WheelIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	wheel := WheelFromBytes(msg.Payload())
 	if wheel.ID != "" {
 		wheel.VehicleID = strings.Split(msg.Topic(), "/")[1]
+		wheel.Location = strings.Split(msg.Topic(), "/")[3]
 		wheel = scaleWheel(wheel)
 		utils.SugarLogger.Infoln(wheel)
 		wheelNotify(wheel)

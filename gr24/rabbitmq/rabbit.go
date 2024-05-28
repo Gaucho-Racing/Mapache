@@ -57,6 +57,9 @@ func sub(client mqtt.Client, topic string) {
 func InitializeIngest() {
 	subscribePedal(Client)
 	subscribeACU(Client)
+	subscribeBCM(Client)
+	subscribeWheel(Client)
+	subscribeSteeringWheel(Client)
 }
 
 func subscribePedal(client mqtt.Client) {
@@ -67,4 +70,19 @@ func subscribePedal(client mqtt.Client) {
 func subscribeACU(client mqtt.Client) {
 	client.Subscribe("gr24/+/acu", 0, service.ACUIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/acu")
+}
+
+func subscribeBCM(client mqtt.Client) {
+	client.Subscribe("gr24/+/bcm", 0, service.BCMIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/bcm")
+}
+
+func subscribeWheel(client mqtt.Client) {
+	client.Subscribe("gr24/+/wheel/+", 0, service.WheelIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/wheel/+")
+}
+
+func subscribeSteeringWheel(client mqtt.Client) {
+	client.Subscribe("gr24/+/steering_wheel", 0, service.SteeringWheelIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/steering_wheel")
 }

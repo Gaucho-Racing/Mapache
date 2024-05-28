@@ -31,10 +31,10 @@ var SteeringWheelIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	if steeringWheel.ID != "" {
 		steeringWheel.VehicleID = strings.Split(msg.Topic(), "/")[1]
 		steeringWheel = scaleSteeringWheel(steeringWheel)
-		utils.SugarLogger.Infoln(steeringWheel) //?
+		utils.SugarLogger.Infoln(steeringWheel)
 		steeringWheelNotify(steeringWheel)
 		go func() {
-			err := CreateSteeringWheel(steeringWheel) //?
+			err := CreateSteeringWheel(steeringWheel)
 			if err != nil {
 				utils.SugarLogger.Errorln(err)
 			}
