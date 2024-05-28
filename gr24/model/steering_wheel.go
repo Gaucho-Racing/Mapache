@@ -17,6 +17,7 @@ type SteeringWheel struct {
 	ButtonTwo   int       `json:"button_two"`
 	ButtonThree int       `json:"button_three"`
 	ButtonFour  int       `json:"button_four"`
+	Millis      int       `json:"millis"`
 }
 
 func (SteeringWheel) TableName() string {
@@ -67,5 +68,7 @@ func NewSteeringWheelNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 9, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }

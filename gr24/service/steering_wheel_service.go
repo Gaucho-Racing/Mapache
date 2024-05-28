@@ -60,6 +60,7 @@ func SteeringWheelFromBytes(data []byte) model.SteeringWheel {
 	steeringWheel.ButtonTwo = steeringWheelFields[4].Value
 	steeringWheel.ButtonThree = steeringWheelFields[5].Value
 	steeringWheel.ButtonFour = steeringWheelFields[6].Value
+	steeringWheel.Millis = steeringWheelFields[8].Value
 	return steeringWheel
 }
 
