@@ -31,13 +31,13 @@ services:
       - db
       - rincon
     environment:
-      ENV: "DEV"
+      ENV: ${ENV}
       PORT: "10310"
       ADMIN_PORT: "10300"
       ADMIN_USER: "admin"
       ADMIN_PASSWORD: "admin"
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
+      RINCON_USER: ${RINCON_USER}
+      RINCON_PASSWORD: ${RINCON_PASSWORD}
     ports:
       - "10310:10310"
       - "10300:10300"
@@ -49,8 +49,10 @@ services:
     depends_on:
       - db
     environment:
-      ENV: "DEV"
+      ENV: ${ENV}
       PORT: "10311"
+      AUTH_USER: ${RINCON_USER}
+      AUTH_PASSWORD: ${RINCON_PASSWORD}
       STORAGE_MODE: "sql"
       OVERWRITE_ROUTES: "true"
       HEARTBEAT_TYPE: "server"
@@ -64,6 +66,30 @@ services:
     ports:
       - "10311:10311"
 
+  gr24:
+    image: gauchoracing/mp_gr24:latest
+    container_name: gr24
+    restart: unless-stopped
+    depends_on:
+      - db
+      - rincon
+    environment:
+      ENV: ${ENV}
+      PORT: "7001"
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT}
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RINCON_USER: ${RINCON_USER}
+      RINCON_PASSWORD: ${RINCON_PASSWORD}
+    ports:
+      - "7001"
+  
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: rabbitmq
