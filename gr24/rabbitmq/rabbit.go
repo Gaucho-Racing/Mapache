@@ -56,9 +56,15 @@ func sub(client mqtt.Client, topic string) {
 
 func InitializeIngest() {
 	subscribePedal(Client)
+	subscribeACU(Client)
 }
 
 func subscribePedal(client mqtt.Client) {
 	client.Subscribe("gr24/+/pedal", 0, service.PedalIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/pedal")
+}
+
+func subscribeACU(client mqtt.Client) {
+	client.Subscribe("gr24/+/acu", 0, service.ACUIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/acu")
 }
