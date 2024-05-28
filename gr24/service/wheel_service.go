@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var wheelCallbacks []func(pedal model.Wheel)
+var wheelCallbacks []func(wheel model.Wheel)
 
 // wheelNotify calls all the functions registered to wheelCallbacks
 func wheelNotify(wheel model.Wheel) {
@@ -55,17 +55,17 @@ func WheelFromBytes(data []byte) model.Wheel {
 	wheel.ID = uuid.New().String()
 	wheel.Suspension = wheelFields[0].Value
 	wheel.WheelSpeed = float64(wheelFields[1].Value)
-	wheel.AccelX = float64(wheelFields[2].Value)
-	wheel.AccelY = float64(wheelFields[3].Value)
-	wheel.AccelZ = float64(wheelFields[4].Value)
-	wheel.GyroX = float64(wheelFields[5].Value)
-	wheel.GyroY = float64(wheelFields[6].Value)
-	wheel.GyroZ = float64(wheelFields[7].Value)
-	wheel.BrakeTempOne = wheelFields[8].Value
-	wheel.BrakeTempTwo = wheelFields[9].Value
-	wheel.TireTempOne = wheelFields[10].Value
-	wheel.TireTempTwo = wheelFields[11].Value
-
+	wheel.AccelX = float64(wheelFields[3].Value)
+	wheel.AccelY = float64(wheelFields[4].Value)
+	wheel.AccelZ = float64(wheelFields[5].Value)
+	wheel.GyroX = float64(wheelFields[7].Value)
+	wheel.GyroY = float64(wheelFields[8].Value)
+	wheel.GyroZ = float64(wheelFields[9].Value)
+	wheel.BrakeTempOne = wheelFields[11].Value
+	wheel.BrakeTempTwo = wheelFields[12].Value
+	wheel.TireTempOne = wheelFields[14].Value
+	wheel.TireTempTwo = wheelFields[15].Value
+	wheel.Millis = wheelFields[17].Value
 	return wheel
 }
 

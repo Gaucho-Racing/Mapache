@@ -23,6 +23,7 @@ type Wheel struct {
 	BrakeTempTwo int       `json:"brake_temp_two"`
 	TireTempOne  int       `json:"tire_temp_one"`
 	TireTempTwo  int       `json:"tire_temp_two"`
+	Millis       int       `json:"millis"`
 }
 
 func (Wheel) TableName() string {
@@ -43,6 +44,7 @@ func NewWheelNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 5, mapache.Unsigned, mapache.BigEndian),
 		{
 			Name:   "AccelX",
 			Size:   2,
@@ -61,6 +63,7 @@ func NewWheelNode() mapache.Node {
 			Sign:   mapache.Signed,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 2, mapache.Unsigned, mapache.BigEndian),
 		{
 			Name:   "GyroX",
 			Size:   2,
@@ -79,6 +82,7 @@ func NewWheelNode() mapache.Node {
 			Sign:   mapache.Signed,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 2, mapache.Unsigned, mapache.BigEndian),
 		{
 			Name:   "BrakeTempOne",
 			Size:   1,
@@ -91,6 +95,7 @@ func NewWheelNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 6, mapache.Unsigned, mapache.BigEndian),
 		{
 			Name:   "TireTempOne",
 			Size:   1,
@@ -103,5 +108,7 @@ func NewWheelNode() mapache.Node {
 			Sign:   mapache.Unsigned,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 6, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }
