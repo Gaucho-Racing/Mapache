@@ -16,6 +16,7 @@ type BCM struct {
 	GyroX     float64   `json:"gyro_x"`
 	GyroY     float64   `json:"gyro_y"`
 	GyroZ     float64   `json:"gyro_z"`
+	Millis    int       `json:"millis"`
 }
 
 func (BCM) TableName() string {
@@ -42,6 +43,7 @@ func NewBCMNode() mapache.Node {
 			Sign:   mapache.Signed,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 2, mapache.Unsigned, mapache.BigEndian),
 		{
 			Name:   "GyroX",
 			Size:   2,
@@ -60,5 +62,7 @@ func NewBCMNode() mapache.Node {
 			Sign:   mapache.Signed,
 			Endian: mapache.BigEndian,
 		},
+		mapache.NewField("blank", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }

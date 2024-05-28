@@ -56,9 +56,10 @@ func BCMFromBytes(data []byte) model.BCM {
 	bcm.AccelX = float64(bcmFields[0].Value)
 	bcm.AccelY = float64(bcmFields[1].Value)
 	bcm.AccelZ = float64(bcmFields[2].Value)
-	bcm.GyroX = float64(bcmFields[3].Value)
-	bcm.GyroY = float64(bcmFields[4].Value)
-	bcm.GyroZ = float64(bcmFields[5].Value)
+	bcm.GyroX = float64(bcmFields[4].Value)
+	bcm.GyroY = float64(bcmFields[5].Value)
+	bcm.GyroZ = float64(bcmFields[6].Value)
+	bcm.Millis = bcmFields[8].Value
 	return bcm
 }
 
