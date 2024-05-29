@@ -1,7 +1,6 @@
 package rabbitmq
 
 import (
-	"encoding/binary"
 	"fmt"
 	"gr24/config"
 	"gr24/model"
@@ -59,12 +58,12 @@ func sub(client mqtt.Client, topic string) {
 
 func InitializeIngest() {
 	sub(Client, "meta")
-	// subscribePedal(Client)
-	// subscribeACU(Client)
-	// subscribeBCM(Client)
-	// subscribeWheel(Client)
-	// subscribeSteeringWheel(Client)
-	// subscribeVDM(Client)
+	subscribePedal(Client)
+	subscribeACU(Client)
+	subscribeBCM(Client)
+	subscribeWheel(Client)
+	subscribeSteeringWheel(Client)
+	subscribeVDM(Client)
 	subscribePong(Client)
 	go pingLoop()
 }
@@ -96,10 +95,8 @@ func publishPing(client mqtt.Client, vehicleID string) {
 	ping.ID = uuid.New().String()
 	ping.VehicleID = vehicleID
 	ping.Ping = time.Now().UnixMilli()
-	pingTimeBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(pingTimeBytes, uint64(ping.Ping))
-	_ = client.Publish("gr24/"+vehicleID+"/ping", 0, false, pingTimeBytes)
-	service.CreatePing(ping)
+	go service.CreatePing(ping)
+	_ = client.Publish("gr24/"+vehicleID+"/ping", 0, false, []byte("ping"))
 }
 
 func subscribePong(client mqtt.Client) {

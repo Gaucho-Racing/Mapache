@@ -19,6 +19,7 @@ var PingIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	if lastPing.ID != "" {
 		lastPing.Pong = currentTime
 		lastPing.Delta = currentTime - lastPing.Ping
+		_ = DeletePingByID(lastPing.ID)
 		err := CreatePing(lastPing)
 		if err != nil {
 			utils.SugarLogger.Errorln(err)
@@ -53,4 +54,11 @@ func GetLastSuccessfulPing(vehicleID string) (model.Ping, error) {
 		return ping, result.Error
 	}
 	return ping, nil
+}
+
+func DeletePingByID(id string) error {
+	if result := database.DB.Where("id = ?", id).Delete(&model.Ping{}); result.Error != nil {
+		return result.Error
+	}
+	return nil
 }
