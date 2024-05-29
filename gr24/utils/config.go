@@ -19,6 +19,9 @@ func VerifyConfig() {
 		config.Port = "7999"
 		SugarLogger.Infof("PORT is not set, defaulting to %s", config.Port)
 	}
+	if config.TCMPingInterval == "" {
+		config.TCMPingInterval = "500"
+	}
 	if config.DatabaseHost == "" {
 		config.DatabaseHost = "localhost"
 		SugarLogger.Infof("DB_HOST is not set, defaulting to %s", config.DatabaseHost)

@@ -1,14 +1,18 @@
 package rabbitmq
 
 import (
+	"encoding/binary"
 	"fmt"
 	"gr24/config"
+	"gr24/model"
 	"gr24/service"
 	"gr24/utils"
 	"math/rand"
 	"strconv"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 )
 
 var Client mqtt.Client
@@ -61,6 +65,35 @@ func InitializeIngest() {
 	subscribeWheel(Client)
 	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
+	pingLoop()
+}
+
+func pingLoop() {
+	vehicles := []string{"test"}
+	for _, vehicleID := range vehicles {
+		go publishPing(Client, vehicleID)
+	}
+	interval, err := strconv.Atoi(config.TCMPingInterval)
+	if err != nil {
+		interval = 500
+	}
+	time.Sleep(time.Duration(interval) * time.Millisecond)
+}
+
+func publishPing(client mqtt.Client, vehicleID string) {
+	ping := model.Ping{}
+	ping.ID = uuid.New().String()
+	ping.VehicleID = vehicleID
+	ping.Ping = time.Now().UnixMilli()
+	pingTimeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(pingTimeBytes, uint64(ping.Ping))
+	_ = client.Publish("gr24/"+vehicleID+"/ping", 0, false, pingTimeBytes)
+	service.CreatePing(ping)
+}
+
+func subscribePing(client mqtt.Client) {
+	client.Subscribe("gr24/+/ping", 0, service.PingIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/ping")
 }
 
 func subscribePedal(client mqtt.Client) {
