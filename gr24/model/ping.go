@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/gaucho-racing/mapache-go"
 )
 
 type Ping struct {
@@ -17,10 +15,4 @@ type Ping struct {
 
 func (Ping) TableName() string {
 	return "gr24_ping"
-}
-
-func NewPingNode() mapache.Node {
-	return []mapache.Field{
-		mapache.NewField("UnixMillis", 8, mapache.Unsigned, mapache.BigEndian),
-	}
 }

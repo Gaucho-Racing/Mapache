@@ -59,25 +59,36 @@ func sub(client mqtt.Client, topic string) {
 
 func InitializeIngest() {
 	sub(Client, "meta")
-	subscribePedal(Client)
-	subscribeACU(Client)
-	subscribeBCM(Client)
-	subscribeWheel(Client)
-	subscribeSteeringWheel(Client)
-	subscribeVDM(Client)
-	pingLoop()
+	// subscribePedal(Client)
+	// subscribeACU(Client)
+	// subscribeBCM(Client)
+	// subscribeWheel(Client)
+	// subscribeSteeringWheel(Client)
+	// subscribeVDM(Client)
+	subscribePong(Client)
+	go pingLoop()
 }
 
 func pingLoop() {
-	vehicles := []string{"test"}
-	for _, vehicleID := range vehicles {
-		go publishPing(Client, vehicleID)
+	for {
+		vehicles := []string{"test"}
+		for _, vehicleID := range vehicles {
+			lastPing, _ := service.GetLastPing(vehicleID)
+			if lastPing.ID != "" && lastPing.Pong == 0 {
+				lastSuccessfulPing, _ := service.GetLastSuccessfulPing(vehicleID)
+				if lastSuccessfulPing.ID != "" {
+					ago := time.Now().UnixMilli() - lastSuccessfulPing.Pong
+					utils.SugarLogger.Warnf("Last ping from vehicle %s was %dms ago!", vehicleID, ago)
+				}
+			}
+			go publishPing(Client, vehicleID)
+		}
+		interval, err := strconv.Atoi(config.TCMPingInterval)
+		if err != nil {
+			interval = 1000
+		}
+		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
-	interval, err := strconv.Atoi(config.TCMPingInterval)
-	if err != nil {
-		interval = 500
-	}
-	time.Sleep(time.Duration(interval) * time.Millisecond)
 }
 
 func publishPing(client mqtt.Client, vehicleID string) {
@@ -91,9 +102,9 @@ func publishPing(client mqtt.Client, vehicleID string) {
 	service.CreatePing(ping)
 }
 
-func subscribePing(client mqtt.Client) {
-	client.Subscribe("gr24/+/ping", 0, service.PingIngestCallback)
-	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/ping")
+func subscribePong(client mqtt.Client) {
+	client.Subscribe("gr24/+/pong", 0, service.PingIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/pong")
 }
 
 func subscribePedal(client mqtt.Client) {
