@@ -3,12 +3,15 @@ package rabbitmq
 import (
 	"fmt"
 	"gr24/config"
+	"gr24/model"
 	"gr24/service"
 	"gr24/utils"
 	"math/rand"
 	"strconv"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 )
 
 var Client mqtt.Client
@@ -61,6 +64,44 @@ func InitializeIngest() {
 	subscribeWheel(Client)
 	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
+	subscribePong(Client)
+	go pingLoop()
+}
+
+func pingLoop() {
+	for {
+		vehicles := []string{"test"}
+		for _, vehicleID := range vehicles {
+			lastPing, _ := service.GetLastPing(vehicleID)
+			if lastPing.ID != "" && lastPing.Pong == 0 {
+				lastSuccessfulPing, _ := service.GetLastSuccessfulPing(vehicleID)
+				if lastSuccessfulPing.ID != "" {
+					ago := time.Now().UnixMilli() - lastSuccessfulPing.Pong
+					utils.SugarLogger.Warnf("Last ping from vehicle %s was %dms ago!", vehicleID, ago)
+				}
+			}
+			go publishPing(Client, vehicleID)
+		}
+		interval, err := strconv.Atoi(config.TCMPingInterval)
+		if err != nil {
+			interval = 1000
+		}
+		time.Sleep(time.Duration(interval) * time.Millisecond)
+	}
+}
+
+func publishPing(client mqtt.Client, vehicleID string) {
+	ping := model.Ping{}
+	ping.ID = uuid.New().String()
+	ping.VehicleID = vehicleID
+	ping.Ping = time.Now().UnixMilli()
+	go service.CreatePing(ping)
+	_ = client.Publish("gr24/"+vehicleID+"/ping", 0, false, []byte("ping"))
+}
+
+func subscribePong(client mqtt.Client) {
+	client.Subscribe("gr24/+/pong", 0, service.PingIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/pong")
 }
 
 func subscribePedal(client mqtt.Client) {

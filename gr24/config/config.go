@@ -25,6 +25,8 @@ var MQTTPort = os.Getenv("MQTT_PORT")
 var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
+var TCMPingInterval = os.Getenv("TCM_PING_INTERVAL")
+
 var DatabaseHost = os.Getenv("DB_HOST")
 var DatabasePort = os.Getenv("DB_PORT")
 var DatabaseName = os.Getenv("DB_NAME")
