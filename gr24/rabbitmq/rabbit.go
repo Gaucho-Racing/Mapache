@@ -58,13 +58,14 @@ func sub(client mqtt.Client, topic string) {
 
 func InitializeIngest() {
 	sub(Client, "meta")
+	subscribePong(Client)
 	subscribePedal(Client)
 	subscribeACU(Client)
 	subscribeBCM(Client)
 	subscribeWheel(Client)
 	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
-	subscribePong(Client)
+	subscribeMobile(Client)
 	// go pingLoop()
 }
 
@@ -132,4 +133,9 @@ func subscribeSteeringWheel(client mqtt.Client) {
 func subscribeVDM(client mqtt.Client) {
 	client.Subscribe("gr24/+/vdm", 0, service.VDMIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/vdm")
+}
+
+func subscribeMobile(client mqtt.Client) {
+	client.Subscribe("gr24/+/mobile", 0, service.MobileIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/mobile")
 }
