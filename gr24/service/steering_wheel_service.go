@@ -5,6 +5,7 @@ import (
 	"gr24/model"
 	"gr24/utils"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ func SteeringWheelFromBytes(data []byte) model.SteeringWheel {
 		return steeringWheel
 	}
 	steeringWheel.ID = uuid.New().String()
+	steeringWheel.CreatedAt = time.Now()
 	steeringWheel.PowerLevel = steeringWheelFields[0].Value
 	steeringWheel.TorqueMap = steeringWheelFields[1].Value
 	steeringWheel.Regen = steeringWheelFields[2].Value

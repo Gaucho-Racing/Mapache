@@ -5,6 +5,7 @@ import (
 	"gr24/model"
 	"gr24/utils"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ func ACUFromBytes(data []byte) model.ACU {
 		return acu
 	}
 	acu.ID = uuid.New().String()
+	acu.CreatedAt = time.Now()
 	// Row 1
 	acu.AccumulatorVoltage = float64(acuFields[0].Value)
 	acu.AccumulatorCurrent = float64(acuFields[1].Value)

@@ -5,6 +5,7 @@ import (
 	"gr24/model"
 	"gr24/utils"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ func BCMFromBytes(data []byte) model.BCM {
 		return bcm
 	}
 	bcm.ID = uuid.New().String()
+	bcm.CreatedAt = time.Now()
 	bcm.AccelX = float64(bcmFields[0].Value)
 	bcm.AccelY = float64(bcmFields[1].Value)
 	bcm.AccelZ = float64(bcmFields[2].Value)
