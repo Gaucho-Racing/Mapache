@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import SpeedLiveWidget from "./widgets/SpeedLiveWidget";
 import MapSpeedLiveWidget from "./widgets/MapSpeedLiveWidget";
 import DebugLiveWidget from "./widgets/DebugLiveWidget";
+import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
 
 function MobilePage() {
   const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
@@ -40,7 +41,7 @@ function MobilePage() {
       name: "Speed Live",
       width: 300,
       height: 300,
-      component: <SpeedLiveWidget />,
+      component: <AccelerometerLiveWidget />,
     },
     {
       id: 5,
