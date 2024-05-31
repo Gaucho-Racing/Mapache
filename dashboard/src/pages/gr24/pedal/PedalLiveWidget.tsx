@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 
 function GR24PedalLiveWidget() {
-  const [socketUrl] = React.useState("ws://localhost:7001/ws/gr24/pedal");
+  const [socketUrl] = React.useState("ws://localhost:7004/ws/gr24/pedal");
   const { lastMessage, readyState } = useWebSocket(socketUrl);
 
   const LoadingComponent = () => {
