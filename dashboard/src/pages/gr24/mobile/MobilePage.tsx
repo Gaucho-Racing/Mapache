@@ -6,6 +6,7 @@ import SpeedLiveWidget from "./widgets/SpeedLiveWidget";
 import MapSpeedLiveWidget from "./widgets/MapSpeedLiveWidget";
 import DebugLiveWidget from "./widgets/DebugLiveWidget";
 import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
+import AltitudeGraphLiveWidget from "./widgets/AltitudeGraphLiveWidget";
 
 function MobilePage() {
   const [widgets] = useState([
@@ -25,31 +26,38 @@ function MobilePage() {
     },
     {
       id: 3,
-      name: "Speed Live",
+      name: "Map Speed Live",
       width: 600,
       height: 300,
       component: <MapSpeedLiveWidget />,
     },
     {
       id: 4,
-      name: "Speed Live",
+      name: "Accelerometer Live",
       width: 300,
       height: 300,
       component: <AccelerometerLiveWidget />,
     },
     {
       id: 5,
-      name: "Speed Live",
+      name: "Map Speed Live Big",
       width: 932,
       height: 300,
       component: <MapSpeedLiveWidget />,
     },
     {
       id: 6,
-      name: "Speed Live",
+      name: "Debug Live",
       width: 600,
       height: 300,
       component: <DebugLiveWidget />,
+    },
+    {
+      id: 7,
+      name: "Graph Live",
+      width: 600,
+      height: 300,
+      component: <AltitudeGraphLiveWidget />,
     },
   ]);
 

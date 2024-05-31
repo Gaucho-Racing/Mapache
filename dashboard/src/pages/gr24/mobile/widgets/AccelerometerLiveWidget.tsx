@@ -18,16 +18,16 @@ function AccelerometerLiveWidget() {
     if (lastMessage !== null) {
       const data = JSON.parse(lastMessage.data);
       setMessageJson(data);
-      const x = data.accelerometer_x;
-      const y = data.accelerometer_y;
+      const x = data.accelerometer_x / 9.80665;
+      const y = data.accelerometer_y / 9.80665;
 
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext("2d");
       if (!ctx) return;
 
       const animateDot = () => {
-        const targetX = 100 + x * 15;
-        const targetY = 100 + y * 15;
+        const targetX = 100 + x * 40;
+        const targetY = 100 + y * 40;
 
         dotXRef.current += (targetX - dotXRef.current) * 0.5;
         dotYRef.current += (targetY - dotYRef.current) * 0.5;
@@ -55,6 +55,19 @@ function AccelerometerLiveWidget() {
           ctx.arc(100, 100, i, 0, 2 * Math.PI);
           ctx.stroke();
         }
+
+        // Label the axis by 0.5
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.fillText("0.5", 100 + 100, 100);
+        ctx.fillText("1g", 140, 100);
+        ctx.fillText("2g", 180, 100);
+        ctx.fillText("-1g", 50, 100);
+        ctx.fillText("-2g", 10, 100);
+        ctx.fillText("1g", 95, 60);
+        ctx.fillText("2g", 95, 20);
+        ctx.fillText("-1g", 95, 145);
+        ctx.fillText("-2g", 95, 185);
 
         // Draw dot at the calculated position
         ctx.fillStyle = "#e105a3";
@@ -102,8 +115,8 @@ function AccelerometerLiveWidget() {
           <div className="relative flex h-full w-full flex-col">
             <canvas ref={canvasRef} width={200} height={200} />
             <div className="absolute" style={{ left: "12px", bottom: "12px" }}>
-              <p>X: {messageJson.accelerometer_x.toFixed(4)} G</p>
-              <p>Y: {messageJson.accelerometer_y.toFixed(4)} G</p>
+              <p>X: {(messageJson.accelerometer_x / 9.80665).toFixed(4)} G</p>
+              <p>Y: {(messageJson.accelerometer_y / 9.80665).toFixed(4)} G</p>
             </div>
           </div>
         ) : (
