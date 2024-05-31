@@ -17,4 +17,9 @@ func SetupRouter() *gin.Engine {
 
 func InitializeRoutes(router *gin.Engine) {
 	router.GET(fmt.Sprintf("/%s/ping", config.Service.Name), Ping)
+	InitializeWebsocketRoutes(router)
+}
+
+func InitializeWebsocketRoutes(router *gin.Engine) {
+	router.GET("/ws/gr24/pedal", ConnectPedalSocket)
 }
