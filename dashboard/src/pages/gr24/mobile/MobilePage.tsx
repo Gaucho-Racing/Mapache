@@ -15,6 +15,7 @@ function MobilePage() {
   const map = useRef<mapboxgl.Map | null>(null);
   const initialLat = 42.35;
   const initialLong = -71.06;
+  var mapMarkers: mapboxgl.Marker[] = [];
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return; // Ensure container is not null and map is only initialized once
@@ -40,13 +41,31 @@ function MobilePage() {
             speed: 4,
             bearing: data.heading,
           });
-          const marker = new mapboxgl.Marker()
+          removeMarkers();
+          const marker = new mapboxgl.Marker(vehicleMarker())
             .setLngLat([data.longitude, data.latitude])
             .addTo(map.current);
+          mapMarkers.push(marker);
         }
       }
     }
   }, [lastMessage]);
+
+  const vehicleMarker = () => {
+    const el = document.createElement("div");
+    el.className = "vehicle-marker";
+    el.style.width = "50px";
+    el.style.height = "50px";
+    el.style.borderRadius = "50%";
+    el.style.backgroundImage = "url('/icons/gps-marker-light.png')";
+    el.style.backgroundSize = "cover";
+    return el;
+  };
+
+  const removeMarkers = () => {
+    mapMarkers.forEach((marker) => marker.remove());
+    mapMarkers = [];
+  };
 
   const getCompassString = () => {
     const compass = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
