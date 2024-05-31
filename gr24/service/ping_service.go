@@ -10,6 +10,20 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+var pingCallbacks []func(ping model.Ping)
+
+// pingNotify calls all the functions registered to pingCallbacks
+func pingNotify(ping model.Ping) {
+	for _, callback := range pingCallbacks {
+		callback(ping)
+	}
+}
+
+// SubscribePing registers a function to be called when a new ping is received
+func SubscribePing(callback func(ping model.Ping)) {
+	pingCallbacks = append(pingCallbacks, callback)
+}
+
 // PingIngestCallback is the callback function for handling incoming mqtt tcm ping frames
 var PingIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	utils.SugarLogger.Infof("[MQ-%s] Received ping frame", msg.Topic())
@@ -19,11 +33,14 @@ var PingIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 	if lastPing.ID != "" {
 		lastPing.Pong = currentTime
 		lastPing.Delta = currentTime - lastPing.Ping
-		_ = DeletePingByID(lastPing.ID)
-		err := CreatePing(lastPing)
-		if err != nil {
-			utils.SugarLogger.Errorln(err)
-		}
+		pingNotify(lastPing)
+		go func() {
+			_ = DeletePingByID(lastPing.ID)
+			err := CreatePing(lastPing)
+			if err != nil {
+				utils.SugarLogger.Errorln(err)
+			}
+		}()
 		utils.SugarLogger.Infof("Ping: %d ms", lastPing.Delta)
 	}
 }
