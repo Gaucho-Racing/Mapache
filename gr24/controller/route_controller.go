@@ -24,4 +24,5 @@ func InitializeWebsocketRoutes(router *gin.Engine) {
 	router.GET("/ws/gr24/pedal", ConnectPedalSocket)
 	router.GET("/ws/gr24/mobile", ConnectMobileSocket)
 	router.GET("/ws/gr24/steering_wheel", ConnectSteeringWheelSocket)
+	router.GET("/ws/gr24/acu", ConnectACUSocket)
 }
