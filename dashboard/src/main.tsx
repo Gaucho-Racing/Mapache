@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App.tsx";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 import "/node_modules/react-grid-layout/css/styles.css";
@@ -10,11 +9,12 @@ import PedalPage from "./pages/gr24/pedal/PedalPage.tsx";
 import RegisterPage from "./pages/auth/RegisterPage.tsx";
 import DashboardPage from "./pages/gr24/dashboard/DashboardPage.tsx";
 import NodesPage from "./pages/gr24/nodes/NodesPage.tsx";
+import MobilePage from "./pages/gr24/mobile/MobilePage.tsx";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <DashboardPage />,
   },
   {
     path: "/auth/register",
@@ -35,6 +35,10 @@ const router = createBrowserRouter([
   {
     path: "/gr24/pedal",
     element: <PedalPage />,
+  },
+  {
+    path: "/gr24/mobile",
+    element: <MobilePage />,
   },
 ]);
 
