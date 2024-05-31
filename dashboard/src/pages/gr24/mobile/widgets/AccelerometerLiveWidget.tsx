@@ -17,7 +17,7 @@ function AccelerometerLiveWidget() {
   useEffect(() => {
     if (lastMessage !== null) {
       const data = JSON.parse(lastMessage.data);
-      //   data.accelerometer_x = 3;
+      //   data.accelerometer_x = -2;
       //   data.accelerometer_y = 3;
       setMessageJson(data);
       const x = data.accelerometer_x;
@@ -26,38 +26,46 @@ function AccelerometerLiveWidget() {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
 
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.strokeStyle = "gray";
+      const animateDot = () => {
+        const targetX = 100 + x * 15;
+        const targetY = 100 + y * 15;
 
-      // Draw x-axis
-      ctx.beginPath();
-      ctx.moveTo(0, 100);
-      ctx.lineTo(200, 100);
-      ctx.stroke();
+        dotXRef.current += (targetX - dotXRef.current) * 0.5;
+        dotYRef.current += (targetY - dotYRef.current) * 0.5;
 
-      // Draw y-axis
-      ctx.beginPath();
-      ctx.moveTo(100, 0);
-      ctx.lineTo(100, 200);
-      ctx.stroke();
-
-      // Draw concentric rings around the dot
-      for (let i = 5; i <= 100; i += 20) {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = "gray";
-        ctx.beginPath();
-        ctx.arc(100, 100, i, 0, 2 * Math.PI);
-        ctx.stroke();
-      }
 
-      // Calculate dot position based on x and y values
-      const dotX = 100 + x * 15; // Adjust as needed
-      const dotY = 100 + y * 15; // Adjust as needed
-      // Draw dot at the calculated position
-      ctx.fillStyle = "#e105a3";
-      ctx.beginPath();
-      ctx.arc(dotX, dotY, 5, 0, 2 * Math.PI);
-      ctx.fill();
+        // Draw x-axis
+        ctx.beginPath();
+        ctx.moveTo(0, 100);
+        ctx.lineTo(200, 100);
+        ctx.stroke();
+
+        // Draw y-axis
+        ctx.beginPath();
+        ctx.moveTo(100, 0);
+        ctx.lineTo(100, 200);
+        ctx.stroke();
+
+        // Draw concentric rings around the dot
+        for (let i = 5; i <= 100; i += 20) {
+          ctx.strokeStyle = "gray";
+          ctx.beginPath();
+          ctx.arc(100, 100, i, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+
+        // Draw dot at the calculated position
+        ctx.fillStyle = "#e105a3";
+        ctx.beginPath();
+        ctx.arc(dotXRef.current, dotYRef.current, 5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        requestAnimationFrame(animateDot);
+      };
+      animateDot();
     }
   }, [lastMessage]);
 
