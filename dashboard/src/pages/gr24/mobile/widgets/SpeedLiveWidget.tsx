@@ -1,8 +1,6 @@
 import { Loader2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import React, { useRef, useEffect, useState } from "react";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
+import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { Mobile, initMobile } from "@/models/gr24/mobile";

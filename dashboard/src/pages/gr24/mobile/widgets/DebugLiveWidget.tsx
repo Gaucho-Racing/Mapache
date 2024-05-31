@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { Mobile, initMobile } from "@/models/gr24/mobile";

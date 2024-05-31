@@ -1,7 +1,5 @@
 import Layout from "@/components/Layout";
-import React, { useRef, useEffect, useState } from "react";
-import useWebSocket, { ReadyState } from "react-use-websocket";
-import { Mobile, initMobile } from "@/models/gr24/mobile";
+import { useEffect, useState } from "react";
 import MapLiveWidget from "./widgets/MapLiveWidget";
 import { Card } from "@/components/ui/card";
 import SpeedLiveWidget from "./widgets/SpeedLiveWidget";
@@ -10,11 +8,7 @@ import DebugLiveWidget from "./widgets/DebugLiveWidget";
 import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
 
 function MobilePage() {
-  const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
-  const { lastMessage, readyState } = useWebSocket(socketUrl);
-  const [messageJson, setMessageJson] = useState<Mobile>(initMobile);
-
-  const [widgets, setWidgets] = useState([
+  const [widgets] = useState([
     {
       id: 1,
       name: "Map Live",
@@ -59,12 +53,7 @@ function MobilePage() {
     },
   ]);
 
-  useEffect(() => {
-    if (lastMessage !== null) {
-      const data = JSON.parse(lastMessage.data);
-      setMessageJson(data);
-    }
-  }, [lastMessage]);
+  useEffect(() => {});
 
   return (
     <>

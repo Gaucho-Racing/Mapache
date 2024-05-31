@@ -1,25 +1,21 @@
 import { Loader2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
-import { Mobile, initMobile } from "@/models/gr24/mobile";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 function MapLiveWidget() {
   const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
   const { lastMessage, readyState } = useWebSocket(socketUrl);
-  const [messageJson, setMessageJson] = useState<Mobile>(initMobile);
 
   const mapContainer = useRef(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const initialLat = 42.35;
   const initialLong = -71.06;
-  var mapMarkers: mapboxgl.Marker[] = [];
+  let mapMarkers: mapboxgl.Marker[] = [];
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return; // Ensure container is not null and map is only initialized once
@@ -35,7 +31,6 @@ function MapLiveWidget() {
   useEffect(() => {
     if (lastMessage !== null) {
       const data = JSON.parse(lastMessage.data);
-      setMessageJson(data);
       if (map.current) {
         if (!map.current.isMoving()) {
           map.current.flyTo({
