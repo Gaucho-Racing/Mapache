@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 import "/node_modules/react-grid-layout/css/styles.css";
 import "/node_modules/react-resizable/css/styles.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import PedalPage from "./pages/gr24/pedal/PedalPage.tsx";
 import RegisterPage from "./pages/auth/RegisterPage.tsx";
