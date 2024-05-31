@@ -10,21 +10,20 @@ function AccelerometerLiveWidget() {
   const { lastMessage, readyState } = useWebSocket(socketUrl);
   const [messageJson, setMessageJson] = useState<Mobile>(initMobile);
 
-  const canvasRef = React.useRef();
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const dotXRef = useRef(100);
   const dotYRef = useRef(100);
 
   useEffect(() => {
     if (lastMessage !== null) {
       const data = JSON.parse(lastMessage.data);
-      //   data.accelerometer_x = -2;
-      //   data.accelerometer_y = 3;
       setMessageJson(data);
       const x = data.accelerometer_x;
       const y = data.accelerometer_y;
 
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas?.getContext("2d");
+      if (!ctx) return;
 
       const animateDot = () => {
         const targetX = 100 + x * 15;
@@ -34,7 +33,7 @@ function AccelerometerLiveWidget() {
         dotYRef.current += (targetY - dotYRef.current) * 0.5;
 
         // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas!.width, canvas!.height);
         ctx.strokeStyle = "gray";
 
         // Draw x-axis
