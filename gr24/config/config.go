@@ -15,6 +15,7 @@ var Service rincon.Service = rincon.Service{
 
 var Routes = []string{
 	fmt.Sprintf("/%s/ping", strings.ToLower(Service.Name)),
+	"/ws/gr24/**",
 }
 
 var Env = os.Getenv("ENV")

@@ -10,7 +10,6 @@ import (
 )
 
 var rinconRetries = 0
-
 var isRunningInDocker = false
 
 func RegisterRincon() {

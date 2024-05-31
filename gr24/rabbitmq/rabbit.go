@@ -65,7 +65,7 @@ func InitializeIngest() {
 	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
 	subscribePong(Client)
-	go pingLoop()
+	// go pingLoop()
 }
 
 func pingLoop() {
