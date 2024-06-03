@@ -14,11 +14,12 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import { MAPACHE_WS_URL } from "@/consts/config";
+import { Mobile } from "@/models/gr24/mobile";
 
-function GraphLiveWidget({ field }) {
+function GraphLiveWidget({ field }: { field: string }) {
   const [socketUrl] = React.useState(`${MAPACHE_WS_URL}/ws/gr24/mobile`);
   const { lastMessage, readyState } = useWebSocket(socketUrl);
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<Mobile[]>([]);
 
   useEffect(() => {
     if (lastMessage !== null) {
@@ -121,7 +122,15 @@ function GraphLiveWidget({ field }) {
     }
   };
 
-  const CustomTooltip = ({ active, payload, label }) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active: boolean;
+    payload: any[];
+    label: string;
+  }) => {
     if (active && payload && payload.length) {
       return (
         <div className="custom-tooltip">
@@ -139,7 +148,6 @@ function GraphLiveWidget({ field }) {
         </div>
       );
     }
-
     return null;
   };
 
@@ -171,7 +179,11 @@ function GraphLiveWidget({ field }) {
                   domain={getYAxisDomain()}
                   allowDataOverflow={true}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={
+                    <CustomTooltip active={false} payload={[]} label={""} />
+                  }
+                />
                 <Line
                   type="monotone"
                   dataKey={field}
