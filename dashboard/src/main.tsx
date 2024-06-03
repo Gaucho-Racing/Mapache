@@ -11,11 +11,12 @@ import RegisterPage from "./pages/auth/RegisterPage.tsx";
 import DashboardPage from "./pages/gr24/dashboard/DashboardPage.tsx";
 import NodesPage from "./pages/gr24/nodes/NodesPage.tsx";
 import MobilePage from "./pages/gr24/mobile/MobilePage.tsx";
+import App from "./App.tsx";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <DashboardPage />,
+    element: <App />,
   },
   {
     path: "/auth/register",

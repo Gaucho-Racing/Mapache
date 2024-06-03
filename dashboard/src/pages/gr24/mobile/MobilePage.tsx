@@ -6,9 +6,6 @@ import SpeedLiveWidget from "./widgets/SpeedLiveWidget";
 import MapSpeedLiveWidget from "./widgets/MapSpeedLiveWidget";
 import DebugLiveWidget from "./widgets/DebugLiveWidget";
 import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
-import GraphLiveWidget from "./widgets/AltitudeGraphLiveWidget";
-import { Button } from "@/components/ui/button";
-import { OutlineButton } from "@/components/ui/outline-button";
 import {
   AlertDialogHeader,
   AlertDialogFooter,
@@ -22,12 +19,6 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@radix-ui/react-alert-dialog";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@radix-ui/react-popover";
-import { toast } from "sonner";
 
 function MobilePage() {
   const [widgets] = useState([
@@ -101,9 +92,7 @@ function MobilePage() {
   const SelectWidgetsDialog = () => {
     return (
       <AlertDialog>
-        <AlertDialogTrigger>
-          <OutlineButton>Select Widgets ({widgets.length})</OutlineButton>
-        </AlertDialogTrigger>
+        <AlertDialogTrigger>Open</AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -129,22 +118,7 @@ function MobilePage() {
             <h1>Mobile</h1>
             <p className="mt-2 text-neutral-400">Phone on car!</p>
           </div>
-          <OutlineButton
-            onClick={() => {
-              toast("bruh");
-              console.log("bruh");
-            }}
-          >
-            Select Widgets ({widgets.length})
-          </OutlineButton>
-          <Button
-            onClick={() => {
-              toast("bruh");
-              console.log("bruh");
-            }}
-          >
-            Refresh
-          </Button>
+          <SelectWidgetsDialog />
         </div>
         <div className="flex flex-wrap">
           {widgets.map((widget) => (
