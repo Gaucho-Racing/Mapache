@@ -7,6 +7,8 @@ import MapSpeedLiveWidget from "./widgets/MapSpeedLiveWidget";
 import DebugLiveWidget from "./widgets/DebugLiveWidget";
 import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
 import GraphLiveWidget from "./widgets/AltitudeGraphLiveWidget";
+import { Button } from "@/components/ui/button";
+import { OutlineButton } from "@/components/ui/outline-button";
 
 function MobilePage() {
   const [widgets] = useState([
@@ -80,14 +82,21 @@ function MobilePage() {
   return (
     <>
       <Layout activeTab="mobile">
-        <h1>Mobile</h1>
-        <p className="mt-2 text-neutral-400">Phone on car!</p>
+        <div className="flex flex-row items-end justify-between">
+          <div>
+            <h1>Mobile</h1>
+            <p className="mt-2 text-neutral-400">Phone on car!</p>
+          </div>
+          <OutlineButton onClick={() => {}}>
+            Select Widgets ({widgets.length})
+          </OutlineButton>
+        </div>
         <div className="flex flex-wrap">
           {widgets.map((widget) => (
             <Card
               key={widget.id}
               style={{ width: widget.width, height: widget.height }}
-              className="my-4 mr-8 overflow-clip"
+              className="my-3 mr-6 overflow-clip"
             >
               {widget.component}
             </Card>
