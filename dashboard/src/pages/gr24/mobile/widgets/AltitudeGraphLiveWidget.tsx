@@ -14,6 +14,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Card } from "@/components/ui/card";
 
 function AltitudeGraphLiveWidget() {
   const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
@@ -24,11 +25,10 @@ function AltitudeGraphLiveWidget() {
   useEffect(() => {
     if (lastMessage !== null) {
       const data = JSON.parse(lastMessage.data);
+      data.altitude = Math.round(data.altitude);
+      data.heading = Math.round(data.heading);
       setMessageJson(data);
-      const value = Math.round(data.heading);
-      const timestamp = new Date(data.created_at);
-      const newDataPoint = [timestamp, value];
-      setData((prevData) => [...prevData.slice(-9), data]);
+      setData((prevData) => [...prevData.slice(-50), data]);
     }
   }, [lastMessage]);
 
@@ -104,35 +104,62 @@ function AltitudeGraphLiveWidget() {
     },
   ];
 
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="custom-tooltip">
+          <Card className="px-4 py-2">
+            <h5 className="text-center">{new Date(label).toLocaleString()}</h5>
+            <div className="flex flex-row">
+              <p className="pr-2 font-semibold text-gr-pink">Altitude:</p>
+              <p className="pr-2 font-semibold text-gr-pink">
+                {payload[0].value} m
+              </p>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <>
       <div className="h-full w-full">
         {lastMessage ? (
-          <div>
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="mx-2 text-center">
+            <h4 className="my-2">Altitude</h4>
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart
                 width={500}
                 height={300}
                 data={data}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
+                margin={{ left: -20, right: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
+                <CartesianGrid strokeDasharray="4 3" stroke="#343434" />
+                <XAxis
+                  dataKey="created_at"
+                  stroke="white"
+                  tick={{ fill: "gray" }}
+                  tickFormatter={(timestamp) =>
+                    new Date(timestamp).toLocaleTimeString()
+                  }
+                />
+                <YAxis
+                  stroke="white"
+                  scale={"linear"}
+                  tick={{ fill: "gray" }}
+                  domain={["dataMin", "dataMax"]}
+                />
+                <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
-                  dataKey="pv"
-                  stroke="#8884d8"
-                  activeDot={{ r: 8 }}
+                  dataKey="heading"
+                  stroke="#e105a3"
+                  strokeWidth={2}
                 />
-                <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+                {/* <Line type="monotone" dataKey="altitude" stroke="#82ca9d" /> */}
               </LineChart>
             </ResponsiveContainer>
           </div>
