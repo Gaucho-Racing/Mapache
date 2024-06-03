@@ -81,6 +81,12 @@ function DebugLiveWidget() {
                     {messageJson.speed} m/s
                   </div>
                 </div>
+                <div className="flex">
+                  <div className="pr-2 font-semibold">Battery:</div>
+                  <div className="font-semibold text-gray-400">
+                    {messageJson.battery}%
+                  </div>
+                </div>
               </div>
               <div className="flex-1">
                 <div className="flex">
