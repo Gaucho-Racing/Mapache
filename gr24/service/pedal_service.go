@@ -5,6 +5,7 @@ import (
 	"gr24/model"
 	"gr24/utils"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ func PedalFromBytes(data []byte) model.Pedal {
 		return pedal
 	}
 	pedal.ID = uuid.New().String()
+	pedal.CreatedAt = time.Now()
 	pedal.AppsOne = float64(pedalFields[0].Value)
 	pedal.AppsTwo = float64(pedalFields[1].Value)
 	pedal.Millis = pedalFields[3].Value

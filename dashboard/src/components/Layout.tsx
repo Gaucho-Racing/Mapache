@@ -110,7 +110,7 @@ const Layout: React.FC<LayoutProps> = ({ activeTab, children }) => {
               }}
             />
             <div
-              className="mt-24 p-8 transition-all duration-200"
+              className="mt-14 p-8 transition-all duration-200"
               style={{ marginLeft: sidebarWidth }}
             >
               {children}

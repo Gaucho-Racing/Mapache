@@ -125,6 +125,13 @@ const Sidebar = (props: SidebarProps) => {
           />
           <SidebarItem
             icon={faCircle}
+            text="Mobile"
+            link={`/${currentCar.type}/mobile`}
+            isSelected={props.selectedPage === "mobile"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={faCircle}
             text="Pedals"
             link={`/${currentCar.type}/pedal`}
             isSelected={props.selectedPage === "pedal"}
