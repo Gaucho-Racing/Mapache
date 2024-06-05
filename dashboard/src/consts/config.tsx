@@ -3,12 +3,15 @@ import { User, initUser } from "@/models/user";
 import AccelerometerLiveWidget from "@/pages/gr24/mobile/widgets/AccelerometerLiveWidget";
 import GraphLiveWidget from "@/pages/gr24/mobile/widgets/AltitudeGraphLiveWidget";
 import DebugLiveWidget from "@/pages/gr24/mobile/widgets/DebugLiveWidget";
-import DebugRawLiveWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
 import MapLiveWidget from "@/pages/gr24/mobile/widgets/MapLiveWidget";
 import MapSpeedLiveWidget from "@/pages/gr24/mobile/widgets/MapSpeedLiveWidget";
+import InverterRawWidget from "@/pages/gr24/inverter/widgets/DebugRawLiveWidget";
+import PedalRawWidget from "@/pages/gr24/pedal/widgets/DebugRawLiveWidget";
+import MobileRawWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
+import VDMRawWidget from "@/pages/gr24/vdm/widgets/DebugRawLiveWidget";
+import WheelRawWidget from "@/pages/gr24/wheel/widgets/DebugRawLiveWidget";
 
 export const currentUser: User = initUser;
-
 export const currentCar: Vehicle = initVehicle;
 
 export const MAPACHE_API_URL =
@@ -16,6 +19,15 @@ export const MAPACHE_API_URL =
 
 export const MAPACHE_WS_URL =
   import.meta.env.VITE_MAPACHE_WS_URL ?? "ws://localhost:10310";
+
+export const inverterLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <PedalRawWidget />,
+  },
+];
 
 export const mobileLiveWidgets = [
   {
@@ -82,6 +94,33 @@ export const mobileLiveWidgets = [
     name: "Raw Debug Live",
     width: 600,
     height: 300,
-    component: <DebugRawLiveWidget />,
+    component: <MobileRawWidget />,
+  },
+];
+
+export const pedalLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <PedalRawWidget />,
+  },
+];
+
+export const vdmLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <VDMRawWidget />,
+  },
+];
+
+export const wheelLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <WheelRawWidget />,
   },
 ];
