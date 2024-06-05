@@ -2,10 +2,14 @@ import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { pedalLiveWidgets, vdmLiveWidgets } from "@/consts/config";
+import {
+  steeringWheelLiveWidgets,
+  vdmLiveWidgets,
+  wheelLiveWidgets,
+} from "@/consts/config";
 import DebugRawLiveWidget from "./widgets/DebugRawLiveWidget";
 
-function PedalPage() {
+function SteeringWheelPage() {
   const [selectingWidgets, setSelectingWidgets] = useState(false);
   const [widgets, setWidgets] = useState([
     {
@@ -35,7 +39,7 @@ function PedalPage() {
       <div className="p-4">
         <Card className="p-4">
           <h3>Select Widgets</h3>
-          {pedalLiveWidgets.map((widget) => (
+          {steeringWheelLiveWidgets.map((widget) => (
             <div
               key={widget.name}
               className="my-2 flex items-center justify-between"
@@ -68,11 +72,11 @@ function PedalPage() {
 
   return (
     <>
-      <Layout activeTab="pedal">
+      <Layout activeTab="steering_wheel">
         <div className="flex flex-row items-end justify-between">
           <div>
-            <h1>Pedals</h1>
-            <p className="mt-2 text-neutral-400">pedals page</p>
+            <h1>Steering Wheel</h1>
+            <p className="mt-2 text-neutral-400">steering wheels page</p>
           </div>
           <Button
             onClick={() => {
@@ -103,4 +107,4 @@ function PedalPage() {
   );
 }
 
-export default PedalPage;
+export default SteeringWheelPage;
