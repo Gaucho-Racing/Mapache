@@ -63,7 +63,6 @@ func InitializeIngest() {
 	subscribeACU(Client)
 	subscribeBCM(Client)
 	subscribeWheel(Client)
-	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
 	subscribeMobile(Client)
 	subscribeInverter(Client)
@@ -124,11 +123,6 @@ func subscribeBCM(client mqtt.Client) {
 func subscribeWheel(client mqtt.Client) {
 	client.Subscribe("gr24/+/wheel/+", 0, service.WheelIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/wheel/+")
-}
-
-func subscribeSteeringWheel(client mqtt.Client) {
-	client.Subscribe("gr24/+/steering_wheel", 0, service.SteeringWheelIngestCallback)
-	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/steering_wheel")
 }
 
 func subscribeVDM(client mqtt.Client) {
