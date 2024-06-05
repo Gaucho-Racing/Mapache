@@ -5,9 +5,13 @@ import GraphLiveWidget from "@/pages/gr24/mobile/widgets/AltitudeGraphLiveWidget
 import DebugLiveWidget from "@/pages/gr24/mobile/widgets/DebugLiveWidget";
 import MapLiveWidget from "@/pages/gr24/mobile/widgets/MapLiveWidget";
 import MapSpeedLiveWidget from "@/pages/gr24/mobile/widgets/MapSpeedLiveWidget";
+import ACURawWidget from "@/pages/gr24/acu/widgets/DebugRawLiveWidget";
+import BCMRawWidget from "@/pages/gr24/bcm/widgets/DebugRawLiveWidget";
+import DashPanelRawWidget from "@/pages/gr24/dash_panel/widgets/DebugRawLiveWidget";
 import InverterRawWidget from "@/pages/gr24/inverter/widgets/DebugRawLiveWidget";
 import PedalRawWidget from "@/pages/gr24/pedal/widgets/DebugRawLiveWidget";
 import MobileRawWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
+import SteeringWheelRawWidget from "@/pages/gr24/steering_wheel/widgets/DebugRawLiveWidget";
 import VDMRawWidget from "@/pages/gr24/vdm/widgets/DebugRawLiveWidget";
 import WheelRawWidget from "@/pages/gr24/wheel/widgets/DebugRawLiveWidget";
 
@@ -19,6 +23,33 @@ export const MAPACHE_API_URL =
 
 export const MAPACHE_WS_URL =
   import.meta.env.VITE_MAPACHE_WS_URL ?? "ws://localhost:10310";
+
+export const acuLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <ACURawWidget />,
+  },
+];
+
+export const bcmLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <BCMRawWidget />,
+  },
+];
+
+export const dashPanelLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <DashPanelRawWidget />,
+  },
+];
 
 export const inverterLiveWidgets = [
   {
@@ -104,6 +135,15 @@ export const pedalLiveWidgets = [
     width: 600,
     height: 300,
     component: <PedalRawWidget />,
+  },
+];
+
+export const steeringWheelLiveWidgets = [
+  {
+    name: "Raw Debug Live",
+    width: 600,
+    height: 300,
+    component: <SteeringWheelRawWidget />,
   },
 ];
 

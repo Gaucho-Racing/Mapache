@@ -15,6 +15,10 @@ import App from "./App.tsx";
 import VDMPage from "./pages/gr24/vdm/VDMPage.tsx";
 import WheelPage from "./pages/gr24/wheel/WheelPage.tsx";
 import InverterPage from "./pages/gr24/inverter/InverterPage.tsx";
+import SteeringWheelPage from "./pages/gr24/steering_wheel/SteeringWheelPage.tsx";
+import ACUPage from "./pages/gr24/acu/ACUPage.tsx";
+import BCMPage from "./pages/gr24/bcm/BCMPage.tsx";
+import DashPanelPage from "./pages/gr24/dash_panel/DashPanelPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -38,6 +42,18 @@ const router = createBrowserRouter([
     element: <NodesPage />,
   },
   {
+    path: "/gr24/acu",
+    element: <ACUPage />,
+  },
+  {
+    path: "/gr24/bcm",
+    element: <BCMPage />,
+  },
+  {
+    path: "/gr24/dpanel",
+    element: <DashPanelPage />,
+  },
+  {
     path: "/gr24/inverter",
     element: <InverterPage />,
   },
@@ -48,6 +64,10 @@ const router = createBrowserRouter([
   {
     path: "/gr24/pedal",
     element: <PedalPage />,
+  },
+  {
+    path: "/gr24/steering_wheel",
+    element: <SteeringWheelPage />,
   },
   {
     path: "/gr24/vdm",
