@@ -61,14 +61,32 @@ func PedalFromBytes(data []byte) model.Pedal {
 	return pedal
 }
 
+var apps1Min = 1000000.0
+var apps1Max = 0.0
+var apps2Min = 1000000.0
+var apps2Max = 0.0
+
 // scalePedal scales the pedal values to be between 0 and 100
 func scalePedal(pedal model.Pedal) model.Pedal {
-	apps1Min := 14070
-	apps1Max := 28440
-	apps2Min := 9965
-	apps2Max := 20280
-	pedal.AppsOne = (pedal.AppsOne - float64(apps1Min)) / float64(apps1Max-apps1Min) * 100
-	pedal.AppsTwo = (pedal.AppsTwo - float64(apps2Min)) / float64(apps2Max-apps2Min) * 100
+	// apps1Min := 14070
+	// apps1Max := 28440
+	// apps2Min := 9965
+	// apps2Max := 20280
+	if pedal.AppsOne < apps1Min {
+		apps1Min = pedal.AppsOne
+	}
+	if pedal.AppsOne > apps1Max {
+		apps1Max = pedal.AppsOne
+	}
+	if pedal.AppsTwo < apps2Min {
+		apps2Min = pedal.AppsTwo
+	}
+	if pedal.AppsTwo > apps2Max {
+		apps2Max = pedal.AppsTwo
+	}
+
+	pedal.AppsOne = 100 - (pedal.AppsOne-float64(apps1Min))/float64(apps1Max-apps1Min)*100
+	pedal.AppsTwo = 100 - (pedal.AppsTwo-float64(apps2Min))/float64(apps2Max-apps2Min)*100
 	return pedal
 }
 

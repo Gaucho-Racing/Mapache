@@ -39,9 +39,11 @@ func NewInverterNode() mapache.Node {
 		mapache.NewField("InputVoltage", 2, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("CurrentAC", 2, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("CurrentDC", 2, mapache.Signed, mapache.BigEndian),
+		mapache.NewField("useless DTI", 4, mapache.Signed, mapache.BigEndian), //DTI stuff
 		mapache.NewField("ControllerTemp", 2, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("MotorTemp", 2, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("Faults", 1, mapache.Signed, mapache.BigEndian),
+		mapache.NewField("useless DTI", 3, mapache.Signed, mapache.BigEndian), //DTI stuff
 		mapache.NewField("FOCID", 4, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("FOCIQ", 4, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("Throttle", 1, mapache.Signed, mapache.BigEndian),
@@ -50,5 +52,8 @@ func NewInverterNode() mapache.Node {
 		mapache.NewField("DriveEnable", 1, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("FlagsOne", 1, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("FlagsTwo", 1, mapache.Signed, mapache.BigEndian),
+		mapache.NewField("useless DTI", 1, mapache.Signed, mapache.BigEndian), //DTI stuff
+		mapache.NewField("CAn Version", 1, mapache.Signed, mapache.BigEndian),
+		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }

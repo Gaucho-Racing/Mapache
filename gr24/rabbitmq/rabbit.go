@@ -66,7 +66,8 @@ func InitializeIngest() {
 	subscribeSteeringWheel(Client)
 	subscribeVDM(Client)
 	subscribeMobile(Client)
-	// go pingLoop()
+	subscribeInverter(Client)
+	go pingLoop()
 }
 
 func pingLoop() {
@@ -138,4 +139,9 @@ func subscribeVDM(client mqtt.Client) {
 func subscribeMobile(client mqtt.Client) {
 	client.Subscribe("gr24/+/mobile", 0, service.MobileIngestCallback)
 	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/mobile")
+}
+
+func subscribeInverter(client mqtt.Client) {
+	client.Subscribe("gr24/+/inverter", 0, service.InverterIngestCallback)
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic: gr24/+/inverter")
 }
