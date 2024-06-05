@@ -73,7 +73,7 @@ function ACUPage() {
 
   return (
     <>
-      <Layout activeTab="bcm">
+      <Layout activeTab="acu">
         <div className="flex flex-row items-end justify-between">
           <div>
             <h1>ACU</h1>
