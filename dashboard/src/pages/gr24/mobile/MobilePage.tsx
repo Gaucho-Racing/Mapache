@@ -1,112 +1,89 @@
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
-import MapLiveWidget from "./widgets/MapLiveWidget";
 import { Card } from "@/components/ui/card";
-import SpeedLiveWidget from "./widgets/SpeedLiveWidget";
 import MapSpeedLiveWidget from "./widgets/MapSpeedLiveWidget";
 import DebugLiveWidget from "./widgets/DebugLiveWidget";
 import AccelerometerLiveWidget from "./widgets/AccelerometerLiveWidget";
-import {
-  AlertDialogHeader,
-  AlertDialogFooter,
-} from "@/components/ui/alert-dialog";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@radix-ui/react-alert-dialog";
+import { Button } from "@/components/ui/button";
+import { mobileLiveWidgets } from "@/consts/config";
+import DebugRawLiveWidget from "./widgets/DebugRawLiveWidget";
 
 function MobilePage() {
-  const [widgets] = useState([
+  const [selectingWidgets, setSelectingWidgets] = useState(false);
+  const [widgets, setWidgets] = useState([
     {
-      id: 1,
-      name: "Map Live",
-      width: 600,
-      height: 300,
-      component: <MapLiveWidget />,
-    },
-    {
-      id: 2,
-      name: "Speed Live",
-      width: 300,
-      height: 300,
-      component: <SpeedLiveWidget />,
-    },
-    {
-      id: 3,
-      name: "Map Speed Live",
-      width: 600,
-      height: 300,
-      component: <MapSpeedLiveWidget />,
-    },
-    {
-      id: 4,
-      name: "Accelerometer Live",
-      width: 300,
-      height: 300,
-      component: <AccelerometerLiveWidget />,
-    },
-    {
-      id: 5,
-      name: "Map Speed Live Big",
+      name: "Map w/ Speed Large",
       width: 932,
       height: 300,
       component: <MapSpeedLiveWidget />,
     },
     {
-      id: 6,
+      name: "Accelerometer Plot",
+      width: 300,
+      height: 300,
+      component: <AccelerometerLiveWidget />,
+    },
+    {
       name: "Debug Live",
       width: 600,
       height: 300,
       component: <DebugLiveWidget />,
     },
-    // {
-    //   id: 7,
-    //   name: "Graph Live",
-    //   width: 600,
-    //   height: 300,
-    //   component: <GraphLiveWidget field={"altitude"} />,
-    // },
-    // {
-    //   id: 8,
-    //   name: "Graph Live",
-    //   width: 600,
-    //   height: 300,
-    //   component: <GraphLiveWidget field={"heading"} />,
-    // },
-    // {
-    //   id: 9,
-    //   name: "Graph Live",
-    //   width: 600,
-    //   height: 300,
-    //   component: <GraphLiveWidget field={"accelerometer_x"} />,
-    // },
+    {
+      name: "Raw Debug Live",
+      width: 600,
+      height: 300,
+      component: <DebugRawLiveWidget />,
+    },
   ]);
 
   useEffect(() => {});
 
-  const SelectWidgetsDialog = () => {
+  function addToWidgets(widget) {
+    if (!widgets.some((item) => item.name === widget.name)) {
+      setWidgets((prevWidgets) => [...prevWidgets, widget]);
+    }
+  }
+
+  function removeFromWidgets(widget) {
+    setWidgets((prevWidgets) =>
+      prevWidgets.filter((item) => item.name !== widget.name),
+    );
+  }
+
+  const SelectWidgetsComponent = () => {
     return (
-      <AlertDialog>
-        <AlertDialogTrigger>Open</AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              account and remove your data from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction>Continue</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="p-4">
+        <Card className="p-4">
+          <h3>Select Widgets</h3>
+          {mobileLiveWidgets.map((widget) => (
+            <div
+              key={widget.name}
+              className="my-2 flex items-center justify-between"
+            >
+              <p>{widget.name}</p>
+              {widgets.some((item) => item.name === widget.name) ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    removeFromWidgets(widget);
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    addToWidgets(widget);
+                  }}
+                >
+                  Add
+                </Button>
+              )}
+            </div>
+          ))}
+        </Card>
+      </div>
     );
   };
 
@@ -118,19 +95,30 @@ function MobilePage() {
             <h1>Mobile</h1>
             <p className="mt-2 text-neutral-400">Phone on car!</p>
           </div>
-          <SelectWidgetsDialog />
+          <Button
+            onClick={() => {
+              setSelectingWidgets(!selectingWidgets);
+            }}
+            variant={selectingWidgets ? "secondary" : "outline"}
+          >
+            {selectingWidgets ? "Save" : "Select Widgets"}
+          </Button>
         </div>
-        <div className="flex flex-wrap">
-          {widgets.map((widget) => (
-            <Card
-              key={widget.id}
-              style={{ width: widget.width, height: widget.height }}
-              className="my-3 mr-6 overflow-clip"
-            >
-              {widget.component}
-            </Card>
-          ))}
-        </div>
+        {selectingWidgets ? (
+          <SelectWidgetsComponent />
+        ) : (
+          <div className="flex flex-wrap">
+            {widgets.map((widget) => (
+              <Card
+                key={widget.id}
+                style={{ width: widget.width, height: widget.height }}
+                className="my-3 mr-6 overflow-auto"
+              >
+                {widget.component}
+              </Card>
+            ))}
+          </div>
+        )}
       </Layout>
     </>
   );

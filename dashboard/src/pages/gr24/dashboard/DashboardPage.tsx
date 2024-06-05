@@ -3,6 +3,19 @@ import Layout from "@/components/Layout";
 import { useState } from "react";
 import React from "react";
 import GR24PedalLiveWidget from "../pedal/PedalLiveWidget";
+import {
+  AlertDialogHeader,
+  AlertDialogFooter,
+} from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@radix-ui/react-alert-dialog";
 
 function DashboardPage() {
   const [widgets, setWidgets] = useState([
