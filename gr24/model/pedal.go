@@ -7,12 +7,14 @@ import (
 )
 
 type Pedal struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	VehicleID string    `json:"vehicle_id"`
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
-	AppsOne   float64   `json:"apps_one"`
-	AppsTwo   float64   `json:"apps_two"`
-	Millis    int       `json:"millis" gorm:"index"`
+	ID         string    `json:"id" gorm:"primaryKey"`
+	VehicleID  string    `json:"vehicle_id"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+	AppsOne    float64   `json:"apps_one"`
+	AppsTwo    float64   `json:"apps_two"`
+	AppsOneRaw int       `json:"apps_one_raw"`
+	AppsTwoRaw int       `json:"apps_two_raw"`
+	Millis     int       `json:"millis" gorm:"index"`
 }
 
 func (Pedal) TableName() string {

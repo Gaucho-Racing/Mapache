@@ -55,16 +55,17 @@ func PedalFromBytes(data []byte) model.Pedal {
 	}
 	pedal.ID = uuid.New().String()
 	pedal.CreatedAt = time.Now()
-	pedal.AppsOne = float64(pedalFields[0].Value)
-	pedal.AppsTwo = float64(pedalFields[1].Value)
+	pedal.AppsOneRaw = pedalFields[0].Value
+	pedal.AppsTwoRaw = pedalFields[1].Value
 	pedal.Millis = pedalFields[3].Value
 	return pedal
 }
 
-var apps1Min = 1000000.0
-var apps1Max = 0.0
-var apps2Min = 1000000.0
-var apps2Max = 0.0
+// Apps values for autoscaling
+var apps1Min = 1000000
+var apps1Max = 0
+var apps2Min = 1000000
+var apps2Max = 0
 
 // scalePedal scales the pedal values to be between 0 and 100
 func scalePedal(pedal model.Pedal) model.Pedal {
@@ -72,21 +73,21 @@ func scalePedal(pedal model.Pedal) model.Pedal {
 	// apps1Max := 28440
 	// apps2Min := 9965
 	// apps2Max := 20280
-	if pedal.AppsOne < apps1Min {
-		apps1Min = pedal.AppsOne
+	if pedal.AppsOneRaw < apps1Min {
+		apps1Min = pedal.AppsOneRaw
 	}
-	if pedal.AppsOne > apps1Max {
-		apps1Max = pedal.AppsOne
+	if pedal.AppsOneRaw > apps1Max {
+		apps1Max = pedal.AppsOneRaw
 	}
-	if pedal.AppsTwo < apps2Min {
-		apps2Min = pedal.AppsTwo
+	if pedal.AppsTwoRaw < apps2Min {
+		apps2Min = pedal.AppsTwoRaw
 	}
-	if pedal.AppsTwo > apps2Max {
-		apps2Max = pedal.AppsTwo
+	if pedal.AppsTwoRaw > apps2Max {
+		apps2Max = pedal.AppsTwoRaw
 	}
 
-	pedal.AppsOne = 100 - (pedal.AppsOne-float64(apps1Min))/float64(apps1Max-apps1Min)*100
-	pedal.AppsTwo = 100 - (pedal.AppsTwo-float64(apps2Min))/float64(apps2Max-apps2Min)*100
+	pedal.AppsOne = 100 - float64(pedal.AppsOneRaw-apps1Min)/float64(apps1Max-apps1Min)*100
+	pedal.AppsTwo = 100 - float64(pedal.AppsTwoRaw-apps2Min)/float64(apps2Max-apps2Min)*100
 	return pedal
 }
 
