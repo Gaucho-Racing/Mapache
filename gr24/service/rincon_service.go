@@ -52,7 +52,7 @@ func RegisterRincon() {
 	config.RinconClient = client
 	if isRunningInDocker {
 		config.Service.Endpoint = "http://gr24:" + config.Port
-		config.Service.HealthCheck = "http://gr24:" + config.Port + "/ping"
+		config.Service.HealthCheck = "http://gr24:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
 	} else {
 		config.Service.Endpoint = "http://host.docker.internal:" + config.Port
 		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
