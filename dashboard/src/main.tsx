@@ -66,10 +66,6 @@ const router = createBrowserRouter([
     element: <PedalPage />,
   },
   {
-    path: "/gr24/steering_wheel",
-    element: <SteeringWheelPage />,
-  },
-  {
     path: "/gr24/vdm",
     element: <VDMPage />,
   },

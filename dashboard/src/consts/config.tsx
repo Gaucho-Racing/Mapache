@@ -11,7 +11,6 @@ import DashPanelRawWidget from "@/pages/gr24/dash_panel/widgets/DebugRawLiveWidg
 import InverterRawWidget from "@/pages/gr24/inverter/widgets/DebugRawLiveWidget";
 import PedalRawWidget from "@/pages/gr24/pedal/widgets/DebugRawLiveWidget";
 import MobileRawWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
-import SteeringWheelRawWidget from "@/pages/gr24/steering_wheel/widgets/DebugRawLiveWidget";
 import VDMRawWidget from "@/pages/gr24/vdm/widgets/DebugRawLiveWidget";
 import WheelRawWidget from "@/pages/gr24/wheel/widgets/DebugRawLiveWidget";
 
@@ -135,15 +134,6 @@ export const pedalLiveWidgets = [
     width: 600,
     height: 300,
     component: <PedalRawWidget />,
-  },
-];
-
-export const steeringWheelLiveWidgets = [
-  {
-    name: "Raw Debug Live",
-    width: 600,
-    height: 300,
-    component: <SteeringWheelRawWidget />,
   },
 ];
 
