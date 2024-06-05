@@ -17,17 +17,29 @@ type Inverter struct {
 	CurrentDC      int       `json:"dc_current"`
 	ControllerTemp int       `json:"controller_temp"`
 	MotorTemp      int       `json:"motor_temp"`
-	Faults         int       `json:"faults"`
-	FOCID          int       `json:"foc_id"`
-	FOCIQ          int       `json:"foc_iq"`
-	Throttle       int       `json:"throttle"`
-	Brake          int       `json:"brake"`
-	DigitalIO      int       `json:"digital_io"`
-	DriveEnable    int       `json:"drive_enable"`
-	FlagsOne       int       `json:"flags_one"`
-	FlagsTwo       int       `json:"flags_two"`
-	CANVersion     int       `json:"can_version"`
-	Millis         int       `json:"millis"`
+	// Faults
+	Faults                  int  `json:"faults"`
+	OvervoltageError        bool `json:"overvoltage_error"`
+	UndervoltageError       bool `json:"undervoltage_error"`
+	DRVError                bool `json:"drv_error"`
+	OvercurrentError        bool `json:"overcurrent_error"`
+	ControllerOvertempError bool `json:"controller_overtemp_error"`
+	MotorOvertempError      bool `json:"motor_overtemp_error"`
+	SensorWireError         bool `json:"sensor_wire_error"`
+	SensorGeneralError      bool `json:"sensor_general_error"`
+	CANCommandError         bool `json:"can_command_error"`
+	AnalogInputError        bool `json:"analog_input_error"`
+
+	FOCID       int `json:"foc_id"`
+	FOCIQ       int `json:"foc_iq"`
+	Throttle    int `json:"throttle"`
+	Brake       int `json:"brake"`
+	DigitalIO   int `json:"digital_io"`
+	DriveEnable int `json:"drive_enable"`
+	FlagsOne    int `json:"flags_one"`
+	FlagsTwo    int `json:"flags_two"`
+	CANVersion  int `json:"can_version"`
+	Millis      int `json:"millis"`
 }
 
 func (Inverter) TableName() string {

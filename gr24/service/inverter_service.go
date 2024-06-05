@@ -60,7 +60,39 @@ func InverterFromBytes(data []byte) model.Inverter {
 	inverter.CurrentDC = inverterFields[4].Value
 	inverter.ControllerTemp = inverterFields[6].Value
 	inverter.MotorTemp = inverterFields[7].Value
+
 	inverter.Faults = inverterFields[8].Value
+	if inverter.Faults == 1 {
+		inverter.OvervoltageError = true
+	}
+	if inverter.Faults == 2 {
+		inverter.UndervoltageError = true
+	}
+	if inverter.Faults == 3 {
+		inverter.DRVError = true
+	}
+	if inverter.Faults == 4 {
+		inverter.OvercurrentError = true
+	}
+	if inverter.Faults == 5 {
+		inverter.ControllerOvertempError = true
+	}
+	if inverter.Faults == 6 {
+		inverter.MotorOvertempError = true
+	}
+	if inverter.Faults == 7 {
+		inverter.SensorWireError = true
+	}
+	if inverter.Faults == 8 {
+		inverter.SensorGeneralError = true
+	}
+	if inverter.Faults == 9 {
+		inverter.CANCommandError = true
+	}
+	if inverter.Faults == 10 {
+		inverter.AnalogInputError = true
+	}
+
 	inverter.FOCID = inverterFields[10].Value
 	inverter.FOCIQ = inverterFields[11].Value
 	inverter.Throttle = inverterFields[12].Value
