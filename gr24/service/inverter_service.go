@@ -55,19 +55,22 @@ func InverterFromBytes(data []byte) model.Inverter {
 	inverter.ID = uuid.New().String()
 	inverter.ERPM = inverterFields[0].Value
 	inverter.DutyCycle = inverterFields[1].Value
-	inverter.CurrentAC = inverterFields[2].Value
-	inverter.CurrentDC = inverterFields[3].Value
-	inverter.ControllerTemp = inverterFields[4].Value
-	inverter.MotorTemp = inverterFields[5].Value
-	inverter.Faults = inverterFields[6].Value
-	inverter.FOCID = inverterFields[7].Value
-	inverter.FOCIQ = inverterFields[8].Value
-	inverter.Throttle = inverterFields[9].Value
-	inverter.Brake = inverterFields[10].Value
-	inverter.DigitalIO = inverterFields[11].Value
-	inverter.DriveEnable = inverterFields[12].Value
-	inverter.FlagsOne = inverterFields[13].Value
-	inverter.FlagsTwo = inverterFields[14].Value
+	inverter.InputVoltage = inverterFields[2].Value
+	inverter.CurrentAC = inverterFields[3].Value
+	inverter.CurrentDC = inverterFields[4].Value
+	inverter.ControllerTemp = inverterFields[6].Value
+	inverter.MotorTemp = inverterFields[7].Value
+	inverter.Faults = inverterFields[8].Value
+	inverter.FOCID = inverterFields[10].Value
+	inverter.FOCIQ = inverterFields[11].Value
+	inverter.Throttle = inverterFields[12].Value
+	inverter.Brake = inverterFields[13].Value
+	inverter.DigitalIO = inverterFields[14].Value
+	inverter.DriveEnable = inverterFields[15].Value
+	inverter.FlagsOne = inverterFields[16].Value
+	inverter.FlagsTwo = inverterFields[17].Value
+	inverter.CANVersion = inverterFields[19].Value
+	inverter.Millis = inverterFields[20].Value
 	return inverter
 }
 

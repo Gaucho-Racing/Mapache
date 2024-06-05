@@ -26,7 +26,9 @@ type Inverter struct {
 	DriveEnable    int       `json:"drive_enable"`
 	FlagsOne       int       `json:"flags_one"`
 	FlagsTwo       int       `json:"flags_two"`
-} //Does not include CAN VERSION or reserved
+	CANVersion     int       `json:"can_version"`
+	Millis         int       `json:"millis"`
+}
 
 func (Inverter) TableName() string {
 	return "gr24_inverter"
@@ -53,7 +55,7 @@ func NewInverterNode() mapache.Node {
 		mapache.NewField("FlagsOne", 1, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("FlagsTwo", 1, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("useless DTI", 1, mapache.Signed, mapache.BigEndian), //DTI stuff
-		mapache.NewField("CAn Version", 1, mapache.Signed, mapache.BigEndian),
+		mapache.NewField("CAN Version", 1, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }
