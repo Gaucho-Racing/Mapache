@@ -4,11 +4,12 @@ import React, { useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
+import { MAPACHE_WS_URL } from "@/consts/config";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 function MapLiveWidget() {
-  const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
+  const [socketUrl] = React.useState(`${MAPACHE_WS_URL}/ws/gr24/mobile`);
   const { lastMessage, readyState } = useWebSocket(socketUrl);
 
   const mapContainer = useRef(null);

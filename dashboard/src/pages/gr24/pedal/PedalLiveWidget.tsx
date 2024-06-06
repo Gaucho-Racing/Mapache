@@ -5,9 +5,10 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
+import { MAPACHE_WS_URL } from "@/consts/config";
 
 function GR24PedalLiveWidget() {
-  const [socketUrl] = React.useState("ws://localhost:7004/ws/gr24/pedal");
+  const [socketUrl] = React.useState(`${MAPACHE_WS_URL}/ws/gr24/pedal`);
   const { lastMessage, readyState } = useWebSocket(socketUrl);
 
   const LoadingComponent = () => {
@@ -70,40 +71,16 @@ function GR24PedalLiveWidget() {
             </div>
             <Separator className="my-2" />
             <div className="flex items-center justify-center">
-              <div className="w-1/3 text-start">
-                <p>Brake F:</p>
-                <h3>
-                  {parseFloat(
-                    JSON.parse(lastMessage.data).brake_pressure_front,
-                  ).toFixed(2)}
-                </h3>
+              <div className="w-1/2 text-start">
+                <p>APPS 1 RAW:</p>
               </div>
-              <div className="w-2/3">
-                <Progress
-                  value={Math.floor(
-                    (JSON.parse(lastMessage.data).brake_pressure_front / 256) *
-                      100,
-                  )}
-                />
-              </div>
+              <h3>{JSON.parse(lastMessage.data).apps_one_raw}</h3>
             </div>
             <div className="flex items-center justify-center">
-              <div className="w-1/3 text-start">
-                <p>Brake R:</p>
-                <h3>
-                  {parseFloat(
-                    JSON.parse(lastMessage.data).brake_pressure_rear,
-                  ).toFixed(2)}
-                </h3>
+              <div className="w-1/2 text-start">
+                <p>APPS 2 RAW:</p>
               </div>
-              <div className="w-2/3">
-                <Progress
-                  value={Math.floor(
-                    (JSON.parse(lastMessage.data).brake_pressure_front / 256) *
-                      100,
-                  )}
-                />
-              </div>
+              <h3>{JSON.parse(lastMessage.data).apps_two_raw}</h3>
             </div>
           </div>
         ) : (

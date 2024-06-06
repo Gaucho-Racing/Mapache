@@ -5,11 +5,12 @@ import mapboxgl from "mapbox-gl";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { Mobile, initMobile } from "@/models/gr24/mobile";
+import { MAPACHE_WS_URL } from "@/consts/config";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 function MapSpeedLiveWidget() {
-  const [socketUrl] = React.useState("ws://localhost:10310/ws/gr24/mobile");
+  const [socketUrl] = React.useState(`${MAPACHE_WS_URL}/ws/gr24/mobile`);
   const { lastMessage, readyState } = useWebSocket(socketUrl);
   const [messageJson, setMessageJson] = useState<Mobile>(initMobile);
 
