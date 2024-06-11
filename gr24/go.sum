@@ -21,6 +21,8 @@ github.com/gaucho-racing/mapache-go v1.1.0 h1:gqtGVe5KXg+JgGovhXgTFEaQvMX7C4Fddb
 github.com/gaucho-racing/mapache-go v1.1.0/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
 github.com/gaucho-racing/mapache-go v1.1.1 h1:dDcd0qqMbeEc6+GmQB19Ejs+qv3BrJyWbCVnHIb5T5o=
 github.com/gaucho-racing/mapache-go v1.1.1/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.3.0 h1:RChvdbn0jrPPEqL9nKujk48fJ4otVQ8BRS94v5T+GGc=
+github.com/gaucho-racing/mapache-go v1.3.0/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.10.0 h1:nTuyha1TYqgedzytsKYqna+DfLos46nTv2ygFy86HFU=

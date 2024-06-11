@@ -10,7 +10,6 @@ import (
 )
 
 var rinconRetries = 0
-
 var isRunningInDocker = false
 
 func RegisterRincon() {
@@ -52,8 +51,8 @@ func RegisterRincon() {
 	}
 	config.RinconClient = client
 	if isRunningInDocker {
-		config.Service.Endpoint = "http://rincon:" + config.Port
-		config.Service.HealthCheck = "http://rincon:" + config.Port + "/ping"
+		config.Service.Endpoint = "http://" + strings.ToLower(config.Service.Name) + ":" + config.Port
+		config.Service.HealthCheck = "http://" + strings.ToLower(config.Service.Name) + ":" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
 	} else {
 		config.Service.Endpoint = "http://host.docker.internal:" + config.Port
 		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
