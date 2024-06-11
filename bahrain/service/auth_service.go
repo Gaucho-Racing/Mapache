@@ -112,6 +112,6 @@ func GetRequestUserID(c *gin.Context) string {
 }
 
 func RequestUserHasRole(c *gin.Context, role string) bool {
-	// TODO: STUB
-	return false
+	user := GetUserByID(GetRequestUserID(c))
+	return user.HasRole(role)
 }
