@@ -1,13 +1,14 @@
 package database
 
 import (
+	"bahrain/config"
+	"bahrain/model"
+	"bahrain/utils"
 	"fmt"
-	"silverstone/config"
-	"silverstone/model"
-	"silverstone/utils"
 	"strconv"
 	"time"
 
+	"github.com/gaucho-racing/mapache-go"
 	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to database")
-		err := db.AutoMigrate()
+		err := db.AutoMigrate(&model.Meta{}, &mapache.User{}, &mapache.UserRole{})
 		if err != nil {
 			utils.SugarLogger.Fatalln("AutoMigration failed", err)
 		}

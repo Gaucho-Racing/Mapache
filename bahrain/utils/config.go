@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"silverstone/config"
+	"bahrain/config"
 	"strings"
 )
 

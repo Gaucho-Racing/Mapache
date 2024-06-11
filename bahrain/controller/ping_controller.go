@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"bahrain/config"
 	"net/http"
-	"silverstone/config"
 
 	"github.com/gin-gonic/gin"
 )

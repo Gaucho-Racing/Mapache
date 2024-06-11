@@ -1,8 +1,8 @@
 package service
 
 import (
-	"silverstone/config"
-	"silverstone/utils"
+	"bahrain/config"
+	"bahrain/utils"
 	"strings"
 	"time"
 

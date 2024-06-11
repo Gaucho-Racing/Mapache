@@ -9,7 +9,7 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "Silverstone",
+	Name:    "Bahrain",
 	Version: "1.0.0",
 }
 
@@ -19,6 +19,8 @@ var Routes = []string{
 
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
+
+var AuthSigningKey = os.Getenv("AUTH_SIGNING_KEY")
 
 var DatabaseHost = os.Getenv("DB_HOST")
 var DatabasePort = os.Getenv("DB_PORT")
