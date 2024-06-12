@@ -17,4 +17,7 @@ func SetupRouter() *gin.Engine {
 
 func InitializeRoutes(router *gin.Engine) {
 	router.GET(fmt.Sprintf("/%s/ping", config.Service.Name), Ping)
+	router.GET("/vehicles", GetAllVehicles)
+	router.GET("/vehicles/:vehicleID", GetVehicleByID)
+	router.POST("/vehicles/:vehicleID", CreateVehicle)
 }
