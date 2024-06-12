@@ -45,14 +45,14 @@ function RegisterPage() {
         },
       });
       if (response.status == 200) {
-        currentUser.id = response.data.id;
-        currentUser.firstName = response.data.first_name;
-        currentUser.lastName = response.data.last_name;
-        currentUser.email = response.data.email;
-        currentUser.subteam = response.data.subteam;
-        currentUser.roles = response.data.roles;
-        currentUser.updatedAt = response.data.updated_at;
-        currentUser.createdAt = response.data.created_at;
+        currentUser.id = response.data.data.id;
+        currentUser.firstName = response.data.data.first_name;
+        currentUser.lastName = response.data.data.last_name;
+        currentUser.email = response.data.data.email;
+        currentUser.subteam = response.data.data.subteam;
+        currentUser.roles = response.data.data.roles;
+        currentUser.updatedAt = response.data.data.updated_at;
+        currentUser.createdAt = response.data.data.created_at;
 
         if (currentUser.firstName != "" && currentUser.lastName != "") {
           const route = queryParameters.get("route");
@@ -96,14 +96,14 @@ function RegisterPage() {
         },
       );
       if (response.status == 200) {
-        currentUser.id = response.data.id;
-        currentUser.firstName = response.data.first_name;
-        currentUser.lastName = response.data.last_name;
-        currentUser.email = response.data.email;
-        currentUser.subteam = response.data.subteam;
-        currentUser.roles = response.data.roles;
-        currentUser.updatedAt = response.data.updated_at;
-        currentUser.createdAt = response.data.created_at;
+        currentUser.id = response.data.data.id;
+        currentUser.firstName = response.data.data.first_name;
+        currentUser.lastName = response.data.data.last_name;
+        currentUser.email = response.data.data.email;
+        currentUser.subteam = response.data.data.subteam;
+        currentUser.roles = response.data.data.roles;
+        currentUser.updatedAt = response.data.data.updated_at;
+        currentUser.createdAt = response.data.data.created_at;
         navigate("/dash");
       }
     } catch (error) {

@@ -2,7 +2,6 @@ import { MAPACHE_API_URL, currentUser } from "@/consts/config";
 import axios from "axios";
 
 export const checkCredentials = async () => {
-  return 0;
   if (
     localStorage.getItem("id") == null ||
     localStorage.getItem("token") == null
@@ -17,14 +16,14 @@ export const checkCredentials = async () => {
         },
       });
       if (response.status == 200) {
-        currentUser.id = response.data.id;
-        currentUser.firstName = response.data.first_name;
-        currentUser.lastName = response.data.last_name;
-        currentUser.email = response.data.email;
-        currentUser.subteam = response.data.subteam;
-        currentUser.roles = response.data.roles;
-        currentUser.updatedAt = response.data.updated_at;
-        currentUser.createdAt = response.data.created_at;
+        currentUser.id = response.data.data.id;
+        currentUser.firstName = response.data.data.first_name;
+        currentUser.lastName = response.data.data.last_name;
+        currentUser.email = response.data.data.email;
+        currentUser.subteam = response.data.data.subteam;
+        currentUser.roles = response.data.data.roles;
+        currentUser.updatedAt = response.data.data.updated_at;
+        currentUser.createdAt = response.data.data.created_at;
 
         if (currentUser.firstName != "" && currentUser.lastName != "") {
           return 1;

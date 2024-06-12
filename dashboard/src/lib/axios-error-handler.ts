@@ -8,8 +8,8 @@ function getAxiosErrorCode(error: any) {
 function getAxiosErrorMessage(error: any) {
   if (error.response == null) {
     return error.message;
-  } else if (error.response.data.message != null) {
-    return error.response.data.message;
+  } else if (error.response.data.data.message != null) {
+    return error.response.data.data.message;
   } else {
     return "Failed with status code " + error.response.status;
   }

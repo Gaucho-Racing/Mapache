@@ -41,8 +41,8 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        localStorage.setItem("id", response.data.id);
-        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("id", response.data.data.id);
+        localStorage.setItem("token", response.data.data.token);
         navigate("/auth/register");
       }
     } catch (error: any) {
@@ -62,8 +62,8 @@ function App() {
         password: loginPassword,
       });
       if (response.status == 200) {
-        localStorage.setItem("id", response.data.id);
-        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("id", response.data.data.id);
+        localStorage.setItem("token", response.data.data.token);
         navigate("/auth/register");
       }
     } catch (error: any) {
