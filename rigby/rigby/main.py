@@ -10,7 +10,7 @@ def main() -> None:
     Run the main application logic.
     """
     mqtt_client = MQTT(
-        broker = os.getenv('MQTT_BROKER', '137.184.112.111'),
+        broker = os.getenv('MQTT_HOST', 'localhost'),
         port = int(os.getenv('MQTT_PORT', '1883')),
         username = os.getenv('MQTT_USERNAME', 'rigby'),
         password = os.getenv('MQTT_PASSWORD', 'rigby')
@@ -33,7 +33,7 @@ def main() -> None:
         bcm.test_generate()
         # mqtt_client.publish_message(f"gr24/{car_id}/bcm", bcm.to_bytes())
         
-        sleep(0.5)
+        sleep(0.2)
 
 
 if __name__ == "__main__":
