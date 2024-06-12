@@ -1,4 +1,4 @@
-name: Build Status
+name: build status
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
 on: [push]
@@ -6,7 +6,7 @@ on: [push]
 jobs:
     dashboard_build_job:
         runs-on: ubuntu-latest
-        name: Build
+        name: dashboard
         defaults:
           run:
             working-directory: ./dashboard
@@ -28,7 +28,7 @@ jobs:
 
     bahrain_build_job:
         runs-on: ubuntu-latest
-        name: Unit Tests
+        name: bahrain
         defaults:
           run:
             working-directory: ./bahrain
@@ -50,7 +50,7 @@ jobs:
 
     gr24_build_job:
         runs-on: ubuntu-latest
-        name: Unit Tests
+        name: gr24
         defaults:
           run:
             working-directory: ./gr24
