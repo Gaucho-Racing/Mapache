@@ -4,6 +4,7 @@ import (
 	"gr24/database"
 	"gr24/model"
 	"gr24/utils"
+	"math"
 	"strings"
 	"time"
 
@@ -87,7 +88,13 @@ func scalePedal(pedal model.Pedal) model.Pedal {
 	}
 
 	pedal.AppsOne = 100 - float64(pedal.AppsOneRaw-apps1Min)/float64(apps1Max-apps1Min)*100
+	if math.IsNaN(pedal.AppsOne) {
+		pedal.AppsOne = 0
+	}
 	pedal.AppsTwo = 100 - float64(pedal.AppsTwoRaw-apps2Min)/float64(apps2Max-apps2Min)*100
+	if math.IsNaN(pedal.AppsTwo) {
+		pedal.AppsTwo = 0
+	}
 	return pedal
 }
 
