@@ -19,6 +19,12 @@ github.com/gabriel-vasile/mimetype v1.4.4 h1:QjV6pZ7/XZ7ryI2KuyeEDE8wnh7fHP9YnQy
 github.com/gabriel-vasile/mimetype v1.4.4/go.mod h1:JwLei5XPtWdGiMFB5Pjle1oEeoSeEuJfJE+TtfvdB/s=
 github.com/gaucho-racing/mapache-go v1.3.0 h1:RChvdbn0jrPPEqL9nKujk48fJ4otVQ8BRS94v5T+GGc=
 github.com/gaucho-racing/mapache-go v1.3.0/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.4.0 h1:x29LrPEwKcPErC/UODEZzKhHdlcpyD4Y91kH2Rf1444=
+github.com/gaucho-racing/mapache-go v1.4.0/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.4.2 h1:M3grYTdEB7zpYXiUNvSJy13cLMoRGFnw2b91DR+CVQw=
+github.com/gaucho-racing/mapache-go v1.4.2/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.4.3 h1:Fu1pSOxySu70PFe/PF5DuBVfqtB6oSbga4OCOrC14Hk=
+github.com/gaucho-racing/mapache-go v1.4.3/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.10.0 h1:nTuyha1TYqgedzytsKYqna+DfLos46nTv2ygFy86HFU=

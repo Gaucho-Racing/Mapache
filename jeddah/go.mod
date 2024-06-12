@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/bk1031/rincon-go v1.1.2
 	github.com/fatih/color v1.17.0
+	github.com/gaucho-racing/mapache-go v1.4.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
@@ -19,7 +20,6 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
-	github.com/gaucho-racing/mapache-go v1.3.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
