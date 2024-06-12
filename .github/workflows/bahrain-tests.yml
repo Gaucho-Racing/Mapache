@@ -1,0 +1,34 @@
+name: Bahrain Tests
+run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
+
+on: [push]
+
+jobs:
+  go_test_job:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    defaults:
+      run:
+        working-directory: ./bahrain
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.0'
+      - name: Install dependencies
+        run: |
+            go get .
+      - name: Run tests
+        run: |
+            make test
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: ./bahrain/coverage.out
+          verbose: true

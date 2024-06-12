@@ -1,0 +1,71 @@
+name: Build Status
+run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
+
+on: [push]
+
+jobs:
+    dashboard_build_job:
+        runs-on: ubuntu-latest
+        name: Build
+        defaults:
+          run:
+            working-directory: ./dashboard
+            shell: bash
+        steps:
+          - uses: actions/checkout@v4
+            with:
+              submodules: true
+          - name: Setup Node
+            uses: actions/setup-node@v4
+            with:
+                node-version: '22.x'
+          - name: Install dependencies
+            run: |
+              npm ci
+          - name: Run build
+            run: |
+              npm run build
+
+    bahrain_build_job:
+        runs-on: ubuntu-latest
+        name: Unit Tests
+        defaults:
+          run:
+            working-directory: ./bahrain
+            shell: bash
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                submodules: true
+            - name: Setup Go
+              uses: actions/setup-go@v4
+              with:
+                go-version: '1.22.0'
+            - name: Install dependencies
+              run: |
+                go get .
+            - name: Build
+              run: |
+                go build
+
+    gr24_build_job:
+        runs-on: ubuntu-latest
+        name: Unit Tests
+        defaults:
+          run:
+            working-directory: ./gr24
+            shell: bash
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                submodules: true
+            - name: Setup Go
+              uses: actions/setup-go@v4
+              with:
+                go-version: '1.22.0'
+            - name: Install dependencies
+              run: |
+                go get .
+            - name: Build
+              run: |
+                go build
