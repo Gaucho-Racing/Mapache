@@ -4,12 +4,11 @@ run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ git
 on: [push]
 
 jobs:
-    dashboard_build_job:
+    all_build_job:
         runs-on: ubuntu-latest
-        name: dashboard
+        name: all
         defaults:
           run:
-            working-directory: ./dashboard
             shell: bash
         steps:
           - uses: actions/checkout@v4
@@ -19,53 +18,27 @@ jobs:
             uses: actions/setup-node@v4
             with:
                 node-version: '22.x'
-          - name: Install dependencies
+          - name: dashboard
             run: |
+              cd dashboard
               npm ci
-          - name: Run build
-            run: |
               npm run build
-
-    bahrain_build_job:
-        runs-on: ubuntu-latest
-        name: bahrain
-        defaults:
-          run:
-            working-directory: ./bahrain
-            shell: bash
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                submodules: true
-            - name: Setup Go
-              uses: actions/setup-go@v4
-              with:
-                go-version: '1.22.0'
-            - name: Install dependencies
-              run: |
-                go get .
-            - name: Build
-              run: |
-                go build
-
-    gr24_build_job:
-        runs-on: ubuntu-latest
-        name: gr24
-        defaults:
-          run:
-            working-directory: ./gr24
-            shell: bash
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                submodules: true
-            - name: Setup Go
-              uses: actions/setup-go@v4
-              with:
-                go-version: '1.22.0'
-            - name: Install dependencies
-              run: |
-                go get .
-            - name: Build
-              run: |
-                go build
+          - name: Setup Go
+            uses: actions/setup-go@v4
+            with:
+              go-version: '1.22.0'
+          - name: bahrain
+            run: |
+              cd bahrain
+              go get .
+              go build
+          - name: jeddah
+            run: |
+              cd jeddah
+              go get .
+              go build
+          - name: gr24
+            run: |
+              cd gr24
+              go get .
+              go build
