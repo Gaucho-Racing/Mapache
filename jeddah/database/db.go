@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gaucho-racing/mapache-go"
 	"github.com/google/uuid"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func InitializeDB() {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to database")
-		err := db.AutoMigrate()
+		err := db.AutoMigrate(&model.Meta{}, &mapache.Vehicle{}, &mapache.Trip{}, &mapache.Lap{})
 		if err != nil {
 			utils.SugarLogger.Fatalln("AutoMigration failed", err)
 		}
