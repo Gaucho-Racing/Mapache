@@ -22,11 +22,10 @@
 <div align="center">
 
 ![GitHub contributors](https://img.shields.io/github/contributors/gaucho-racing/mapache?style=flat)
-![GitHub go.mod Go version (subdirectory of monorepo)](https://img.shields.io/github/go-mod/go-version/gaucho-racing/mapache?filename=ingest%2Fgo.mod&style=flat)
-![Python 3.10.10](https://img.shields.io/badge/python-3.10-blue.svg)
+[![build status](https://github.com/Gaucho-Racing/Mapache/actions/workflows/build.yml/badge.svg)](https://github.com/Gaucho-Racing/Mapache/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/Gaucho-Racing/Mapache/graph/badge.svg?token=FTX4H3ZT5V)](https://codecov.io/gh/Gaucho-Racing/Mapache)
-[![Mapache Tests](https://github.com/Gaucho-Racing/Mapache/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Gaucho-Racing/Mapache/actions/workflows/tests.yml)
-![GitHub License](https://img.shields.io/github/license/Gaucho-Racing/Mapache?style=flat)
+[![Docker Pulls](https://img.shields.io/docker/pulls/gauchoracing/mp_gr24.svg)](https://hub.docker.com/r/gauchoracing/mp_gr24)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
 
