@@ -20,4 +20,10 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/vehicles", GetAllVehicles)
 	router.GET("/vehicles/:vehicleID", GetVehicleByID)
 	router.POST("/vehicles/:vehicleID", CreateVehicle)
+	router.GET("/trips", GetAllTrips)
+	router.GET("/trips/:tripID", GetTripByID)
+	router.GET("/trips/vehicle/:vehicleID", GetAllTripsByVehicleID)
+	router.GET("/trips/ongoing", GetAllOngoingTrips)
+	router.GET("/trips/ongoing/:vehicleID", GetAllOngoingTripsByVehicleID)
+	router.POST("/trips", CreateTrip)
 }
