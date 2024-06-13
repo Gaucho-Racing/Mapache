@@ -3,9 +3,11 @@ package controller
 import (
 	"jeddah/service"
 	"net/http"
+	"time"
 
 	"github.com/gaucho-racing/mapache-go"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func GetAllTrips(c *gin.Context) {
@@ -43,6 +45,25 @@ func CreateTrip(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
+	input.ID = c.Param("tripID")
+	err := service.CreateTrip(input)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, service.GetTripByID(input.ID))
+}
+
+func NewTrip(c *gin.Context) {
+	var input mapache.Trip
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	input.ID = uuid.New().String()
+	now := time.Now()
+	input.StartTime = now
+	input.EndTime = now
 	err := service.CreateTrip(input)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})

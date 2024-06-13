@@ -25,5 +25,6 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/trips/vehicle/:vehicleID", GetAllTripsByVehicleID)
 	router.GET("/trips/ongoing", GetAllOngoingTrips)
 	router.GET("/trips/ongoing/:vehicleID", GetAllOngoingTripsByVehicleID)
-	router.POST("/trips", CreateTrip)
+	router.POST("/trips/:tripID", CreateTrip)
+	router.POST("/trips/new", NewTrip)
 }

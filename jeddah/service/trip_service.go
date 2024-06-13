@@ -10,6 +10,9 @@ import (
 func GetAllTrips() []mapache.Trip {
 	var trips []mapache.Trip
 	database.DB.Find(&trips)
+	for i := range trips {
+		trips[i].Laps = GetAllLapsForTrip(trips[i].ID)
+	}
 	return trips
 }
 
