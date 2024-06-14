@@ -15,7 +15,7 @@ function InverterPage() {
     {
       name: "Raw Debug Live",
       width: 600,
-      height: 300,
+      height: 900,
       component: <DebugRawLiveWidget />,
     },
   ]);

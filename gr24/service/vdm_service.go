@@ -92,7 +92,7 @@ func VDMFromBytes(data []byte) model.VDM {
 	return vdm
 }
 
-// scaleVDM scales the vdm values to be between 0 and 100
+// scaleVDM scales the vdm values
 func scaleVDM(vdm model.VDM) model.VDM {
 	return vdm
 }
