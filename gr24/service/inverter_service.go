@@ -110,6 +110,13 @@ func InverterFromBytes(data []byte) model.Inverter {
 
 // scaleInverter does not scale the inverter values to be between 0 and 100
 func scaleInverter(inverter model.Inverter) model.Inverter {
+	inverter.DutyCycle = inverter.DutyCycle / 10
+	inverter.CurrentAC = inverter.CurrentAC / 10
+	inverter.CurrentDC = inverter.CurrentDC / 10
+	inverter.ControllerTemp = inverter.ControllerTemp / 10
+	inverter.MotorTemp = inverter.MotorTemp / 10
+	inverter.FOCID = inverter.FOCID / 100
+	inverter.FOCIQ = inverter.FOCIQ / 100
 	return inverter
 }
 
