@@ -71,14 +71,15 @@ func InitializeIngest() {
 
 func pingLoop() {
 	for {
-		vehicles := []string{"test"}
-		for _, vehicleID := range vehicles {
+		for _, vehicleID := range config.VehicleIDs {
 			lastPing, _ := service.GetLastPing(vehicleID)
 			if lastPing.ID != "" && lastPing.Pong == 0 {
 				lastSuccessfulPing, _ := service.GetLastSuccessfulPing(vehicleID)
 				if lastSuccessfulPing.ID != "" {
 					ago := time.Now().UnixMilli() - lastSuccessfulPing.Pong
-					utils.SugarLogger.Warnf("Last ping from vehicle %s was %dms ago!", vehicleID, ago)
+					if ago < 10000 || ago%600000 == 0 {
+						utils.SugarLogger.Warnf("Last ping from vehicle %s was %dms ago!", vehicleID, ago)
+					}
 				}
 			}
 			go publishPing(Client, vehicleID)

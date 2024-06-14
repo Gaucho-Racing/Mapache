@@ -18,6 +18,11 @@ var Routes = []string{
 	"/ws/gr24/**",
 }
 
+var VehicleIDs = []string{
+	"gr24-main",
+	"testy",
+}
+
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
