@@ -1,13 +1,16 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "./ui/separator";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { currentUser } from "@/consts/config";
+import { currentVehicle, currentUser } from "@/consts/config";
 import { SHA256 } from "crypto-js";
 import { useNavigate } from "react-router-dom";
 import { logout } from "@/lib/auth";
@@ -21,6 +24,8 @@ interface HeaderProps {
 const Header = (props: HeaderProps) => {
   const navigate = useNavigate();
 
+  function selectVehicle(vehicleId: string) {}
+
   return (
     <nav
       className={`fixed top-0 z-20 w-full items-center justify-start transition-all duration-200 ${props.scroll > 24 ? "bg-card shadow-lg" : "bg-background"} ${props.className}`}
@@ -29,6 +34,36 @@ const Header = (props: HeaderProps) => {
       <div className="flex flex-row items-center justify-between">
         <div className="flex flex-row items-center p-4">bruh</div>
         <div className="mr-4 flex flex-row p-4">
+          {/* <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="w-full" variant="outline">
+                Selected Car: {currentVehicle.name}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              <DropdownMenuRadioGroup
+                value={currentVehicle}
+                onValueChange={selectVehicle}
+              >
+                <DropdownMenuRadioItem value="Aero">Aero</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="Business">
+                  Business
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="Chassis">
+                  Chassis
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="Controls">
+                  Controls
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="Powertrain">
+                  Powertrain
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="Suspension">
+                  Suspension
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="cursor-pointer">

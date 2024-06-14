@@ -2,7 +2,7 @@ import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircle, faHospital } from "@fortawesome/free-regular-svg-icons";
-import { currentCar } from "@/consts/config";
+import { currentVehicle } from "@/consts/config";
 
 interface SidebarProps {
   selectedPage?: string;
@@ -84,70 +84,70 @@ const Sidebar = (props: SidebarProps) => {
           <SidebarItem
             icon={faHospital}
             text="Dashboard"
-            link={`/${currentCar.type}/dash`}
+            link={`/${currentVehicle.type}/dash`}
             isSelected={props.selectedPage === "dash"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Nodes"
-            link={`/${currentCar.type}/nodes`}
+            link={`/${currentVehicle.type}/nodes`}
             isSelected={props.selectedPage === "nodes"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="ACU"
-            link={`/${currentCar.type}/acu`}
+            link={`/${currentVehicle.type}/acu`}
             isSelected={props.selectedPage === "acu"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="BCM"
-            link={`/${currentCar.type}/bcm`}
+            link={`/${currentVehicle.type}/bcm`}
             isSelected={props.selectedPage === "bcm"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Dash Panel"
-            link={`/${currentCar.type}/dpanel`}
+            link={`/${currentVehicle.type}/dpanel`}
             isSelected={props.selectedPage === "dpanel"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Inverter"
-            link={`/${currentCar.type}/inverter`}
+            link={`/${currentVehicle.type}/inverter`}
             isSelected={props.selectedPage === "inverter"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Mobile"
-            link={`/${currentCar.type}/mobile`}
+            link={`/${currentVehicle.type}/mobile`}
             isSelected={props.selectedPage === "mobile"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Pedals"
-            link={`/${currentCar.type}/pedal`}
+            link={`/${currentVehicle.type}/pedal`}
             isSelected={props.selectedPage === "pedal"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="VDM"
-            link={`/${currentCar.type}/vdm`}
+            link={`/${currentVehicle.type}/vdm`}
             isSelected={props.selectedPage === "vdm"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
             icon={faCircle}
             text="Wheels"
-            link={`/${currentCar.type}/wheel`}
+            link={`/${currentVehicle.type}/wheel`}
             isSelected={props.selectedPage === "wheel"}
             isSidebarExpanded={props.isSidebarExpanded}
           />

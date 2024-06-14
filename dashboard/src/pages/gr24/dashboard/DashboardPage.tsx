@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import Layout from "@/components/Layout";
 import { useState } from "react";
 import React from "react";
-import GR24PedalLiveWidget from "../pedal/PedalLiveWidget";
+import GR24PedalLiveWidget from "../pedal/widgets/PedalLiveWidget";
 import {
   AlertDialogHeader,
   AlertDialogFooter,

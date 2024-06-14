@@ -4,10 +4,17 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { pedalLiveWidgets, vdmLiveWidgets } from "@/consts/config";
 import DebugRawLiveWidget from "./widgets/DebugRawLiveWidget";
+import PedalLiveWidget from "./widgets/PedalLiveWidget";
 
 function PedalPage() {
   const [selectingWidgets, setSelectingWidgets] = useState(false);
   const [widgets, setWidgets] = useState([
+    {
+      name: "Pedal Live",
+      width: 300,
+      height: 300,
+      component: <PedalLiveWidget />,
+    },
     {
       name: "Raw Debug Live",
       width: 600,

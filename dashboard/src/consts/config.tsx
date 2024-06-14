@@ -13,13 +13,14 @@ import PedalRawWidget from "@/pages/gr24/pedal/widgets/DebugRawLiveWidget";
 import MobileRawWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
 import VDMRawWidget from "@/pages/gr24/vdm/widgets/DebugRawLiveWidget";
 import WheelRawWidget from "@/pages/gr24/wheel/widgets/DebugRawLiveWidget";
+import PedalLiveWidget from "@/pages/gr24/pedal/widgets/PedalLiveWidget";
 
 export const currentUser: User = initUser;
-export const currentCar: Vehicle = initVehicle;
+export const currentVehicle: Vehicle = initVehicle;
 
 export const MAPACHE_API_URL =
   import.meta.env.VITE_MAPACHE_API_URL ??
-  "https://mapache.gauchoracing.com:10310";
+  "http://mapache.gauchoracing.com:10310";
 
 export const MAPACHE_WS_URL =
   import.meta.env.VITE_MAPACHE_WS_URL ?? "ws://mapache.gauchoracing.com:10310";
@@ -130,6 +131,12 @@ export const mobileLiveWidgets = [
 ];
 
 export const pedalLiveWidgets = [
+  {
+    name: "Pedal Live",
+    width: 300,
+    height: 300,
+    component: <PedalLiveWidget />,
+  },
   {
     name: "Raw Debug Live",
     width: 600,
