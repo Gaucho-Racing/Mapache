@@ -5,6 +5,7 @@ import (
 	"gr24/model"
 	"gr24/utils"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ func InverterFromBytes(data []byte) model.Inverter {
 		return inverter
 	}
 	inverter.ID = uuid.New().String()
+	inverter.CreatedAt = time.Now()
 	inverter.ERPM = inverterFields[0].Value
 	inverter.DutyCycle = inverterFields[1].Value
 	inverter.InputVoltage = inverterFields[2].Value
