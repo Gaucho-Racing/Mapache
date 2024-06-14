@@ -14,6 +14,8 @@ import MobileRawWidget from "@/pages/gr24/mobile/widgets/DebugRawLiveWidget";
 import VDMRawWidget from "@/pages/gr24/vdm/widgets/DebugRawLiveWidget";
 import WheelRawWidget from "@/pages/gr24/wheel/widgets/DebugRawLiveWidget";
 import PedalLiveWidget from "@/pages/gr24/pedal/widgets/PedalLiveWidget";
+import SegmentLiveWidget from "@/pages/gr24/acu/widgets/SegmentLiveWidget";
+import CellLiveWidget from "@/pages/gr24/acu/widgets/CellLiveWidget";
 
 export const currentUser: User = initUser;
 export const currentVehicle: Vehicle = initVehicle;
@@ -26,6 +28,18 @@ export const MAPACHE_WS_URL =
   import.meta.env.VITE_MAPACHE_WS_URL ?? "ws://mapache.gauchoracing.com:10310";
 
 export const acuLiveWidgets = [
+  {
+    name: "Segments Live",
+    width: 1200,
+    height: 300,
+    component: <SegmentLiveWidget />,
+  },
+  {
+    name: "Cells Live",
+    width: 1200,
+    height: 600,
+    component: <CellLiveWidget />,
+  },
   {
     name: "Raw Debug Live",
     width: 600,

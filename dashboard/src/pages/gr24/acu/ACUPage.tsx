@@ -9,10 +9,24 @@ import {
   wheelLiveWidgets,
 } from "@/consts/config";
 import DebugRawLiveWidget from "./widgets/DebugRawLiveWidget";
+import SegmentLiveWidget from "./widgets/SegmentLiveWidget";
+import CellLiveWidget from "./widgets/CellLiveWidget";
 
 function ACUPage() {
   const [selectingWidgets, setSelectingWidgets] = useState(false);
   const [widgets, setWidgets] = useState([
+    {
+      name: "Segments Live",
+      width: 1200,
+      height: 300,
+      component: <SegmentLiveWidget />,
+    },
+    {
+      name: "Cells Live",
+      width: 1200,
+      height: 600,
+      component: <CellLiveWidget />,
+    },
     {
       name: "Raw Debug Live",
       width: 600,
