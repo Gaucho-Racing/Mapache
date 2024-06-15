@@ -56,13 +56,10 @@ function CellLiveWidget() {
             }}
           >
             <div
+              className={`absolute ${getVoltageBackgroundColor(data.voltage)} bottom-0 opacity-25`}
               style={{
-                position: "absolute",
-                bottom: 0,
                 width: 125,
                 height: `${(data.voltage / maxVoltage) * 100}%`,
-                backgroundColor: getVoltageBackgroundColor(data.voltage),
-                // backgroundColor: getVoltageBackgroundColor(maxVoltage),
                 transition: "height 0.3s ease",
                 zIndex: 0,
               }}
@@ -85,20 +82,13 @@ function CellLiveWidget() {
 
   const getVoltageBackgroundColor = (voltage) => {
     const fraction = voltage / maxVoltage;
-    const brightnessFactor = 0.25;
-    const red = Math.min(
-      255,
-      Math.max(0, Math.floor((1 - fraction) * 255 * brightnessFactor)),
-    );
-    const green = Math.min(
-      255,
-      Math.max(0, Math.floor(fraction * 255 * brightnessFactor)),
-    );
-    return `rgb(${red}, ${green}, 0)`;
-  };
-
-  const getVoltageColor = (voltage: number) => {
-    return "text-white";
+    if (fraction < 0.2) {
+      return "bg-red-400";
+    } else if (fraction < 0.4) {
+      return "bg-yellow-400";
+    } else {
+      return "bg-green-400";
+    }
   };
 
   const getTempColor = (temp: number) => {
