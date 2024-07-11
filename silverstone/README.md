@@ -15,7 +15,7 @@ You will be prompted for the name of your service. This name will just be used f
 
 ## Service Configuration
 
-Congrats, you now have a brand new service to start hacking on. But before you go all crazy, there's a couple thing you need to modify first.
+Congrats, you now have a brand new service to start hacking on. But before you go all crazy, there's a couple things you need to modify first.
 
 ### `go.mod`
 
