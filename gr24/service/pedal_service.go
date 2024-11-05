@@ -6,10 +6,8 @@ import (
 	"gr24/utils"
 	"math"
 	"strings"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/google/uuid"
 )
 
 var pedalCallbacks []func(pedal model.Pedal)
@@ -54,11 +52,18 @@ func PedalFromBytes(data []byte) model.Pedal {
 		utils.SugarLogger.Errorln("Failed to parse pedal:", err)
 		return pedal
 	}
-	pedal.ID = uuid.New().String()
-	pedal.CreatedAt = time.Now()
-	pedal.AppsOneRaw = pedalFields[0].Value
-	pedal.AppsTwoRaw = pedalFields[1].Value
-	pedal.Millis = pedalFields[3].Value
+	// pedal.ID = uuid.New().String()
+	// pedal.CreatedAt = time.Now()
+	// pedal.AppsOneRaw = pedalFields[0].Value
+	// pedal.AppsTwoRaw = pedalFields[1].Value
+	// pedal.Millis = pedalFields[3].Value
+	// for i, p := range pedalFields {
+	// 	signal := mapache.Signal{
+	// 		ID: uuid.New(),
+	// 		SignalID: pedalFields[i].Name,
+	// 		Value:
+	// 	}
+	// }
 	return pedal
 }
 
