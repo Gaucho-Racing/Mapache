@@ -4,41 +4,70 @@ run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ git
 on: [push]
 
 jobs:
-    all_build_job:
-        runs-on: ubuntu-latest
-        name: all
-        defaults:
-          run:
-            shell: bash
-        steps:
-          - uses: actions/checkout@v4
-            with:
-              submodules: true
-          - name: Setup Node
-            uses: actions/setup-node@v4
-            with:
-                node-version: '22.x'
-          - name: Dashboard
-            run: |
-              cd dashboard
-              npm ci
-              npm run build
-          - name: Setup Go
-            uses: actions/setup-go@v4
-            with:
-              go-version: '1.22.0'
-          - name: Bahrain
-            run: |
-              cd bahrain
-              go get .
-              go build
-          - name: Jeddah
-            run: |
-              cd jeddah
-              go get .
-              go build
-          - name: GR24
-            run: |
-              cd gr24
-              go get .
-              go build
+  dashboard:
+    runs-on: ubuntu-latest
+    name: Dashboard Build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Build Dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+
+  bahrain:
+    runs-on: ubuntu-latest
+    name: Bahrain Build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.0'
+      - name: Build Bahrain
+        run: |
+          cd bahrain
+          go get .
+          go build
+
+  jeddah:
+    runs-on: ubuntu-latest
+    name: Jeddah Build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.0'
+      - name: Build Jeddah
+        run: |
+          cd jeddah
+          go get .
+          go build
+
+  gr24:
+    runs-on: ubuntu-latest
+    name: GR24 Build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.0'
+      - name: Build GR24
+        run: |
+          cd gr24
+          go get .
+          go build
