@@ -22,7 +22,7 @@ export const currentVehicle: Vehicle = initVehicle;
 
 export const MAPACHE_API_URL =
   import.meta.env.VITE_MAPACHE_API_URL ??
-  "http://mapache.gauchoracing.com:10310";
+  "http://hamilton-ec2.gauchoracing.com:10310";
 
 export const MAPACHE_WS_URL =
   import.meta.env.VITE_MAPACHE_WS_URL ?? "ws://mapache.gauchoracing.com:10310";

@@ -33,8 +33,8 @@ function SegmentLiveWidget() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setRandomVoltages(messageJson);
-      setRandomTemps(messageJson);
+      // setRandomVoltages(messageJson);
+      // setRandomTemps(messageJson);
       setMessageJson({ ...messageJson });
       createSegments();
     }, 1000);

@@ -20,7 +20,6 @@ var Routes = []string{
 
 var VehicleIDs = []string{
 	"gr24-main",
-	"testy",
 }
 
 var Env = os.Getenv("ENV")
