@@ -6,7 +6,6 @@ services:
     container_name: kerbecs
     restart: unless-stopped
     depends_on:
-      - db
       - rincon
     environment:
       ENV: ${ENV}
@@ -24,8 +23,6 @@ services:
     image: bk1031/rincon:1.2.0
     container_name: rincon
     restart: unless-stopped
-    depends_on:
-      - db
     environment:
       ENV: ${ENV}
       PORT: "10311"
@@ -49,7 +46,6 @@ services:
     container_name: bahrain
     restart: unless-stopped
     depends_on:
-      - db
       - rincon
     environment:
       ENV: ${ENV}
@@ -70,7 +66,6 @@ services:
     container_name: gr24
     restart: unless-stopped
     depends_on:
-      - db
       - rincon
     environment:
       ENV: ${ENV}
