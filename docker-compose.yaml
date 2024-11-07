@@ -111,33 +111,33 @@ services:
     ports:
       - "7004"
   
-  # rabbitmq:
-  #   image: rabbitmq:3.12-management-alpine
-  #   container_name: rabbitmq
-  #   restart: unless-stopped
-  #   build:
-  #     context: docker/
-  #   ports:
-  #     - "1883:1883"
-  #     - "5672:5672"
-  #     - "15672:15672"
-  #     - "1885:15675"
-  #     - "9001:9001"
-  #   command: "/bin/bash -c \"rabbitmq-plugins enable --offline rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_amqp1_0; rabbitmq-server\""
-  #   env_file:
-  #     - rabbitmq/login.env
-  #   volumes:
-  #     - type: bind
-  #       source: ./rabbitmq/rabbitmq.conf
-  #       target: /etc/rabbitmq/rabbitmq.conf
-  #       read_only: true
-  #     - type: bind
-  #       source: ./rabbitmq/advanced.config
-  #       target: /etc/rabbitmq/advanced.config
-  #       read_only: true
-  #   networks:
-  #     brokernet:
-  #       ipv4_address: 172.16.238.101
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq
+    restart: unless-stopped
+    build:
+      context: docker/
+    ports:
+      - "1883:1883"
+      - "5672:5672"
+      - "15672:15672"
+      - "1885:15675"
+      - "9001:9001"
+    command: "/bin/bash -c \"rabbitmq-plugins enable --offline rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_amqp1_0; rabbitmq-server\""
+    env_file:
+      - rabbitmq/login.env
+    volumes:
+      - type: bind
+        source: ./rabbitmq/rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+        read_only: true
+      - type: bind
+        source: ./rabbitmq/advanced.config
+        target: /etc/rabbitmq/advanced.config
+        read_only: true
+    networks:
+      brokernet:
+        ipv4_address: 172.16.238.101
 
 networks:
   brokernet:
