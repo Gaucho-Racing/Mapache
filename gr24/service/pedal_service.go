@@ -55,7 +55,7 @@ func PedalFromBytes(data []byte) model.Pedal {
 		return pedal
 	}
 	pedal.ID = uuid.New().String()
-	pedal.CreatedAt = time.Now()
+	pedal.CreatedAt = utils.WithPrecision(time.Now())
 	pedal.AppsOneRaw = pedalFields[0].Value
 	pedal.AppsTwoRaw = pedalFields[1].Value
 	pedal.Millis = pedalFields[3].Value

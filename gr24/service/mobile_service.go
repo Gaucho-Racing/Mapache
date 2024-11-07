@@ -56,7 +56,7 @@ func MobileFromBytes(data []byte) model.Mobile {
 		return mobile
 	}
 	mobile.ID = uuid.New().String()
-	mobile.CreatedAt = time.Now()
+	mobile.CreatedAt = utils.WithPrecision(time.Now())
 	mobile.Latitude = math.Float64frombits(binary.LittleEndian.Uint64(data[:8]))
 	mobile.Longitude = math.Float64frombits(binary.LittleEndian.Uint64(data[8:16]))
 	mobile.Altitude = math.Float64frombits(binary.LittleEndian.Uint64(data[16:24]))

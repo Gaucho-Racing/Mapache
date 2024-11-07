@@ -54,7 +54,7 @@ func VDMFromBytes(data []byte) model.VDM {
 		return vdm
 	}
 	vdm.ID = uuid.New().String()
-	vdm.CreatedAt = time.Now()
+	vdm.CreatedAt = utils.WithPrecision(time.Now())
 	vdm.Mode = vdmFields[0].Value
 	vdm.State = vdmFields[1].Value
 	vdm.RevLimit = float64(vdmFields[2].Value)

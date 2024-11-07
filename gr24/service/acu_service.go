@@ -54,7 +54,7 @@ func ACUFromBytes(data []byte) model.ACU {
 		return acu
 	}
 	acu.ID = uuid.New().String()
-	acu.CreatedAt = time.Now()
+	acu.CreatedAt = utils.WithPrecision(time.Now())
 	// Row 1
 	acu.AccumulatorVoltage = float64(acuFields[0].Value)
 	acu.AccumulatorCurrent = float64(acuFields[1].Value)

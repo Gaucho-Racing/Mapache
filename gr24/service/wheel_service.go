@@ -55,7 +55,7 @@ func WheelFromBytes(data []byte) model.Wheel {
 		return wheel
 	}
 	wheel.ID = uuid.New().String()
-	wheel.CreatedAt = time.Now()
+	wheel.CreatedAt = utils.WithPrecision(time.Now())
 	wheel.Suspension = wheelFields[0].Value
 	wheel.WheelSpeed = float64(wheelFields[1].Value)
 	wheel.AccelX = float64(wheelFields[3].Value)

@@ -54,7 +54,7 @@ func BCMFromBytes(data []byte) model.BCM {
 		return bcm
 	}
 	bcm.ID = uuid.New().String()
-	bcm.CreatedAt = time.Now()
+	bcm.CreatedAt = utils.WithPrecision(time.Now())
 	bcm.AccelX = float64(bcmFields[0].Value)
 	bcm.AccelY = float64(bcmFields[1].Value)
 	bcm.AccelZ = float64(bcmFields[2].Value)
