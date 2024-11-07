@@ -23,9 +23,9 @@ func (Pedal) TableName() string {
 
 func NewPedalNode() mapache.Node {
 	return []mapache.Field{
-		mapache.NewField("AppsOne", 2, mapache.Unsigned, mapache.BigEndian),
-		mapache.NewField("AppsTwo", 2, mapache.Unsigned, mapache.BigEndian),
-		mapache.NewField("classic gr wasting data", 12, mapache.Unsigned, mapache.BigEndian),
-		mapache.NewField("Millis", 4, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("PEDAL_AppsOne", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("PEDAL_AppsTwo", 2, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("PEDAL_classic gr wasting data", 12, mapache.Unsigned, mapache.BigEndian),
+		mapache.NewField("PEDAL_Millis", 4, mapache.Unsigned, mapache.BigEndian),
 	}
 }
