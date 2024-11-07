@@ -1,28 +1,6 @@
 version: "3.9"
 
 services:
-  # singlestore:
-  #   image: "memsql/cluster-in-a-box"
-  #   ports:
-  #     - 3306:3306
-  #     - 8080:8080
-  #   environment:
-  #     LICENSE_KEY: ${SINGLESTORE_LICENSE_KEY}
-  #     ROOT_PASSWORD: ${SINGLESTORE_PASSWORD}
-  #     START_AFTER_INIT: "Y"
-  db:
-      image: mysql:8.3
-      restart: unless-stopped
-      environment:
-        MYSQL_DATABASE: ${DB_NAME}
-        MYSQL_USER: ${DB_USER}
-        MYSQL_PASSWORD: ${DB_PASSWORD}
-        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      ports:
-        - '3306:3306'
-      volumes:
-        - mysql:/var/lib/mysql
-
   kerbecs:
     image: bk1031/kerbecs:latest
     container_name: kerbecs
@@ -110,44 +88,12 @@ services:
       RINCON_PASSWORD: ${RINCON_PASSWORD}
     ports:
       - "7004"
-  
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    container_name: rabbitmq
+
+  nanomq:
+    image: emqx/nanomq:latest
     restart: unless-stopped
-    build:
-      context: docker/
     ports:
       - "1883:1883"
-      - "5672:5672"
-      - "15672:15672"
-      - "1885:15675"
-      - "9001:9001"
-    command: "/bin/bash -c \"rabbitmq-plugins enable --offline rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_amqp1_0; rabbitmq-server\""
-    env_file:
-      - rabbitmq/login.env
-    volumes:
-      - type: bind
-        source: ./rabbitmq/rabbitmq.conf
-        target: /etc/rabbitmq/rabbitmq.conf
-        read_only: true
-      - type: bind
-        source: ./rabbitmq/advanced.config
-        target: /etc/rabbitmq/advanced.config
-        read_only: true
-    networks:
-      brokernet:
-        ipv4_address: 172.16.238.101
-
-networks:
-  brokernet:
-    driver: bridge
-    driver_opts:
-      com.docker.network.enable_ipv6: "false"
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.16.238.0/24
 
 volumes:
   mysql:
