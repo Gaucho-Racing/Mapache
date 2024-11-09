@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { Mobile, initMobile } from "@/models/gr24/mobile";
@@ -19,6 +19,8 @@ function CellLiveWidget() {
   const { lastMessage, readyState } = useWebSocket(socketUrl);
   const [messageJson, setMessageJson] = useState<ACU>(initACU);
 
+  const messageJsonRef = useRef(messageJson);
+
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
 
@@ -32,15 +34,16 @@ function CellLiveWidget() {
   }, [lastMessage]);
 
   useEffect(() => {
+    messageJsonRef.current = messageJson;
+  }, [messageJson]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      // setRandomVoltages(messageJson);
-      // setRandomTemps(messageJson);
-      setMessageJson({ ...messageJson });
-      createSegments();
+      createSegments(messageJsonRef.current); // Always gets current value
     }, 1000);
 
-    return () => clearInterval(interval); // Cleanup interval on component unmount
-  }, []);
+    return () => clearInterval(interval);
+  }, []); // Empty dependency array is fine now
 
   const nodeTypes = useMemo(() => {
     return {
@@ -101,7 +104,7 @@ function CellLiveWidget() {
     }
   };
 
-  function createSegments() {
+  function createSegments(data: ACU) {
     const cellsPerGroup = 16;
     const columnsPerGroup = 2;
     const cellWidth = 100;
@@ -121,8 +124,8 @@ function CellLiveWidget() {
         type: "cell",
         data: {
           label: `Cell ${i}`,
-          voltage: messageJson[`cell${i}_voltage`].toFixed(2),
-          temp: messageJson[`cell${i}_temp`].toFixed(2),
+          voltage: data[`cell${i}_voltage`].toFixed(2),
+          temp: data[`cell${i}_temp`].toFixed(2),
         },
         position: {
           x: 20 + groupOffsetX + column * cellWidth,
@@ -163,7 +166,7 @@ function CellLiveWidget() {
   return (
     <>
       <div className="h-full w-full">
-        {!lastMessage ? (
+        {lastMessage ? (
           <div style={{ height: "100%", width: "100%" }}>
             <ReactFlow
               nodes={nodes}

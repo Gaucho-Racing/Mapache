@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleXmark } from "@fortawesome/free-regular-svg-icons";
 import { Mobile, initMobile } from "@/models/gr24/mobile";
@@ -19,6 +19,8 @@ function SegmentLiveWidget() {
   const { lastMessage, readyState } = useWebSocket(socketUrl);
   const [messageJson, setMessageJson] = useState<ACU>(initACU);
 
+  const messageJsonRef = useRef(messageJson);
+
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
 
@@ -32,15 +34,16 @@ function SegmentLiveWidget() {
   }, [lastMessage]);
 
   useEffect(() => {
+    messageJsonRef.current = messageJson;
+  }, [messageJson]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
-      // setRandomVoltages(messageJson);
-      // setRandomTemps(messageJson);
-      setMessageJson({ ...messageJson });
-      createSegments();
+      createSegments(messageJsonRef.current); // Always gets current value
     }, 1000);
 
-    return () => clearInterval(interval); // Cleanup interval on component unmount
-  }, []);
+    return () => clearInterval(interval);
+  }, []); // Empty dependency array is fine now
 
   const nodeTypes = useMemo(() => {
     return {
@@ -101,19 +104,17 @@ function SegmentLiveWidget() {
     }
   };
 
-  function createSegments() {
+  function createSegments(data: ACU) {
     for (let i = 0; i < 8; i++) {
       const segment = {
         id: `segment${i}`,
         type: "segment",
         data: {
           label: `Segment ${i}`,
-          voltage: (getSegments(messageJson) as any)[
-            `segment${i}_voltage_sum`
-          ].toFixed(2),
-          temp: (getSegments(messageJson) as any)[`segment${i}_temp`].toFixed(
+          voltage: (getSegments(data) as any)[`segment${i}_voltage_sum`].toFixed(
             2,
           ),
+          temp: (getSegments(data) as any)[`segment${i}_temp`].toFixed(2),
         },
         position: {
           x: 20 * (i + 1) + i * 125,
@@ -154,7 +155,7 @@ function SegmentLiveWidget() {
   return (
     <>
       <div className="h-full w-full">
-        {!lastMessage ? (
+        {lastMessage ? (
           <div style={{ height: "100%", width: "100%" }}>
             <ReactFlow
               nodes={nodes}
