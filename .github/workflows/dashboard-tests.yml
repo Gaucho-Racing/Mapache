@@ -1,4 +1,4 @@
-name: Dashboard Tests
+name: dashboard
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
 on: [push]
@@ -6,7 +6,7 @@ on: [push]
 jobs:
     dashboard_build_job:
       runs-on: ubuntu-latest
-      name: Build
+      name: build
       defaults:
         run:
           working-directory: ./dashboard
@@ -28,7 +28,7 @@ jobs:
   
     dashboard_lint_job:
       runs-on: ubuntu-latest
-      name: Lint
+      name: lint
       defaults:
         run:
           working-directory: ./dashboard
@@ -48,9 +48,9 @@ jobs:
           run: |
             npm run lint
   
-    dashboard_check_job:
+    dashboard_prettier_job:
       runs-on: ubuntu-latest
-      name: Prettier Check
+      name: prettier
       defaults:
         run:
           working-directory: ./dashboard
