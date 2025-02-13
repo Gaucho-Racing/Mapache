@@ -76,8 +76,26 @@ jobs:
               go get .
               go build
 
+    gr25:
+        runs-on: ubuntu-latest
+        name: gr25
+        steps:
+          - name: Checkout Repository
+            uses: actions/checkout@v4
+            with:
+              submodules: true
+          - name: Setup Go
+            uses: actions/setup-go@v4
+            with:
+              go-version: '1.22.0'
+          - name: Build GR25
+            run: |
+              cd gr25
+              go get .
+              go build
+
     all:
-        needs: [dashboard, auth, jeddah, gr24]
+        needs: [dashboard, auth, jeddah, gr24, gr25]
         runs-on: ubuntu-latest
         name: all
         steps:
