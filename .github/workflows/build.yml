@@ -74,3 +74,11 @@ jobs:
               cd gr24
               go get .
               go build
+
+    all:
+        needs: [dashboard, auth, jeddah, gr24]
+        runs-on: ubuntu-latest
+        name: all
+        steps:
+          - name: Build All
+            run: echo "All builds completed successfully!"
