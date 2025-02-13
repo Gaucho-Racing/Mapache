@@ -1,7 +1,7 @@
-package controller
+package api
 
 import (
-	"bahrain/config"
+	"auth/config"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"bahrain/config"
+	"auth/config"
 
 	"go.uber.org/zap"
 )

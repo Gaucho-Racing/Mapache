@@ -20,7 +20,7 @@ services:
       - "10300:10300"
 
   rincon:
-    image: bk1031/rincon:1.2.0
+    image: bk1031/rincon:latest
     container_name: rincon
     restart: unless-stopped
     environment:
