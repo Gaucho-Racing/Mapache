@@ -4,6 +4,7 @@ import (
 	"gr25/api"
 	"gr25/config"
 	"gr25/database"
+	"gr25/service"
 	"gr25/utils"
 )
 
@@ -13,6 +14,7 @@ func main() {
 	utils.VerifyConfig()
 	defer utils.Logger.Sync()
 
+	service.RegisterRincon()
 	database.InitializeDB()
 
 	router := api.SetupRouter()
