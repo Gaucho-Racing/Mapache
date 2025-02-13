@@ -44,6 +44,7 @@ require (
 
 require (
 	github.com/fatih/color v1.18.0
+	github.com/gaucho-racing/mapache-go v1.6.1
 	github.com/gin-contrib/cors v1.7.3
 	github.com/singlestore-labs/gorm-singlestore v1.2.0
 	go.uber.org/multierr v1.10.0 // indirect

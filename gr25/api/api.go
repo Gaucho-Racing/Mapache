@@ -24,5 +24,5 @@ func SetupRouter() *gin.Engine {
 }
 
 func InitializeRoutes(router *gin.Engine) {
-	router.GET("/ping", Ping)
+	router.GET("/gr25/ping", Ping)
 }

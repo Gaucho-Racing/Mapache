@@ -7,6 +7,7 @@ import (
 
 	"time"
 
+	"github.com/gaucho-racing/mapache-go"
 	singlestore "github.com/singlestore-labs/gorm-singlestore"
 	"gorm.io/gorm"
 )
@@ -29,7 +30,7 @@ func InitializeDB() error {
 		}
 	} else {
 		utils.SugarLogger.Infoln("Connected to database")
-		db.AutoMigrate()
+		db.AutoMigrate(&mapache.Signal{})
 		utils.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
