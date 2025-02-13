@@ -1,0 +1,24 @@
+package main
+
+import (
+	"gr25/api"
+	"gr25/config"
+	"gr25/database"
+	"gr25/utils"
+)
+
+func main() {
+	config.PrintStartupBanner()
+	utils.InitializeLogger()
+	utils.VerifyConfig()
+	defer utils.Logger.Sync()
+
+	database.InitializeDB()
+
+	router := api.SetupRouter()
+	api.InitializeRoutes(router)
+	err := router.Run(":" + config.Port)
+	if err != nil {
+		utils.SugarLogger.Fatalln(err)
+	}
+}
