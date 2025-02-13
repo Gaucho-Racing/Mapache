@@ -47,7 +47,7 @@ var InverterIngestCallback = func(client mqtt.Client, msg mqtt.Message) {
 // If the conversion fails, an empty inverter struct is returned
 func InverterFromBytes(data []byte) model.Inverter {
 	var inverter model.Inverter
-	inverterFields := model.NewInverterNode()
+	inverterFields := model.NewInverterMessage()
 	err := inverterFields.FillFromBytes(data)
 	if err != nil {
 		utils.SugarLogger.Errorln("Failed to parse inverter:", err)

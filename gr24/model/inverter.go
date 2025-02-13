@@ -46,8 +46,8 @@ func (Inverter) TableName() string {
 	return "gr24_inverter"
 }
 
-func NewInverterNode() mapache.Node {
-	return []mapache.Field{
+func NewInverterMessage() mapache.Message {
+	return mapache.Message{
 		mapache.NewField("ERPM", 4, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("DutyCycle", 2, mapache.Signed, mapache.BigEndian),
 		mapache.NewField("InputVoltage", 2, mapache.Signed, mapache.BigEndian),
