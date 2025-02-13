@@ -3,29 +3,7 @@ run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ git
 
 on: [push]
 
-jobs:
-    dashboard_build_job:
-      runs-on: ubuntu-latest
-      name: build
-      defaults:
-        run:
-          working-directory: ./dashboard
-          shell: bash
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            submodules: true
-        - name: Setup Node
-          uses: actions/setup-node@v4
-          with:
-              node-version: '22.x'
-        - name: Install dependencies
-          run: |
-            npm ci
-        - name: Run build
-          run: |
-            npm run build
-  
+jobs: 
     dashboard_lint_job:
       runs-on: ubuntu-latest
       name: lint
@@ -34,7 +12,8 @@ jobs:
           working-directory: ./dashboard
           shell: bash
       steps:
-        - uses: actions/checkout@v4
+        - name: Checkout Repository
+          uses: actions/checkout@v4
           with:
             submodules: true
         - name: Setup Node
@@ -56,7 +35,8 @@ jobs:
           working-directory: ./dashboard
           shell: bash
       steps:
-        - uses: actions/checkout@v4
+        - name: Checkout Repository
+          uses: actions/checkout@v4
           with:
             submodules: true
         - name: Setup Node

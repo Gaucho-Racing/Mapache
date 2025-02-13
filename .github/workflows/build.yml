@@ -6,9 +6,10 @@ on: [push]
 jobs:
     dashboard:
         runs-on: ubuntu-latest
-        name: Dashboard Build
+        name: dashboard
         steps:
-          - uses: actions/checkout@v4
+          - name: Checkout Repository
+            uses: actions/checkout@v4
             with:
               submodules: true
           - name: Setup Node
