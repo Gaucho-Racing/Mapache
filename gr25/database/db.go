@@ -29,9 +29,9 @@ func InitializeDB() error {
 			return fmt.Errorf("failed to connect database after 5 attempts")
 		}
 	} else {
-		utils.SugarLogger.Infoln("Connected to database")
+		utils.SugarLogger.Infoln("[DB] Connected to database")
 		db.AutoMigrate(&mapache.Signal{})
-		utils.SugarLogger.Infoln("AutoMigration complete")
+		utils.SugarLogger.Infoln("[DB] AutoMigration complete")
 		DB = db
 	}
 	return nil

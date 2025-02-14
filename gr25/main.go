@@ -4,6 +4,7 @@ import (
 	"gr25/api"
 	"gr25/config"
 	"gr25/database"
+	"gr25/mqtt"
 	"gr25/service"
 	"gr25/utils"
 )
@@ -16,6 +17,8 @@ func main() {
 
 	service.RegisterRincon()
 	database.InitializeDB()
+	mqtt.InitializeMQTT()
+	service.SubscribeTopics()
 
 	router := api.SetupRouter()
 	api.InitializeRoutes(router)
