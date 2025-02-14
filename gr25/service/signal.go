@@ -6,7 +6,6 @@ import (
 	"gr25/utils"
 
 	"github.com/gaucho-racing/mapache-go"
-	"go.uber.org/zap"
 )
 
 func GetSignal(timestamp int, vehicleID string, name string) mapache.Signal {
@@ -26,20 +25,20 @@ func CreateSignal(signal mapache.Signal) error {
 		return fmt.Errorf("signal name cannot be empty")
 	}
 	if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
-		utils.SugarLogger.Infow("[DB] New signal created", []zap.Field{
-			zap.Int("timestamp", signal.Timestamp),
-			zap.String("vehicle_id", signal.VehicleID),
-			zap.String("name", signal.Name),
-		})
+		utils.SugarLogger.Infow("[DB] New signal created",
+			"timestamp", signal.Timestamp,
+			"vehicle_id", signal.VehicleID,
+			"name", signal.Name,
+		)
 		if result := database.DB.Create(&signal); result.Error != nil {
 			return result.Error
 		}
 	} else {
-		utils.SugarLogger.Infow("[DB] Existing signal updated", []zap.Field{
-			zap.Int("timestamp", signal.Timestamp),
-			zap.String("vehicle_id", signal.VehicleID),
-			zap.String("name", signal.Name),
-		})
+		utils.SugarLogger.Infow("[DB] Existing signal updated",
+			"timestamp", signal.Timestamp,
+			"vehicle_id", signal.VehicleID,
+			"name", signal.Name,
+		)
 	}
 	return nil
 }
