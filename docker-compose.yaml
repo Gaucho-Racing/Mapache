@@ -1,4 +1,4 @@
-version: "3.9"
+name: mapache
 
 services:
   kerbecs:
@@ -33,56 +33,13 @@ services:
       HEARTBEAT_TYPE: "server"
       HEARTBEAT_INTERVAL: "60"
       DB_DRIVER: "mysql"
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DATABASE_HOST}
+      DB_PORT: ${DATABASE_PORT}
+      DB_NAME: ${DATABASE_NAME}
+      DB_USER: ${DATABASE_USER}
+      DB_PASSWORD: ${DATABASE_PASSWORD}
     ports:
       - "10311:10311"
-
-  bahrain:
-    image: gauchoracing/mp_bahrain:latest
-    container_name: bahrain
-    restart: unless-stopped
-    depends_on:
-      - rincon
-    environment:
-      ENV: ${ENV}
-      PORT: "7002"
-      AUTH_SIGNING_KEY: ${AUTH_SIGNING_KEY}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RINCON_USER: ${RINCON_USER}
-      RINCON_PASSWORD: ${RINCON_PASSWORD}
-    ports:
-      - "7002"
-  
-  gr24:
-    image: gauchoracing/mp_gr24:latest
-    container_name: gr24
-    restart: unless-stopped
-    depends_on:
-      - rincon
-    environment:
-      ENV: ${ENV}
-      PORT: "7004"
-      MQTT_HOST: ${MQTT_HOST}
-      MQTT_PORT: ${MQTT_PORT}
-      MQTT_USER: ${MQTT_USER}
-      MQTT_PASSWORD: ${MQTT_PASSWORD}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RINCON_USER: ${RINCON_USER}
-      RINCON_PASSWORD: ${RINCON_PASSWORD}
-    ports:
-      - "7004"
 
   nanomq:
     image: emqx/nanomq:latest
@@ -90,5 +47,18 @@ services:
     ports:
       - "1883:1883"
 
+  db:
+    image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+    restart: unless-stopped
+    volumes:
+      - s2data:/data
+      - ./singlestore/init.sql:/init.sql
+    ports:
+      - "3306:3306"
+      - "3380:8080"
+      - "3381:9000"
+    environment:
+      ROOT_PASSWORD: "${DATABASE_PASSWORD}"
+
 volumes:
-  mysql:
+  s2data:
