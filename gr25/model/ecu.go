@@ -113,3 +113,24 @@ var ECUStatusTwo = mp.Message{
 		return signals
 	}),
 }
+
+var ECUStatusThree = mp.Message{
+	mp.NewField("ecu_rr_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_rr_wheel_rpm",
+			Value:    float64(f.Value)*0.1 - 3276.8,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("ecu_rl_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_rl_wheel_rpm",
+			Value:    float64(f.Value)*0.1 - 3276.8,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+}
