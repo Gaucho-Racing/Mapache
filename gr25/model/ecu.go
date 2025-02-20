@@ -76,7 +76,7 @@ var ECUStatusOne = mp.Message{
 }
 
 var ECUStatusTwo = mp.Message{
-	mp.NewField("ecu_tractive_system_voltage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_tractive_system_voltage", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_tractive_system_voltage",
@@ -85,7 +85,7 @@ var ECUStatusTwo = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_vehicle_speed", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_vehicle_speed", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_vehicle_speed",
@@ -94,7 +94,7 @@ var ECUStatusTwo = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_fr_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_fr_wheel_rpm", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_fr_wheel_rpm",
@@ -103,7 +103,7 @@ var ECUStatusTwo = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_fl_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_fl_wheel_rpm", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_fl_wheel_rpm",
@@ -115,7 +115,7 @@ var ECUStatusTwo = mp.Message{
 }
 
 var ECUStatusThree = mp.Message{
-	mp.NewField("ecu_rr_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_rr_wheel_rpm", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_rr_wheel_rpm",
@@ -124,7 +124,7 @@ var ECUStatusThree = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_rl_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_rl_wheel_rpm", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_rl_wheel_rpm",
