@@ -7,7 +7,6 @@ import "/node_modules/react-resizable/css/styles.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import RegisterPage from "./pages/auth/RegisterPage.tsx";
-import DashboardPage from "./pages/gr24/dashboard/DashboardPage.tsx";
 import App from "./App.tsx";
 
 const router = createBrowserRouter([
@@ -18,14 +17,6 @@ const router = createBrowserRouter([
   {
     path: "/auth/register",
     element: <RegisterPage />,
-  },
-  {
-    path: "/dash",
-    element: <DashboardPage />,
-  },
-  {
-    path: "/gr24/dash",
-    element: <DashboardPage />,
   },
 ]);
 
