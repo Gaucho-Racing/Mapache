@@ -3,7 +3,9 @@ package model
 import mp "github.com/gaucho-racing/mapache-go"
 
 var messageMap = map[int]mp.Message{
-	0x003: ecuStatusOne,
+	0x003: ECUStatusOne,
+	0x004: ECUStatusTwo,
+	0x005: ECUStatusThree,
 }
 
 func GetMessage(id int) mp.Message {

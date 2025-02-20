@@ -1,16 +1,13 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { currentVehicle, currentUser } from "@/consts/config";
+import { currentUser } from "@/consts/config";
 import { SHA256 } from "crypto-js";
 import { useNavigate } from "react-router-dom";
 import { logout } from "@/lib/auth";
@@ -23,8 +20,6 @@ interface HeaderProps {
 
 const Header = (props: HeaderProps) => {
   const navigate = useNavigate();
-
-  function selectVehicle(vehicleId: string) {}
 
   return (
     <nav
