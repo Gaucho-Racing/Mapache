@@ -2,9 +2,9 @@ package model
 
 import mp "github.com/gaucho-racing/mapache-go"
 
-var ecuStatusOne = mp.Message{
-	mp.NewField("ecu_state", 1, mp.Unsigned, mp.BigEndian, nil),
-	mp.NewField("ecu_status_flags", 3, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
+var ECUStatusOne = mp.Message{
+	mp.NewField("ecu_state", 1, mp.Unsigned, mp.LittleEndian, nil),
+	mp.NewField("ecu_status_flags", 3, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		bitMap := []string{
 			"ecu_status_acu",
@@ -32,7 +32,7 @@ var ecuStatusOne = mp.Message{
 		}
 		return signals
 	}),
-	mp.NewField("ecu_maps", 1, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_maps", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_power_level",
@@ -46,7 +46,7 @@ var ecuStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_max_cell_temp", 1, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_max_cell_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_max_cell_temp",
@@ -55,7 +55,7 @@ var ecuStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_acu_state_of_charge", 1, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_acu_state_of_charge", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_acu_state_of_charge",
@@ -64,7 +64,7 @@ var ecuStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("ecu_glv_state_of_charge", 1, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("ecu_glv_state_of_charge", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "ecu_glv_state_of_charge",
