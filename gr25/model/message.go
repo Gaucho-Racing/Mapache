@@ -4,6 +4,7 @@ import mp "github.com/gaucho-racing/mapache-go"
 
 var messageMap = map[int]mp.Message{
 	0x003: ECUStatusOne,
+	0x004: ECUStatusTwo,
 }
 
 func GetMessage(id int) mp.Message {

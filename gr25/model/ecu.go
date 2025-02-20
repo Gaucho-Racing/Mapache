@@ -74,3 +74,42 @@ var ECUStatusOne = mp.Message{
 		return signals
 	}),
 }
+
+var ECUStatusTwo = mp.Message{
+	mp.NewField("ecu_tractive_system_voltage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_tractive_system_voltage",
+			Value:    float64(f.Value) * 0.01,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("ecu_vehicle_speed", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_vehicle_speed",
+			Value:    float64(f.Value) * 0.01,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("ecu_fr_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_fr_wheel_rpm",
+			Value:    float64(f.Value)*0.1 - 3276.8,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("ecu_fl_wheel_rpm", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "ecu_fl_wheel_rpm",
+			Value:    float64(f.Value)*0.1 - 3276.8,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+}
