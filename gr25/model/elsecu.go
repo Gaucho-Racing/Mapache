@@ -311,7 +311,7 @@ var TCMStatus = mp.Message{
 // 512
 var TCMResourceUtilization = mp.Message{
 	// 513
-	mp.NewField("tcm_cpu_usage", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_cpu_usage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_cpu_usage",
@@ -321,7 +321,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 514
-	mp.NewField("tcm_gpu_usage", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_gpu_usage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_gpu_usage",
@@ -331,7 +331,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 515
-	mp.NewField("tcm_memory_usage", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_memory_usage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_memory_usage",
@@ -341,7 +341,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 516
-	mp.NewField("tcm_storage_usage", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_storage_usage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_storage_usage",
@@ -351,7 +351,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 517
-	mp.NewField("tcm_power_consumption", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_power_consumption", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_power_consumption",
@@ -361,7 +361,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 518
-	mp.NewField("tcm_cpu_temp", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_cpu_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_cpu_temp",
@@ -371,7 +371,7 @@ var TCMResourceUtilization = mp.Message{
 		return signals
 	}),
 	// 519
-	mp.NewField("tcm_gpu_temp", bytes, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("tcm_gpu_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "tcm_gpu_temp",
