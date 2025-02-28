@@ -32,9 +32,7 @@ WHERE produced_at > '{start}'
     AND produced_at < '{end}'
     AND `name` IN {signals_str};"""
     df = run_query(query)
-    signal_dfs = {signal: df[df['name'] == signal][['produced_at', 'value']].reset_index(drop=True) 
-                  for signal in signals}
-    return signal_dfs
+    return df.groupby('name').apply(lambda g: [g['produced_at'].tolist(), g['value'].tolist()]).to_dict()
 
 def sync_signals(signals_dict): # needs to also return meta data relating to how much data was cut
     key = min(signals_dict, key=lambda k: len(signals_dict[k][0]))
