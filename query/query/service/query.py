@@ -1,7 +1,11 @@
-from db.connection import run_query
-from model.model import *
+from query.database.connection import get_db
+from query.model import *
 import pandas as pd
 import numpy as np
+
+def run_query(query): #returns pandas dataframe
+    with get_db() as db:
+        return pd.read_sql(query, db)
 
 class error: # need to define errors for debugging
     def __str__(self):
