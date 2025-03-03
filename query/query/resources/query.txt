@@ -1,0 +1,1 @@
+SELECT MAX(input_voltage) FROM gr24_inverter;
