@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/binary"
+	"fmt"
 	"gr25/model"
 	"gr25/mqtt"
 	"gr25/utils"
@@ -15,12 +16,13 @@ import (
 func SubscribeTopics() {
 	mqtt.Client.Subscribe("gr25/#", 0, func(client mq.Client, msg mq.Message) {
 		topic := msg.Topic()
-		if len(strings.Split(topic, "/")) != 3 {
+		if len(strings.Split(topic, "/")) != 4 {
 			utils.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)
 			return
 		}
 		vehicleID := strings.Split(topic, "/")[1]
-		canID := strings.Split(topic, "/")[2]
+		nodeID := strings.Split(topic, "/")[2]
+		canID := strings.Split(topic, "/")[3]
 		message := msg.Payload()
 		canIDInt, err := strconv.ParseInt(canID, 16, 64)
 		if err != nil {
@@ -28,14 +30,14 @@ func SubscribeTopics() {
 			return
 		}
 		utils.SugarLogger.Infof("[MQ] Received message: %s", topic)
-		go HandleMessage(vehicleID, int(canIDInt), message)
+		go HandleMessage(vehicleID, nodeID, int(canIDInt), message)
 	})
 }
 
-func HandleMessage(vehicleID string, canID int, message []byte) {
+func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	// First 8 bytes are timestamp
-	if len(message) < 10 { // Need at least timestamp (8) + upload key (2)
-		utils.SugarLogger.Infof("[MQ] Message too short, ignoring")
+	if len(message) < 11 { // Need at least timestamp (8) + upload key (2) + at least 1 byte of data
+		utils.SugarLogger.Infof("[MQ] Message too short, ignoring %d bytes", len(message))
 		return
 	}
 	timestamp := message[:8]
@@ -62,9 +64,10 @@ func HandleMessage(vehicleID string, canID int, message []byte) {
 
 	signals := messageStruct.ExportSignals()
 	for _, signal := range signals {
+		signal.Name = fmt.Sprintf("%s_%s", nodeID, signal.Name)
 		signal.Timestamp = int(binary.BigEndian.Uint64(timestamp))
 		signal.VehicleID = vehicleID
-		signal.ProducedAt = time.UnixMicro(int64(signal.Timestamp))
+		signal.ProducedAt = time.UnixMilli(int64(signal.Timestamp))
 		signal.CreatedAt = utils.WithPrecision(time.Now())
 
 		err := CreateSignal(signal)
