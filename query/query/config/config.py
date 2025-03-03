@@ -1,7 +1,4 @@
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 class Config:
     """Configuration settings for the application"""
@@ -11,11 +8,11 @@ class Config:
     PORT: int = int(os.getenv('PORT', 7000))
 
     # Database settings
-    DATABASE_HOST: str = os.getenv('DATABASE_HOST', 'localhost')
-    DATABASE_PORT: int = int(os.getenv('DATABASE_PORT', '3306'))
-    DATABASE_USER: str = os.getenv('DATABASE_USER', 'root')
-    DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD', 'password')
-    DATABASE_NAME: str = os.getenv('DATABASE_NAME', 'mapache')
+    DATABASE_HOST: str = os.getenv('DATABASE_HOST')
+    DATABASE_PORT: int = int(os.getenv('DATABASE_PORT'))
+    DATABASE_USER: str = os.getenv('DATABASE_USER')
+    DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD')
+    DATABASE_NAME: str = os.getenv('DATABASE_NAME')
 
     @staticmethod
     def get_database_url() -> str:

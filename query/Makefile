@@ -4,8 +4,8 @@ install:
 	poetry install
 
 run:
-	poetry install
-	poetry run query
+	chmod +x scripts/run.sh
+	./scripts/run.sh
 
 test:
 	poetry run pytest
