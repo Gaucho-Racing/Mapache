@@ -4,6 +4,24 @@ run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ git
 on: [push]
 
 jobs:
+    auth:
+      runs-on: ubuntu-latest
+      name: auth
+      steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v4
+          with:
+            submodules: true
+        - name: Setup Go
+          uses: actions/setup-go@v4
+          with:
+            go-version: '1.22.0'
+        - name: Build Auth
+          run: |
+            cd auth
+            go get .
+            go build
+
     dashboard:
         runs-on: ubuntu-latest
         name: dashboard
@@ -21,24 +39,6 @@ jobs:
               cd dashboard
               npm ci
               npm run build
-
-    auth:
-        runs-on: ubuntu-latest
-        name: auth
-        steps:
-          - name: Checkout Repository
-            uses: actions/checkout@v4
-            with:
-              submodules: true
-          - name: Setup Go
-            uses: actions/setup-go@v4
-            with:
-              go-version: '1.22.0'
-          - name: Build Auth
-            run: |
-              cd auth
-              go get .
-              go build
 
     jeddah:
         runs-on: ubuntu-latest
@@ -94,8 +94,32 @@ jobs:
               go get .
               go build
 
+    query:
+        runs-on: ubuntu-latest
+        name: query
+        steps:
+          - name: Checkout Repository
+            uses: actions/checkout@v4
+            with:
+              submodules: true
+          - name: Setup Python
+            uses: actions/setup-python@v4
+            with:
+              python-version: '3.11'
+          - name: Install Poetry
+            uses: snok/install-poetry@v1
+            with:
+              version: 2.0.0
+          - name: Build Query
+            run: |
+              cd query
+              poetry install
+              poetry build
+
+
+
     all:
-        needs: [dashboard, auth, jeddah, gr24, gr25]
+        needs: [auth, dashboard, jeddah, gr24, gr25, query]
         runs-on: ubuntu-latest
         name: all
         steps:
