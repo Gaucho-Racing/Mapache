@@ -2,59 +2,6 @@ from functools import reduce
 from query.database.connection import get_db
 from query.model import *
 import pandas as pd
-import numpy as np
-
-# def run_query(query): #returns pandas dataframe
-#     with get_db() as db:
-#         return pd.read_sql(query, db)
-
-# class error: # need to define errors for debugging
-#     def __str__(self):
-#         return "Some Error"
-
-# def query_trip(trip_id, lap_num=None): # lap not incorperated yet
-#     err = None
-#     query = f"""
-# SELECT start, end FROM trips
-# WHERE id = {trip_id}
-# """
-#     try:
-#         result = run_query(query)
-#         if len(result) != 1:
-#             err = error()
-#         return err, result['start'], result['end']
-#     except:
-#         err = error()
-    
-#     return err, None, None
-
-# def query_signals(signals, start, end): # returns a dictionary of signal values
-#     signals_str = "('" + "', '".join(signals) + "')"
-#     query = f"""
-# SELECT produced_at, `name`, `value` 
-# FROM `signal`
-# WHERE produced_at > '{start}' 
-#     AND produced_at < '{end}'
-#     AND `name` IN {signals_str};"""
-#     df = run_query(query)
-#     return df.groupby('name').apply(lambda g: [g['produced_at'].tolist(), g['value'].tolist()]).to_dict()
-
-# def sync_signals(signals_dict): # needs to also return meta data relating to how much data was cut
-#     key = min(signals_dict, key=lambda k: len(signals_dict[k][0]))
-#     key_df = pd.DataFrame()
-#     key_df['produced_at'], key_df[key] = signals_dict[key][0], signals_dict[key][1]
-#     A = np.array(signals_dict[key][0])
-#     for signal in signals_dict:
-#         if signal == key:
-#             continue
-#         B = np.array(signals_dict[signal][0])
-#         indices = np.argmin(abs(B[:, np.newaxis] - A), axis=0)
-#         key_df[signal] = np.array(signals_dict[signal][1])[indices]
-#     return key_df
-
-# def populate_signals(vid, signals, start, end):
-#     list_of_signals = sync_signals(query_signals(signals, start, end))
-#     return Data(data=[DataInstance(**row.to_dict()) for _, row in list_of_signals.iterrows()])
 
 def query_signal(vehicle_id: str, signal_name: str, start_time: str, end_time: str) -> pd.DataFrame:
     query = f"""
@@ -89,10 +36,20 @@ def analyze_signal_df(df: pd.DataFrame):
     print(f"Total duration: {total_duration} ({df['produced_at'].min()} - {df['produced_at'].max()})")
     print(f"Number of rows: {len(df)}")
     print(f"Resolution: {resolution}")
+    
+    # Find indices of min and max time differences
+    min_idx = time_diffs.idxmin()
+    max_idx = time_diffs.idxmax()
+    
     print(f"Minimum time difference: {time_diffs.min().total_seconds()} seconds")
-    print(f"Maximum time difference: {time_diffs.max().total_seconds()} seconds")
+    print(f"  Between rows {min_idx-1} and {min_idx}")
+    print(f"  Times: {df['produced_at'].iloc[min_idx-1]} - {df['produced_at'].iloc[min_idx]}")
+    
+    print(f"Maximum time difference: {time_diffs.max().total_seconds()} seconds") 
+    print(f"  Between rows {max_idx-1} and {max_idx}")
+    print(f"  Times: {df['produced_at'].iloc[max_idx-1]} - {df['produced_at'].iloc[max_idx]}")
+    
     print(f"Average time difference: {time_diffs.mean().total_seconds()} seconds")
-
 def raw_merge_df(*dfs: pd.DataFrame):
     """
     Merges multiple DataFrames on the 'produced_at' column using an outer join.
@@ -126,10 +83,11 @@ def raw_merge_df(*dfs: pd.DataFrame):
 def merge_to_largest(*dfs: pd.DataFrame):
     """
     Merges all DataFrames onto the one with the most rows using closest matching produced_at timestamps.
+    Optionally exports the result to a CSV file.
     
     Parameters:
-        df_list (list of pd.DataFrame): List of DataFrames to merge.
-        tolerance (pd.Timedelta): Maximum time difference allowed for merging.
+        dfs (list of pd.DataFrame): List of DataFrames to merge.
+        output_path (str, optional): Path to save the CSV file. If None, no file is saved.
         
     Returns:
         pd.DataFrame: A merged DataFrame with all values aligned to the largest DataFrame.
@@ -173,4 +131,110 @@ def merge_to_largest(*dfs: pd.DataFrame):
     # Total NaN count
     total_nans = nan_counts.sum()
     print(f"\nTotal NaN values across all columns: {total_nans}")
+
+    output_path = "~/Downloads/export.csv"
+    main_df.to_csv(output_path, index=False)
+    print(f"\nData exported to: {output_path}")
+    
     return main_df
+
+
+def merge_to_largest_fill(*dfs: pd.DataFrame):
+    """
+    Merges all DataFrames onto the one with the most rows using closest matching produced_at timestamps.
+    Fills missing values with the most recent non-null value.
+    Optionally exports the result to a CSV file.
+    
+    Parameters:
+        dfs (list of pd.DataFrame): List of DataFrames to merge.
+        output_path (str, optional): Path to save the CSV file. If None, no file is saved.
+        
+    Returns:
+        pd.DataFrame: A merged DataFrame with all values aligned to the largest DataFrame.
+    """
+    if not dfs:
+        raise ValueError("At least one DataFrame must be provided")
+    
+    tolerance = pd.Timedelta("50ms")
+
+    # Identify the DataFrame with the most rows
+    main_df = max(dfs, key=len)
+
+    # Ensure produced_at is a datetime column
+    main_df["produced_at"] = pd.to_datetime(main_df["produced_at"])
+
+    # Sort the main DataFrame by time
+    main_df = main_df.sort_values("produced_at")
+
+    # Merge all other DataFrames using asof join
+    for df in dfs:
+        if df is main_df:
+            continue  # Skip merging the main dataframe with itself
+        
+        df["produced_at"] = pd.to_datetime(df["produced_at"])
+        df = df.sort_values("produced_at")  # Sort for merge_asof
+
+        # Merge using closest timestamps
+        main_df = pd.merge_asof(
+            main_df, df, on="produced_at", direction="nearest", tolerance=tolerance
+        )
+
+    # Sort by produced_at
+    main_df = main_df.sort_values(by='produced_at')
+    main_df = main_df.reset_index(drop=True)
+
+    # Forward fill NaN values with most recent non-null value
+    main_df = main_df.fillna(method='ffill')
+
+    # Count NaN values in each column (excluding produced_at)
+    nan_counts = main_df.drop('produced_at', axis=1).isna().sum()
+    print("\nNaN counts per column after forward fill:")
+    print(nan_counts)
+    
+    # Total NaN count
+    total_nans = nan_counts.sum()
+    print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
+
+    output_path = "~/Downloads/export.csv"
+    main_df.to_csv(output_path, index=False)
+    print(f"\nData exported to: {output_path}")
+    
+    return main_df
+
+def resample_ffill(df: pd.DataFrame, interval: str):
+    """
+    Resamples a DataFrame to a given time interval using forward fill for missing values.
+
+    Parameters:
+        df (pd.DataFrame): The input DataFrame with a datetime column.
+        interval (str): Resampling interval (e.g., "1T" for 1 minute, "5S" for 5 seconds).
+
+    Returns:
+        pd.DataFrame: A resampled DataFrame with forward-filled missing values.
+    """
+    if "produced_at" not in df.columns:
+        raise ValueError("DataFrame must contain a 'produced_at' column")
+    
+    # Ensure 'produced_at' is a datetime column
+    df["produced_at"] = pd.to_datetime(df["produced_at"])
+    
+    # Set produced_at as the index for resampling
+    df = df.set_index("produced_at")
+
+    # Resample with forward fill (nearest previous value)
+    resampled_df = df.resample(interval).ffill()
+
+    # Sort by produced_at
+    resampled_df = resampled_df.sort_values(by='produced_at')
+    resampled_df = resampled_df.reset_index(drop=True)
+
+    # Count NaN values in each column (excluding produced_at)
+    nan_counts = resampled_df.drop('produced_at', axis=1).isna().sum()
+    print("\nNaN counts per column after forward fill:")
+    print(nan_counts)
+    
+    # Total NaN count
+    total_nans = nan_counts.sum()
+    print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
+
+    return resampled_df

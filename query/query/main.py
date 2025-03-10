@@ -1,5 +1,5 @@
 from fastapi import FastAPI  
-from query.service.query import merge_to_largest, query_signal, analyze_signal_df, raw_merge_df
+from query.service.query import merge_to_largest, merge_to_largest_fill, query_signal, analyze_signal_df, raw_merge_df, resample_ffill
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
@@ -57,7 +57,16 @@ def main():
   merged_df = merge_to_largest(df1, df2, df3, df4, df5, df6, df7)
   print(merged_df)
   analyze_signal_df(merged_df)
-  
+
+  print("\n------- MERGE TO LARGEST FORWARD FILL -------\n")
+  merged_df = merge_to_largest_fill(df1, df2, df3, df4, df5, df6, df7)
+  print(merged_df)
+  analyze_signal_df(merged_df)
+
+  print("\n------- RESAMPLE INTERVAL -------\n")
+  merged_df = resample_ffill(merged_df, "0.1s")
+  print(merged_df)
+  analyze_signal_df(merged_df)
 
 if __name__ == "__main__":
   main()
