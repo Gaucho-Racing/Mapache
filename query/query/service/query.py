@@ -223,6 +223,7 @@ def resample_ffill(df: pd.DataFrame, interval: str):
 
     # Resample with forward fill (nearest previous value)
     resampled_df = df.resample(interval).ffill()
+    resampled_df = resampled_df.reset_index()
 
     # Sort by produced_at
     resampled_df = resampled_df.sort_values(by='produced_at')
