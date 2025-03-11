@@ -6,13 +6,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bk1031/rincon-go"
+	"github.com/bk1031/rincon-go/v2"
 )
 
 var rinconRetries = 0
 var isRunningInDocker = false
 
 func RegisterRincon() {
+	if config.RinconUser == "" || config.RinconPassword == "" {
+		utils.SugarLogger.Debugln("Rincon user or password is not set, skipping registration")
+		return
+	}
 	rinconEndpoint := "http://rincon:10311"
 	client, err := rincon.NewClient(rincon.Config{
 		BaseURL:           rinconEndpoint,
@@ -51,8 +55,8 @@ func RegisterRincon() {
 	}
 	config.RinconClient = client
 	if isRunningInDocker {
-		config.Service.Endpoint = "http://" + strings.ToLower(config.Service.Name) + ":" + config.Port
-		config.Service.HealthCheck = "http://" + strings.ToLower(config.Service.Name) + ":" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
+		config.Service.Endpoint = "http://gr25:" + config.Port
+		config.Service.HealthCheck = "http://gr25:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
 	} else {
 		config.Service.Endpoint = "http://host.docker.internal:" + config.Port
 		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
