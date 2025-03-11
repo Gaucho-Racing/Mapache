@@ -1,8 +1,8 @@
 package main
 
 import (
+	"jeddah/api"
 	"jeddah/config"
-	"jeddah/controller"
 	"jeddah/database"
 	"jeddah/service"
 	"jeddah/utils"
@@ -17,8 +17,8 @@ func main() {
 	database.InitializeDB()
 	service.RegisterRincon()
 
-	router := controller.SetupRouter()
-	controller.InitializeRoutes(router)
+	router := api.SetupRouter()
+	api.InitializeRoutes(router)
 	err := router.Run(":" + config.Port)
 	if err != nil {
 		utils.SugarLogger.Fatalln(err)
