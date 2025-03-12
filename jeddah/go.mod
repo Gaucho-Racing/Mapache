@@ -5,12 +5,14 @@ go 1.22
 require (
 	github.com/bk1031/rincon-go v1.1.2
 	github.com/fatih/color v1.17.0
-	github.com/gaucho-racing/mapache-go v1.4.3
+	github.com/gaucho-racing/mapache-go v1.7.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	go.uber.org/zap v1.27.0
 	gorm.io/gorm v1.25.10
 )
+
+require github.com/bk1031/rincon-go/v2 v2.0.0
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
