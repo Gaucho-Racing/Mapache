@@ -20,6 +20,10 @@ github.com/gabriel-vasile/mimetype v1.4.7 h1:SKFKl7kD0RiPdbht0s7hFtjl489WcQ1VyPW
 github.com/gabriel-vasile/mimetype v1.4.7/go.mod h1:GDlAgAyIRT27BhFl53XNAFtfjzOkLaF35JdEG0P7LtU=
 github.com/gaucho-racing/mapache-go v1.6.2 h1:pMmuRkRO1jhtF1LLVdb0kQc2HtoXnKDEqq+05VgKiQ4=
 github.com/gaucho-racing/mapache-go v1.6.2/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.7.1 h1:Gs7R58hWfAg0b2/wbIxiFUIenQpM4/LumbSh29CqhCY=
+github.com/gaucho-racing/mapache-go v1.7.1/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
+github.com/gaucho-racing/mapache-go v1.8.0 h1:RIa3FBY5Ie1NDpFzG/R8EUeRsg9+fi3WPc/lbU+XggQ=
+github.com/gaucho-racing/mapache-go v1.8.0/go.mod h1:I8lpCGdURUpNaDX4JJSWdFDJdjT7i3fMvTvwHICDtqI=
 github.com/gin-contrib/cors v1.7.3 h1:hV+a5xp8hwJoTw7OY+a70FsL8JkVVFTXw9EcfrYUdns=
 github.com/gin-contrib/cors v1.7.3/go.mod h1:M3bcKZhxzsvI+rlRSkkxHyljJt1ESd93COUvemZ79j4=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
