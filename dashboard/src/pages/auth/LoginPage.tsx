@@ -12,6 +12,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { checkCredentials, saveAccessToken } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { OutlineButton } from "@/components/ui/outline-button";
+import { QUOTES } from "@/consts/quotes";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ function LoginPage() {
     ping();
     login();
   }, []);
+
+  const [quote, setQuote] = React.useState(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
 
   const ping = async () => {
     try {
@@ -161,10 +164,12 @@ function LoginPage() {
           </div>
           <div className="absolute bottom-0 left-0 z-20 p-16">
             <blockquote className="space-y-2">
-              <p className="text-lg">
-                &ldquo;Theory will take you only so far&rdquo;
+              <p className="text-lg whitespace-pre">
+                &ldquo;{quote.quote}&rdquo;
               </p>
-              <footer className="text-sm">Tien Nguyen</footer>
+              <footer className="text-md">
+                {quote.author}
+              </footer>
             </blockquote>
           </div>
         </div>
