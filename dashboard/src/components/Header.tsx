@@ -9,23 +9,27 @@ import {
 import { useNavigate } from "react-router-dom";
 import { logout } from "@/lib/auth";
 import { useUser } from "@/lib/store";
+import { Separator } from "@/components/ui/separator";
 
 interface HeaderProps {
   className?: string;
+  headerTitle?: string;
   style?: React.CSSProperties;
+  scroll: number;
 }
 
 const Header = (props: HeaderProps) => {
   const navigate = useNavigate();
   const currentUser = useUser();
+
   return (
-    <div
-      className={`w-full items-center justify-start border-b border-neutral-800 transition-all duration-200 lg:pl-32 lg:pr-32 ${props.className}`}
+    <nav
+      className={`fixed top-0 z-20 w-full items-center justify-start transition-all duration-200 ${props.scroll > 24 ? "bg-card shadow-lg" : "bg-background"} ${props.className}`}
       style={{ ...props.style }}
     >
       <div className="flex flex-row items-center justify-between">
         <div className="flex flex-row items-center p-4">
-          <h1>Mapache</h1>
+          <h1 className="text-2xl font-bold">{props.headerTitle}</h1>
         </div>
         <div className="mr-4 flex flex-row p-4">
           <DropdownMenu>
@@ -72,7 +76,8 @@ const Header = (props: HeaderProps) => {
           </DropdownMenu>
         </div>
       </div>
-    </div>
+      {props.scroll > 24 ? <Separator /> : null}
+    </nav>
   );
 };
 

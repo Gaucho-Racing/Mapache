@@ -20,9 +20,9 @@ export default function Footer() {
 
   const ping = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/ping`);
-      console.log(response.data);
-      setServerMessage(response.data.message);
+      const response = await axios.get(`${BACKEND_URL}/admin-gw/ping`);
+      console.log(response.data.data);
+      setServerMessage(response.data.data.message);
     } catch (error: any) {
       toast(getAxiosErrorMessage(error));
     }
