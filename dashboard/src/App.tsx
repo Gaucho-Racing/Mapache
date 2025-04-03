@@ -34,7 +34,7 @@ function App() {
         <div className="flex h-screen flex-col justify-between">
           <Header />
           <div className="flex h-screen flex-col justify-start p-4 lg:p-32 lg:pt-16">
-            <h2>GR Internal App</h2>
+            <h2>coming soon or some shit ™</h2>
           </div>
           <Footer />
         </div>

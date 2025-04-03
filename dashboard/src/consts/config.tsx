@@ -6,7 +6,7 @@ export const SENTINEL_OAUTH_BASE_URL =
 export const SENTINEL_CLIENT_ID = "z6V9NREjMFhf";
 
 export const SOCIAL_LINKS = {
-  github: "https://github.com/gaucho-racing/jiffy",
+  github: "https://github.com/gaucho-racing/mapache",
   instagram: "https://instagram.com/gauchoracingucsb",
   twitter: "https://twitter.com/gaucho_racing",
   linkedin:
