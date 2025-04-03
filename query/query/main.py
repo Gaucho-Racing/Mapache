@@ -4,9 +4,30 @@ import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
 
+from query.routes import query
+
+def create_app():
+    app = FastAPI(
+        title="FastAPI",
+        description="API Documentation",
+        version="0.0."
+    )
+    
+    app.include_router(
+        query.router,
+        prefix="/query",
+        tags=["Query"]  # This will group the endpoints in Swagger UI
+    )
+    
+    @app.get("/", tags=["Root"])
+    def index():
+        return {"message": "Welcome to the API"}
+    
+    return app
+
 def main():
   init_db()
-  app = FastAPI()
+  app = create_app()
   
   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 

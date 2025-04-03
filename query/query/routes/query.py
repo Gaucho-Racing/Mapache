@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Annotated
-from service.query_service import *
+from query.service.query import *
 from pydantic import BaseModel
 from datetime import datetime
-from resources.resources import get_sensors
+#from query.resources.resources import get_sensors
 
 vehicle_ids = ["gr24"]
 
