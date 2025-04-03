@@ -26,7 +26,9 @@ function LoginPage() {
     login();
   }, []);
 
-  const [quote, setQuote] = React.useState(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  const [quote] = React.useState(
+    QUOTES[Math.floor(Math.random() * QUOTES.length)],
+  );
 
   const ping = async () => {
     try {
@@ -60,7 +62,7 @@ function LoginPage() {
     setLoginStatus("loading");
     const code = queryParameters.get("code");
     if (!code) {
-      setLoginStatus("none")
+      setLoginStatus("none");
       return;
     }
     try {
@@ -105,15 +107,15 @@ function LoginPage() {
     return (
       <Card className="p-4 md:w-[500px] md:p-8">
         <div className="items-center">
-        <img
+          <img
             src="/logo/mechanic-logo.png"
             alt="Gaucho Racing"
             className="mx-auto h-20 md:h-24"
           />
           <h1 className="mt-6 text-2xl font-semibold tracking-tight">
-          Login with Sentinel
-        </h1>
-            <p className="mt-4">Login to Mapache using your Sentinel account.</p>
+            Login with Sentinel
+          </h1>
+          <p className="mt-4">Login to Mapache using your Sentinel account.</p>
           <OutlineButton
             className="mt-4 w-full"
             onClick={() => {
@@ -164,22 +166,26 @@ function LoginPage() {
           </div>
           <div className="absolute bottom-0 left-0 z-20 p-16">
             <blockquote className="space-y-2">
-              <p className="text-lg whitespace-pre">
+              <p className="whitespace-pre text-lg">
                 &ldquo;{quote.quote}&rdquo;
               </p>
-              <footer className="text-md">
-                {quote.author}
-              </footer>
+              <footer className="text-md">{quote.author}</footer>
             </blockquote>
           </div>
         </div>
         <div className="mx-auto h-screen w-1/2 bg-black text-center">
           <div className="flex h-full flex-col items-center justify-center p-32">
-            {loginStatus == "loading" ? <LoadingCard /> : loginStatus == "error" ? <InvalidCodeCard /> : <LoginCard />}
+            {loginStatus == "loading" ? (
+              <LoadingCard />
+            ) : loginStatus == "error" ? (
+              <InvalidCodeCard />
+            ) : (
+              <LoginCard />
+            )}
           </div>
         </div>
-        <div className="fixed bottom-0 right-0 p-4 text-gray-500 z-50">
-            <p>{sentinelMsg}</p>
+        <div className="fixed bottom-0 right-0 z-50 p-4 text-gray-500">
+          <p>{sentinelMsg}</p>
         </div>
       </div>
     </>

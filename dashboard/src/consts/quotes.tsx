@@ -24,7 +24,8 @@ export const QUOTES = [
     author: "Anirudh Kumar",
   },
   {
-    quote: "Why is the z gyro data so much cleaner than the x and y?\n\t\tBecause we weren't flying bro.",
+    quote:
+      "Why is the z gyro data so much cleaner than the x and y?\n\t\tBecause we weren't flying bro.",
     author: "Thomas Yu, Bharat Kathi",
   },
   {
