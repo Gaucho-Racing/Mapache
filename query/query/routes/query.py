@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Annotated
-from query.service.query import *
+from query.service.query import * #only import what is needed
 from pydantic import BaseModel
 from datetime import datetime
 #from query.resources.resources import get_sensors
+
+#need to rename sensors to signals
 
 vehicle_ids = ["gr24"]
 
@@ -23,7 +25,7 @@ vehicle_ids = ['gr24']
 @router.get("/")
 async def get_query(
     vehicle_id: str,
-    sensors: Annotated[list[str], Query()],
+    signals: Annotated[list[str], Query()],
     trip: Annotated[str | None, Query()] = None,
     lap: Annotated[str | None, Query()] = None,
     start: Annotated[int | None, Query()] = None,
@@ -41,12 +43,12 @@ async def get_query(
     - stop: Optional stop timestamp
     """
     
-    #Exception Handling
+    # <------ Exception Handling ------>
     if vehicle_id not in vehicle_ids:
         raise HTTPException(status_code=400, detail="Invalid vehicle_id")
-    missing_sensors = [s for s in sensors if s not in get_sensors(vehicle_id)]
-    if missing_sensors:
-        raise HTTPException(status_code=400, detail=f"The following sensors do not exist {missing_sensors}")
+    missing_signals = [s for s in signals if s not in get_signals(vehicle_id)]
+    if missing_signals:
+        raise HTTPException(status_code=400, detail=f"The following signals do not exist {missing_signals}")
     if trip:
         #takes priority over start/stop should change in future
         err, start, stop = query_trip(trip, lap) #if lap is none return entire trip
@@ -54,7 +56,25 @@ async def get_query(
             raise HTTPException(status_code=400, detail=f"Invalid Trip")
     elif start is None or stop is None:
         raise HTTPException(status_code=400, detail=f"Invalid Trip")
-    
-    return populate_signals(vehicle_id, sensors, start[0], stop[0])
+    # <------ Exception Handling ------>
+
+    # have a list of sensors called sensors
+    # have a start and stop timestamp
+    list_of_signals_dfs = query_signals(signals, start, stop)
+
+    signals_json, loss = merge_to_smallest(list_of_signals_dfs)
+
+    #signals_json corresponds to a list of Model.signal objects. loss is another json object
+
+    return ModelQuery() #where model query is another object
 
 
+"""
+TODO:
+fix comments
+fastSync
+def query_trip
+propper naming conventions
+exception handeling should happen in the functions and not in the route
+verify everything works
+"""

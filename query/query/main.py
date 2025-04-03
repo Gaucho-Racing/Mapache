@@ -3,8 +3,10 @@ from query.service.query import merge_to_largest, merge_to_largest_fill, query_s
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
-
 from query.routes import query
+
+#for testing
+from query.service.query import query_signals, query_trip
 
 def create_app():
     app = FastAPI(
@@ -30,6 +32,13 @@ def main():
   app = create_app()
   
   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
+
+init_db()
+#print(query_signals(['mobile_speed','acu_cell1_temp'], '2024-11-10 22:38:27', '2024-11-10 22:39:34'))
+err, start, stop = query_trip(1)
+
+dfs = query_signals(['mobile_speed','acu_cell1_temp'], start, stop)
+raw_merge_df(*dfs)
 
 if __name__ == "__main__":
   main()

@@ -3,6 +3,67 @@ from query.database.connection import get_db
 from query.model import *
 import pandas as pd
 
+# <------------- query functions ------------->
+def query_vehicle_id(vehicle_id):
+    return
+
+def query_trip(trip_id, lap_num=None): # lap not incorperated yet
+    err = None
+    query = f"""
+    SELECT start_time, end_time FROM trip
+    WHERE id = {trip_id}
+    """
+
+    db = get_db()
+    result = pd.read_sql(query, db.bind)
+    
+    if len(result) != 1:
+        err = 1
+    
+    return err, result['start_time'][0], result['end_time'][0] #note index zero
+
+def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
+    """
+    Retrieves signal data within a specified time range.
+    
+    Parameters:
+    -----------
+    signals : list or str
+        The signal(s) to query. Can be a single signal name (str) or a list of signal names.
+    start : datetime or str
+        The start time of the query range. If str, should be in a standard datetime format.
+    end : datetime or str
+        The end time of the query range. If str, should be in a standard datetime format.
+        
+    Returns:
+    --------
+    list[pd.DataFrame]
+        A list of pandas dataframes each with two columns: produced_at, {signal}.
+    """
+    signals_str = "('" + "', '".join(signals) + "')"
+    query = f"""
+    SELECT produced_at, `name`, `value` 
+    FROM `signal`
+    WHERE produced_at > '{start}' 
+    AND produced_at < '{end}'
+    AND `name` IN {signals_str}
+    ORDER BY produced_at ASC;"""
+    db = get_db()
+    result = pd.read_sql(query, db.bind)
+    return [
+        result[result['name'] == signal][['produced_at', 'value']]
+        .rename(columns={'value': signal})
+        .reset_index(drop=True)
+        for signal in signals
+    ]
+
+def merge_to_smallest(*dfs: pd.DataFrame): #takes a list of dataframes and 
+    return 
+
+
+# <------------- query functions ------------->
+
+
 def query_signal(vehicle_id: str, signal_name: str, start_time: str, end_time: str) -> pd.DataFrame:
     query = f"""
     SELECT produced_at, `value` FROM `signal`
@@ -50,6 +111,7 @@ def analyze_signal_df(df: pd.DataFrame):
     print(f"  Times: {df['produced_at'].iloc[max_idx-1]} - {df['produced_at'].iloc[max_idx]}")
     
     print(f"Average time difference: {time_diffs.mean().total_seconds()} seconds")
+
 def raw_merge_df(*dfs: pd.DataFrame):
     """
     Merges multiple DataFrames on the 'produced_at' column using an outer join.
