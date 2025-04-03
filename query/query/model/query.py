@@ -17,5 +17,5 @@ class Metadata(BaseModel):
 class ResponseModel(BaseModel):
     status: str
     timestamp: str
-    data: List[Data]
+    data: List[DataInstance]
     metadata: Metadata

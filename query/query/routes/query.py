@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Annotated
 from query.service.query import * #only import what is needed
-from pydantic import BaseModel
+from query.model.query import *
 from datetime import datetime
+import time # for processing time
 #from query.resources.resources import get_sensors
 
 #need to rename sensors to signals
@@ -36,37 +37,59 @@ async def get_query(
     
     Parameters:
     - vehicle_id: Required vehicle identifier
-    - sensors: Required list of sensor names to retrieve
+    - signals: Required list of sensor names to retrieve
     - trip: Optional trip identifier
     - lap: Optional lap identifier
     - start: Optional start timestamp
     - stop: Optional stop timestamp
     """
     
-    # <------ Exception Handling ------>
-    if vehicle_id not in vehicle_ids:
-        raise HTTPException(status_code=400, detail="Invalid vehicle_id")
-    missing_signals = [s for s in signals if s not in get_signals(vehicle_id)]
-    if missing_signals:
-        raise HTTPException(status_code=400, detail=f"The following signals do not exist {missing_signals}")
-    if trip:
-        #takes priority over start/stop should change in future
-        err, start, stop = query_trip(trip, lap) #if lap is none return entire trip
-        if err:
-            raise HTTPException(status_code=400, detail=f"Invalid Trip")
-    elif start is None or stop is None:
-        raise HTTPException(status_code=400, detail=f"Invalid Trip")
-    # <------ Exception Handling ------>
+    query_start_time = time.time()
+    #verify vehicle id
+    query_vehicle_id(vehicle_id)
 
-    # have a list of sensors called sensors
-    # have a start and stop timestamp
+    # query trip inforation
+    err, start, stop = query_trip(trip) # does not yet support lap
+
+    # query corresponding data
     list_of_signals_dfs = query_signals(signals, start, stop)
 
-    signals_json, loss = merge_to_smallest(list_of_signals_dfs)
+    # truncate data
+    merged_signals, loss = merge_to_smallest(*list_of_signals_dfs)
 
-    #signals_json corresponds to a list of Model.signal objects. loss is another json object
+    # format data to json objects
+    data = df_to_json_data(merged_signals)
 
-    return ModelQuery() #where model query is another object
+    #summarize data
+    query_end_time = time.time()
+    processing_time = int((query_end_time - query_start_time)*1000)
+
+    metadata = Metadata(
+        nrows = 0, #dne for now
+        processing_time_ms = processing_time,
+        max_rows_lost = loss.max(),
+        avg_rows_lost = loss.mean(),
+    )
+    """
+    Response:
+    {
+        "status": "success",
+        "timestamp": "2024-03-21T15:30:45Z",
+        "data": [...],
+        "metadata": {
+            "signal_count": 5,
+            "total_data_points": 1000,
+            "processing_time_ms": 123
+        }
+    }
+    """
+
+    return ResponseModel(
+        status = "success",
+        timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
+        data = data,
+        metadata = metadata,
+    )
 
 
 """

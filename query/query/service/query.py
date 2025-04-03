@@ -2,6 +2,7 @@ from functools import reduce
 from query.database.connection import get_db
 from query.model import *
 import pandas as pd
+import numpy as np
 
 # <------------- query functions ------------->
 def query_vehicle_id(vehicle_id):
@@ -57,9 +58,60 @@ def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
         for signal in signals
     ]
 
-def merge_to_smallest(*dfs: pd.DataFrame): #takes a list of dataframes and 
-    return 
+def merge_to_smallest(*dfs: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
+    """
+    Merges multiple DataFrames to the smallest one using asof merge.
+    
+    Parameters:
+    -----------
+    *dfs : pd.DataFrame
+        Variable number of DataFrames, each with 'produced_at' and one signal column
+        
+    Returns:
+    --------
+    Tuple[pd.DataFrame, np.ndarray]
+        - DataFrame with merged signals aligned to shortest timeline
+        - Array of data points lost for each signal (compared to smallest)
+    """
+    smallest = min(dfs, key=len)
+    key = smallest
+    loss = []
 
+    for df in dfs:
+        loss.append(len(df)) # keep track of data length
+        if df.equals(smallest):
+            continue
+        key = pd.merge_asof(smallest, df, on='produced_at')
+    
+    loss = np.array(loss)
+    loss -= len(smallest) #compute the amount of truncated rows
+
+    return key, loss
+
+from typing import List
+from query.model.query import Data, DataInstance
+
+def df_to_json_data(df: pd.DataFrame) -> Data:
+    """
+    Converts a pandas DataFrame into a list of Data objects containing DataInstance objects.
+    Each row in the DataFrame becomes a separate DataInstance.
+    
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame containing signal data with 'produced_at' and signal columns
+        
+    Returns:
+    --------
+    Data
+        A single Data object with all rows converted to DataInstances
+    """
+    data_instances = [
+        DataInstance(**row.to_dict()) 
+        for _, row in df.iterrows()
+    ]
+    
+    return data_instances
 
 # <------------- query functions ------------->
 

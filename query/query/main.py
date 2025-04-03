@@ -6,7 +6,7 @@ from query.database.connection import init_db
 from query.routes import query
 
 #for testing
-from query.service.query import query_signals, query_trip
+from query.service.query import query_signals, query_trip, merge_to_smallest, df_to_json_data
 
 def create_app():
     app = FastAPI(
@@ -33,12 +33,9 @@ def main():
   
   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
-init_db()
-#print(query_signals(['mobile_speed','acu_cell1_temp'], '2024-11-10 22:38:27', '2024-11-10 22:39:34'))
-err, start, stop = query_trip(1)
 
-dfs = query_signals(['mobile_speed','acu_cell1_temp'], start, stop)
-raw_merge_df(*dfs)
+#print(query_signals(['mobile_speed','acu_cell1_temp'], '2024-11-10 22:38:27', '2024-11-10 22:39:34'))
+
 
 if __name__ == "__main__":
   main()
