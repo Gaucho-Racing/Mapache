@@ -1,50 +1,36 @@
-import { MAPACHE_API_URL, currentUser } from "@/consts/config";
+import { BACKEND_URL } from "@/consts/config";
+import { initUser } from "@/models/user";
+import { getUser, setUser } from "@/lib/store";
 import axios from "axios";
 
 export const checkCredentials = async () => {
-  if (
-    localStorage.getItem("id") == null ||
-    localStorage.getItem("token") == null
-  ) {
+  const currentUser = getUser();
+  if (localStorage.getItem("sentinel_access_token") == null) {
     return 1;
   } else if (currentUser.id == "") {
     try {
-      const userId = localStorage.getItem("id");
-      const response = await axios.get(`${MAPACHE_API_URL}/users/${userId}`, {
+      const response = await axios.get(`${BACKEND_URL}/users/@me`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
         },
       });
       if (response.status == 200) {
-        currentUser.id = response.data.data.id;
-        currentUser.firstName = response.data.data.first_name;
-        currentUser.lastName = response.data.data.last_name;
-        currentUser.email = response.data.data.email;
-        currentUser.subteam = response.data.data.subteam;
-        currentUser.roles = response.data.data.roles;
-        currentUser.updatedAt = response.data.data.updated_at;
-        currentUser.createdAt = response.data.data.created_at;
-
-        if (currentUser.firstName != "" && currentUser.lastName != "") {
-          return 1;
-        }
+        setUser(response.data.data);
         return 0;
       }
     } catch (error) {
+      logout();
       return 1;
     }
-  } else {
-    return 0;
   }
+  return 0;
 };
 
 export const logout = () => {
-  localStorage.removeItem("id");
-  localStorage.removeItem("token");
-  currentUser.id = "";
-  currentUser.firstName = "";
-  currentUser.lastName = "";
-  currentUser.email = "";
-  currentUser.subteam = "";
-  currentUser.roles = [];
+  localStorage.removeItem("sentinel_access_token");
+  setUser(initUser);
+};
+
+export const saveAccessToken = (accessToken: string) => {
+  localStorage.setItem("sentinel_access_token", accessToken);
 };
