@@ -20,6 +20,7 @@ module.exports = {
       colors: {
         "gr-pink": "#e105a3",
         "gr-purple": "#8412fc",
+        "discord-blurple": "#7289da",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -1,32 +1,51 @@
 export interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  username: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  subteam: string;
-  createdAt: Date;
-  updatedAt: Date;
+  phone_number: string;
+  gender: string;
+  birthday: string;
+  graduate_level: string;
+  graduation_year: number;
+  major: string;
+  shirt_size: string;
+  jacket_size: string;
+  sae_registration_number: string;
+  avatar_url: string;
+  verified: boolean;
+  subteams: Subteam[];
   roles: string[];
+  updated_at: string;
+  created_at: string;
 }
 
-// function setUser(user: User, userInput: any): void {
-//   user.id = userInput.id || user.id;
-//   user.firstName = userInput.firstName || user.firstName;
-//   user.lastName = userInput.lastName || user.lastName;
-//   user.email = userInput.email || user.email;
-//   user.subteam = userInput.subteam || user.subteam;
-//   user.createdAt = userInput.createdAt || user.createdAt;
-//   user.updatedAt = userInput.updatedAt || user.updatedAt;
-//   user.roles = userInput.roles || user.roles;
-// }
+export interface Subteam {
+  id: string;
+  name: string;
+  created_at: string;
+}
 
-export const initUser = {
+export const initUser: User = {
   id: "",
-  firstName: "",
-  lastName: "",
+  username: "",
+  first_name: "",
+  last_name: "",
   email: "",
-  subteam: "",
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  phone_number: "",
+  gender: "",
+  birthday: "",
+  graduate_level: "",
+  graduation_year: 0,
+  major: "",
+  shirt_size: "",
+  jacket_size: "",
+  sae_registration_number: "",
+  avatar_url: "",
+  verified: false,
+  subteams: [],
   roles: [],
+  updated_at: "",
+  created_at: "",
 };
