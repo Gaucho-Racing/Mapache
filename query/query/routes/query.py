@@ -94,10 +94,11 @@ async def get_query(
 
 """
 TODO:
-fix comments
-fastSync
-def query_trip
-propper naming conventions
-exception handeling should happen in the functions and not in the route
-verify everything works
+exception handeling
+clean up:
+    routes
+    models
+    service
+    main
+checkin
 """

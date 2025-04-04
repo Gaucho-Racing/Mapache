@@ -10,9 +10,9 @@ from query.service.query import query_signals, query_trip, merge_to_smallest, df
 
 def create_app():
     app = FastAPI(
-        title="FastAPI",
+        title="Gaucho Racing Query",
         description="API Documentation",
-        version="0.0."
+        version="0.1.0.0"
     )
     
     app.include_router(
@@ -28,14 +28,10 @@ def create_app():
     return app
 
 def main():
-  init_db()
+  init_db() # should this be here?
   app = create_app()
   
   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
-
-
-#print(query_signals(['mobile_speed','acu_cell1_temp'], '2024-11-10 22:38:27', '2024-11-10 22:39:34'))
-
 
 if __name__ == "__main__":
   main()
