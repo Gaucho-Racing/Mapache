@@ -1,10 +1,8 @@
 import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
-import { useVehicle, useUser, setVehicle } from "@/lib/store";
+import { useVehicle, setVehicle } from "@/lib/store";
 import {
-  Car,
   CarFront,
-  ChevronDown,
   ChevronsUpDown,
   Gauge,
   LayoutDashboard,
@@ -17,13 +15,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Button } from "./ui/button";
 import { useState } from "react";
 import { initVehicle, Vehicle } from "@/models/car";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 interface SidebarProps {
   selectedPage?: string;
   className?: string;
@@ -36,8 +31,7 @@ interface SidebarProps {
 const Sidebar = (props: SidebarProps) => {
   const navigate = useNavigate();
   const currentVehicle = useVehicle();
-  const currentUser = useUser();
-  const [vehicleList, setVehicleList] = useState<Vehicle[]>([
+  const [vehicleList] = useState<Vehicle[]>([
     initVehicle,
     {
       id: "gr23-main",
