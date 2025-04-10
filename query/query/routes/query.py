@@ -53,104 +53,109 @@ async def get_query(
         }
     }
     """
+    try:
+        warnings = QueryWarning()
+        query_start_time = time.time()
 
-    warnings = QueryWarning()
-    query_start_time = time.time()
+        #verify vehicle id
+        if not query_vehicle_id(vehicle_id):
+            raise HTTPException(status_code=404, detail=f"The vehicle id '{vehicle_id}' does not exist")
+        
+        # <----- set and verify start/stop parameters ----->
+        trip_start, trip_stop = None, None
+        if trip:
+            try:
+                trip_start, trip_stop = query_trip(trip)
+            except TripNotFoundError:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Trip '{trip}' not found"
+                )
+            except LapNotFoundError:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Lap '{lap}' not found"
+                )
+        if start:
+            dt = datetime.utcfromtimestamp(start)
+            start = dt.strftime('%Y-%m-%d %H:%M:%S')
+        elif trip_start:
+            start = trip_start
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Must provide either trip id or start timestamp"
+            )
+        if stop:
+            dt = datetime.utcfromtimestamp(stop)
+            stop = dt.strftime('%Y-%m-%d %H:%M:%S')
+        elif trip_stop:
+            stop = trip_stop
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Must provide either trip id or stop timestamp"
+            )
+        # <----- set and verify start/stop parameters ----->
 
-    #verify vehicle id
-    if not query_vehicle_id(vehicle_id):
-        raise HTTPException(status_code=404, detail=f"The vehicle id '{vehicle_id}' does not exist")
-    
-    # <----- set and verify start/stop parameters ----->
-    trip_start, trip_stop = None, None
-    if trip:
-        try:
-            trip_start, trip_stop = query_trip(trip)
-        except TripNotFoundError:
+        # query corresponding signals
+        list_of_signal_dfs = query_signals(signals, start, stop)
+
+        # <----- merges the data ----->
+        if merge == "shortest":
+            merged_signals, loss, nrows = merge_to_smallest(*list_of_signal_dfs)
+            loss_max = loss.max()
+            loss_mean = loss.mean()
+            nan_counts = 0
+            total_nans = 0
+        elif merge == "raw":
+            merged_signals, nan_counts, total_nans, nrows = raw_merge_df(*list_of_signal_dfs)
+            loss_mean = 0
+            loss_max = 0
+        elif merge == "largest":
+            merged_signals, nan_counts, total_nans, nrows = merge_to_largest(*list_of_signal_dfs)
+            loss_mean = 0
+            loss_max = 0
+        elif merge == "largest_fill":
+            merged_signals, nan_counts, total_nans, nrows = merge_to_largest_fill(*list_of_signal_dfs)
+            loss_mean = 0
+            loss_max = 0
+        else:
             raise HTTPException(
                 status_code=404,
-                detail=f"Trip '{trip}' not found"
+                detail=f"Provided invalid merge method"
             )
-        except LapNotFoundError:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Lap '{lap}' not found"
-            )
-    if start:
-        dt = datetime.utcfromtimestamp(start)
-        start = dt.strftime('%Y-%m-%d %H:%M:%S')
-    elif trip_start:
-        start = trip_start
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Must provide either trip id or start timestamp"
+        # <----- merges the data ----->
+
+        if resample: # needs to be its own merge or smth
+            merged_signals, total_nans, nrows = resample_ffill(merged_signals, resample)
+            warnings.add_warning("resample is poorly implemented and not recommended atm")
+
+        # format data to json objects
+        data = df_to_pydantic(merged_signals)
+
+        #summarize data
+        query_end_time = time.time()
+        processing_time = int((query_end_time - query_start_time)*1000)
+
+        metadata = Metadata(
+            nrows = nrows,
+            processing_time_ms = processing_time,
+            max_rows_lost = loss_max,
+            avg_rows_lost = loss_mean,
+            #nan_counts = nan_counts,
+            total_nans = total_nans,
         )
-    if stop:
-        dt = datetime.utcfromtimestamp(stop)
-        stop = dt.strftime('%Y-%m-%d %H:%M:%S')
-    elif trip_stop:
-        stop = trip_stop
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Must provide either trip id or stop timestamp"
+
+
+        return ResponseModel(
+            timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
+            data = data,
+            metadata = metadata,
+            warnings = warnings.get_warnings()
         )
-    # <----- set and verify start/stop parameters ----->
-
-    # query corresponding signals
-    list_of_signal_dfs = query_signals(signals, start, stop)
-
-    # <----- merges the data ----->
-    if merge == "shortest":
-        merged_signals, loss, nrows = merge_to_smallest(*list_of_signal_dfs)
-        loss_max = loss.max()
-        loss_mean = loss.mean()
-        nan_counts = 0
-        total_nans = 0
-    elif merge == "raw":
-        merged_signals, nan_counts, total_nans, nrows = raw_merge_df(*list_of_signal_dfs)
-        loss_mean = 0
-        loss_max = 0
-    elif merge == "largest":
-        merged_signals, nan_counts, total_nans, nrows = merge_to_largest(*list_of_signal_dfs)
-        loss_mean = 0
-        loss_max = 0
-    elif merge == "largest_fill":
-        merged_signals, nan_counts, total_nans, nrows = merge_to_largest_fill(*list_of_signal_dfs)
-        loss_mean = 0
-        loss_max = 0
-    else:
+    except:
         raise HTTPException(
-            status_code=404,
-            detail=f"Provided invalid merge method"
-        )
-    # <----- merges the data ----->
-
-    if resample: # needs to be its own merge or smth
-        merged_signals, total_nans, nrows = resample_ffill(merged_signals, resample)
-        warnings.add_warning("resample is poorly implemented and not recommended atm")
-
-    # format data to json objects
-    data = df_to_json_data(merged_signals)
-
-    #summarize data
-    query_end_time = time.time()
-    processing_time = int((query_end_time - query_start_time)*1000)
-
-    metadata = Metadata(
-        nrows = nrows,
-        processing_time_ms = processing_time,
-        max_rows_lost = loss_max,
-        avg_rows_lost = loss_mean,
-        #nan_counts = nan_counts,
-        total_nans = total_nans,
-    )
-
-
-    return ResponseModel(
-        timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
-        data = data,
-        metadata = metadata,
-        warnings = warnings.get_warnings()
-    )
+                status_code=500,
+                detail=f"ruh roh"
+            ) 

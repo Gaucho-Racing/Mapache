@@ -4,36 +4,30 @@ from query.model import *
 import pandas as pd
 import numpy as np
 from query.model.exceptions import TripNotFoundError, LapNotFoundError
+from sqlalchemy import text
 
 # <------------- query functions ------------->
 def query_vehicle_id(vehicle_id):
-    query = f"""
-    SELECT name FROM vehicle
-    WHERE name = '{vehicle_id}';
-    """
     db = get_db()
-    result = pd.read_sql(query, db.bind)
-    
-    if len(result) != 1: 
-        #doesnt acount for more than 1 entry!!!!
-        return False
-    
-    return True
+    result = db.execute(
+        text("SELECT EXISTS (SELECT 1 FROM vehicle WHERE name = :id)"),
+        {"id": vehicle_id}
+    ).scalar()
+    return result
 
 def query_trip(trip_id, lap_num=None): # lap not incorperated yet
-    err = None
-    query = f"""
-    SELECT start_time, end_time FROM trip
-    WHERE id = {trip_id}
-    """
-
     db = get_db()
-    result = pd.read_sql(query, db.bind)
-    
-    if len(result) != 1:
+    result = db.execute(
+        text("SELECT start_time, end_time FROM trip WHERE id = :id"),
+        {"id": trip_id}
+        ).fetchone()
+    if not result:
         raise TripNotFoundError
     
-    return result['start_time'][0], result['end_time'][0] #note index zero
+    if lap_num: # index from 1
+        pass
+
+    return result[0], result[1]
 
 def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
     """
@@ -104,7 +98,7 @@ def merge_to_smallest(*dfs: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
 from typing import List
 from query.model.query import Data, DataInstance
 
-def df_to_json_data(df: pd.DataFrame) -> Data:
+def df_to_pydantic(df: pd.DataFrame) -> Data:
     """
     Converts a pandas DataFrame into a list of Data objects containing DataInstance objects.
     Each row in the DataFrame becomes a separate DataInstance.
@@ -127,7 +121,6 @@ def df_to_json_data(df: pd.DataFrame) -> Data:
     return data_instances
 
 # <------------- query functions ------------->
-
 
 def query_signal(vehicle_id: str, signal_name: str, start_time: str, end_time: str) -> pd.DataFrame:
     query = f"""
