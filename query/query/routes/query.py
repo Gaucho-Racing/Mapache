@@ -27,7 +27,7 @@ async def get_query(
     start: Annotated[int | None, Query()] = None,
     stop: Annotated[int | None, Query()] = None,
     merge: Annotated[str | None, Query(enum=['shortest', 'largest', 'largest_fill', 'raw'])] = 'shortest',
-    resample: Annotated[int | None, Query()] = None,
+    resample: Annotated[str | None, Query()] = None,
 ):
     """
     Get items filtered by vehicle ID and sensors
@@ -53,7 +53,8 @@ async def get_query(
         }
     }
     """
-    
+
+    warnings = QueryWarning()
     query_start_time = time.time()
 
     #verify vehicle id
@@ -126,8 +127,9 @@ async def get_query(
         )
     # <----- merges the data ----->
 
-    if resample:
-        pass
+    if resample: # needs to be its own merge or smth
+        merged_signals, total_nans, nrows = resample_ffill(merged_signals, resample)
+        warnings.add_warning("resample is poorly implemented and not recommended atm")
 
     # format data to json objects
     data = df_to_json_data(merged_signals)
@@ -145,8 +147,10 @@ async def get_query(
         total_nans = total_nans,
     )
 
+
     return ResponseModel(
         timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
         data = data,
         metadata = metadata,
+        warnings = warnings.get_warnings()
     )

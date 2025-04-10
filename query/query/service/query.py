@@ -365,11 +365,13 @@ def resample_ffill(df: pd.DataFrame, interval: str):
 
     # Count NaN values in each column (excluding produced_at)
     nan_counts = resampled_df.drop('produced_at', axis=1).isna().sum()
-    print("\nNaN counts per column after forward fill:")
-    print(nan_counts)
+   #print("\nNaN counts per column after forward fill:")
+    #print(nan_counts)
     
     # Total NaN count
     total_nans = nan_counts.sum()
-    print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
+    #print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
 
-    return resampled_df
+    nrows = len(resampled_df)
+
+    return resampled_df, total_nans, nrows
