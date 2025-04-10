@@ -5,9 +5,6 @@ from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import query
 
-#for testing
-from query.service.query import query_signals, query_trip, merge_to_smallest, df_to_json_data
-
 def create_app():
     app = FastAPI(
         title="Gaucho Racing Query",

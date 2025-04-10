@@ -3,10 +3,22 @@ from query.database.connection import get_db
 from query.model import *
 import pandas as pd
 import numpy as np
+from query.model.exceptions import TripNotFoundError
 
 # <------------- query functions ------------->
 def query_vehicle_id(vehicle_id):
-    return
+    query = f"""
+    SELECT name FROM vehicle
+    WHERE name = '{vehicle_id}';
+    """
+    db = get_db()
+    result = pd.read_sql(query, db.bind)
+    
+    if len(result) != 1: 
+        #doesnt acount for more than 1 entry!!!!
+        return False
+    
+    return True
 
 def query_trip(trip_id, lap_num=None): # lap not incorperated yet
     err = None
@@ -19,9 +31,9 @@ def query_trip(trip_id, lap_num=None): # lap not incorperated yet
     result = pd.read_sql(query, db.bind)
     
     if len(result) != 1:
-        err = 1
+        raise TripNotFoundError
     
-    return err, result['start_time'][0], result['end_time'][0] #note index zero
+    return result['start_time'][0], result['end_time'][0] #note index zero
 
 def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
     """
@@ -251,7 +263,6 @@ def merge_to_largest(*dfs: pd.DataFrame):
     print(f"\nData exported to: {output_path}")
     
     return main_df
-
 
 def merge_to_largest_fill(*dfs: pd.DataFrame):
     """

@@ -14,8 +14,11 @@ class Metadata(BaseModel):
     max_rows_lost: int
     avg_rows_lost: float
 
+class warning(BaseModel):
+    pass
+
 class ResponseModel(BaseModel):
-    status: str
     timestamp: str
     data: List[DataInstance]
     metadata: Metadata
+    #warnings: warning

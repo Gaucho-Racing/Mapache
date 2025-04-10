@@ -4,11 +4,8 @@ from query.service.query import * #only import what is needed
 from query.model.query import *
 from datetime import datetime
 import time # for processing time
+from query.model.exceptions import TripNotFoundError, LapNotFoundError
 #from query.resources.resources import get_sensors
-
-#need to rename sensors to signals
-
-vehicle_ids = ["gr24"]
 
 '''
 class query(BaseModel):
@@ -42,14 +39,31 @@ async def get_query(
     - lap: Optional lap identifier
     - start: Optional start timestamp
     - stop: Optional stop timestamp
+    <---- need to be added ---->
+    merge_method
+    lap
+
     """
     
     query_start_time = time.time()
     #verify vehicle id
-    query_vehicle_id(vehicle_id)
-
+    
+    if not query_vehicle_id(vehicle_id):
+        raise HTTPException(status_code=404, detail=f"The vehicle id '{vehicle_id}' does not exist")
+    
     # query trip inforation
-    err, start, stop = query_trip(trip) # does not yet support lap
+    try:
+        start, stop = query_trip(trip)  # Modified to return only start/stop and raise exceptions
+    except TripNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Trip '{trip}' not found"
+        )
+    except LapNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Lap '{lap}' not found"
+        )
 
     # query corresponding data
     list_of_signals_dfs = query_signals(signals, start, stop)
@@ -73,7 +87,6 @@ async def get_query(
     """
     Response:
     {
-        "status": "success",
         "timestamp": "2024-03-21T15:30:45Z",
         "data": [...],
         "metadata": {
@@ -83,22 +96,8 @@ async def get_query(
         }
     }
     """
-
     return ResponseModel(
-        status = "success",
         timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
         data = data,
         metadata = metadata,
     )
-
-
-"""
-TODO:
-exception handeling
-clean up:
-    routes
-    models
-    service
-    main
-checkin
-"""
