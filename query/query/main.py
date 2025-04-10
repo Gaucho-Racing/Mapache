@@ -4,7 +4,7 @@ import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import query
-
+from  query.middleware.logging import LogMiddleware
 def create_app():
     app = FastAPI(
         title="Gaucho Racing Query",
@@ -17,6 +17,8 @@ def create_app():
         prefix="/query",
         tags=["Query"]  # This will group the endpoints in Swagger UI
     )
+
+    app.add_middleware(LogMiddleware)
     
     @app.get("/", tags=["Root"])
     def index():
