@@ -13,6 +13,8 @@ class Metadata(BaseModel):
     processing_time_ms: int
     max_rows_lost: int
     avg_rows_lost: float
+    #nan_counts: int
+    total_nans: int
 
 class warning(BaseModel):
     pass

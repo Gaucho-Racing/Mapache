@@ -41,6 +41,17 @@ async def get_query(
     - stop: As integer (seconds since 1970-01-01T00:00:00Z)
     - merge: method for data to be merged
     - resample: frequency for data to be resampled
+
+    Response:
+    {
+        "timestamp": "2024-03-21T15:30:45Z",
+        "data": [...],
+        "metadata": {
+            "signal_count": 5,
+            "total_data_points": 1000,
+            "processing_time_ms": 123
+        }
+    }
     """
     
     query_start_time = time.time()
@@ -87,17 +98,33 @@ async def get_query(
     # <----- set and verify start/stop parameters ----->
 
     # query corresponding signals
-    list_of_signals_dfs = query_signals(signals, start, stop)
+    list_of_signal_dfs = query_signals(signals, start, stop)
 
-    # merge data
+    # <----- merges the data ----->
     if merge == "shortest":
-        merged_signals, loss = merge_to_smallest(*list_of_signals_dfs)
+        merged_signals, loss, nrows = merge_to_smallest(*list_of_signal_dfs)
+        loss_max = loss.max()
+        loss_mean = loss.mean()
+        nan_counts = 0
+        total_nans = 0
     elif merge == "raw":
-        pass
+        merged_signals, nan_counts, total_nans, nrows = raw_merge_df(*list_of_signal_dfs)
+        loss_mean = 0.0
+        loss_max = 0
     elif merge == "largest":
-        pass
+        merged_signals, nan_counts, total_nans, nrows = merge_to_largest(*list_of_signal_dfs)
+        loss_mean = 0.0
+        loss_max = 0
     elif merge == "largest_fill":
-        pass
+        merged_signals, nan_counts, total_nans, nrows = merge_to_largest_fill(*list_of_signal_dfs)
+        loss_mean = 0.0
+        loss_max = 0
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provided invalid merge method"
+        )
+    # <----- merges the data ----->
 
     if resample:
         pass
@@ -110,23 +137,14 @@ async def get_query(
     processing_time = int((query_end_time - query_start_time)*1000)
 
     metadata = Metadata(
-        nrows = 0, #dne for now
+        nrows = nrows,
         processing_time_ms = processing_time,
-        max_rows_lost = loss.max(),
-        avg_rows_lost = loss.mean(),
+        max_rows_lost = loss_max,
+        avg_rows_lost = loss_mean,
+        #nan_counts = nan_counts,
+        total_nans = total_nans,
     )
-    """
-    Response:
-    {
-        "timestamp": "2024-03-21T15:30:45Z",
-        "data": [...],
-        "metadata": {
-            "signal_count": 5,
-            "total_data_points": 1000,
-            "processing_time_ms": 123
-        }
-    }
-    """
+
     return ResponseModel(
         timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
         data = data,

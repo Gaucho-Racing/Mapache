@@ -95,10 +95,11 @@ def merge_to_smallest(*dfs: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
             continue
         key = pd.merge_asof(smallest, df, on='produced_at')
     
+    nrows = len(smallest)
     loss = np.array(loss)
-    loss -= len(smallest) #compute the amount of truncated rows
+    loss -= nrows #compute the amount of truncated rows
 
-    return key, loss
+    return key, loss, nrows
 
 from typing import List
 from query.model.query import Data, DataInstance
@@ -197,14 +198,16 @@ def raw_merge_df(*dfs: pd.DataFrame):
 
     # Count NaN values in each column (excluding produced_at)
     nan_counts = merged_df.drop('produced_at', axis=1).isna().sum()
-    print("\nNaN counts per column:")
-    print(nan_counts)
+    #print("\nNaN counts per column:")
+    #print(nan_counts)
     
     # Total NaN count
     total_nans = nan_counts.sum()
-    print(f"\nTotal NaN values across all columns: {total_nans}")
+    #print(f"\nTotal NaN values across all columns: {total_nans}")
 
-    return merged_df
+    nrows = len(merged_df)
+
+    return merged_df, nan_counts, total_nans, nrows
 
 def merge_to_largest(*dfs: pd.DataFrame):
     """
@@ -251,18 +254,19 @@ def merge_to_largest(*dfs: pd.DataFrame):
 
     # Count NaN values in each column (excluding produced_at)
     nan_counts = main_df.drop('produced_at', axis=1).isna().sum()
-    print("\nNaN counts per column:")
-    print(nan_counts)
+    #print("\nNaN counts per column:")
+    #print(nan_counts)
     
     # Total NaN count
     total_nans = nan_counts.sum()
-    print(f"\nTotal NaN values across all columns: {total_nans}")
+    #print(f"\nTotal NaN values across all columns: {total_nans}")
 
-    output_path = "~/Downloads/export.csv"
-    main_df.to_csv(output_path, index=False)
-    print(f"\nData exported to: {output_path}")
+    #output_path = "~/Downloads/export.csv"
+    #main_df.to_csv(output_path, index=False)
+    #print(f"\nData exported to: {output_path}")
+    nrows = len(main_df)
     
-    return main_df
+    return main_df, nan_counts, total_nans, nrows
 
 def merge_to_largest_fill(*dfs: pd.DataFrame):
     """
@@ -313,18 +317,20 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
 
     # Count NaN values in each column (excluding produced_at)
     nan_counts = main_df.drop('produced_at', axis=1).isna().sum()
-    print("\nNaN counts per column after forward fill:")
-    print(nan_counts)
+    #print("\nNaN counts per column after forward fill:")
+    #print(nan_counts)
     
     # Total NaN count
     total_nans = nan_counts.sum()
-    print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
+    #print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
 
-    output_path = "~/Downloads/export.csv"
-    main_df.to_csv(output_path, index=False)
-    print(f"\nData exported to: {output_path}")
+    #output_path = "~/Downloads/export.csv"
+    #main_df.to_csv(output_path, index=False)
+    #print(f"\nData exported to: {output_path}")
+
+    nrows = len(main_df)
     
-    return main_df
+    return main_df, nan_counts, total_nans, nrows
 
 def resample_ffill(df: pd.DataFrame, interval: str):
     """
