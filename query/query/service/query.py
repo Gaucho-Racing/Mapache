@@ -3,7 +3,7 @@ from query.database.connection import get_db
 from query.model import *
 import pandas as pd
 import numpy as np
-from query.model.exceptions import TripNotFoundError
+from query.model.exceptions import TripNotFoundError, LapNotFoundError
 
 # <------------- query functions ------------->
 def query_vehicle_id(vehicle_id):

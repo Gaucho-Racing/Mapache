@@ -18,8 +18,6 @@ class query(BaseModel):
 
 router = APIRouter()
 
-vehicle_ids = ['gr24']
-
 @router.get("/")
 async def get_query(
     vehicle_id: str,
@@ -28,6 +26,8 @@ async def get_query(
     lap: Annotated[str | None, Query()] = None,
     start: Annotated[int | None, Query()] = None,
     stop: Annotated[int | None, Query()] = None,
+    merge: Annotated[str | None, Query(enum=['shortest', 'largest', 'largest_fill', 'raw'])] = 'shortest',
+    resample: Annotated[int | None, Query()] = None,
 ):
     """
     Get items filtered by vehicle ID and sensors
@@ -37,39 +37,70 @@ async def get_query(
     - signals: Required list of sensor names to retrieve
     - trip: Optional trip identifier
     - lap: Optional lap identifier
-    - start: Optional start timestamp
-    - stop: Optional stop timestamp
-    <---- need to be added ---->
-    merge_method
-    lap
-
+    - start: As integer (seconds since 1970-01-01T00:00:00Z)
+    - stop: As integer (seconds since 1970-01-01T00:00:00Z)
+    - merge: method for data to be merged
+    - resample: frequency for data to be resampled
     """
     
     query_start_time = time.time()
+
     #verify vehicle id
-    
     if not query_vehicle_id(vehicle_id):
         raise HTTPException(status_code=404, detail=f"The vehicle id '{vehicle_id}' does not exist")
     
-    # query trip inforation
-    try:
-        start, stop = query_trip(trip)  # Modified to return only start/stop and raise exceptions
-    except TripNotFoundError:
+    # <----- set and verify start/stop parameters ----->
+    trip_start, trip_stop = None, None
+    if trip:
+        try:
+            trip_start, trip_stop = query_trip(trip)
+        except TripNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trip '{trip}' not found"
+            )
+        except LapNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Lap '{lap}' not found"
+            )
+    if start:
+        dt = datetime.utcfromtimestamp(start)
+        start = dt.strftime('%Y-%m-%d %H:%M:%S')
+    elif trip_start:
+        start = trip_start
+    else:
         raise HTTPException(
-            status_code=404,
-            detail=f"Trip '{trip}' not found"
+            status_code=400,
+            detail=f"Must provide either trip id or start timestamp"
         )
-    except LapNotFoundError:
+    if stop:
+        dt = datetime.utcfromtimestamp(stop)
+        stop = dt.strftime('%Y-%m-%d %H:%M:%S')
+    elif trip_stop:
+        stop = trip_stop
+    else:
         raise HTTPException(
-            status_code=404,
-            detail=f"Lap '{lap}' not found"
+            status_code=400,
+            detail=f"Must provide either trip id or stop timestamp"
         )
+    # <----- set and verify start/stop parameters ----->
 
-    # query corresponding data
+    # query corresponding signals
     list_of_signals_dfs = query_signals(signals, start, stop)
 
-    # truncate data
-    merged_signals, loss = merge_to_smallest(*list_of_signals_dfs)
+    # merge data
+    if merge == "shortest":
+        merged_signals, loss = merge_to_smallest(*list_of_signals_dfs)
+    elif merge == "raw":
+        pass
+    elif merge == "largest":
+        pass
+    elif merge == "largest_fill":
+        pass
+
+    if resample:
+        pass
 
     # format data to json objects
     data = df_to_json_data(merged_signals)
