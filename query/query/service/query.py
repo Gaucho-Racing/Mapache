@@ -229,31 +229,33 @@ def merge_to_largest(*dfs: pd.DataFrame):
     # Identify the DataFrame with the most rows
     main_df = max(dfs, key=len)
 
+    merged_df = main_df.copy()
+
     # Ensure produced_at is a datetime column
-    main_df["produced_at"] = pd.to_datetime(main_df["produced_at"])
+    merged_df["produced_at"] = pd.to_datetime(merged_df["produced_at"])
 
     # Sort the main DataFrame by time
-    main_df = main_df.sort_values("produced_at")
+    merged_df = merged_df.sort_values("produced_at")
 
     # Merge all other DataFrames using asof join
     for df in dfs:
-        if df is main_df:
+        if df.equals(main_df):
             continue  # Skip merging the main dataframe with itself
         
         df["produced_at"] = pd.to_datetime(df["produced_at"])
         df = df.sort_values("produced_at")  # Sort for merge_asof
 
         # Merge using closest timestamps
-        main_df = pd.merge_asof(
-            main_df, df, on="produced_at", direction="nearest", tolerance=tolerance
+        merged_df = pd.merge_asof(
+            merged_df, df, on="produced_at", direction="nearest", tolerance=tolerance
         )
 
     # Sort by produced_at
-    main_df = main_df.sort_values(by='produced_at')
-    main_df = main_df.reset_index(drop=True)
+    merged_df = merged_df.sort_values(by='produced_at')
+    merged_df = merged_df.reset_index(drop=True)
 
     # Count NaN values in each column (excluding produced_at)
-    nan_counts = main_df.drop('produced_at', axis=1).isna().sum()
+    nan_counts = merged_df.drop('produced_at', axis=1).isna().sum()
     #print("\nNaN counts per column:")
     #print(nan_counts)
     
@@ -264,9 +266,9 @@ def merge_to_largest(*dfs: pd.DataFrame):
     #output_path = "~/Downloads/export.csv"
     #main_df.to_csv(output_path, index=False)
     #print(f"\nData exported to: {output_path}")
-    nrows = len(main_df)
+    nrows = len(merged_df)
     
-    return main_df, nan_counts, total_nans, nrows
+    return merged_df, nan_counts, total_nans, nrows
 
 def merge_to_largest_fill(*dfs: pd.DataFrame):
     """
@@ -288,35 +290,36 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
 
     # Identify the DataFrame with the most rows
     main_df = max(dfs, key=len)
+    merged_df = main_df.copy()
 
     # Ensure produced_at is a datetime column
-    main_df["produced_at"] = pd.to_datetime(main_df["produced_at"])
+    merged_df["produced_at"] = pd.to_datetime(merged_df["produced_at"])
 
     # Sort the main DataFrame by time
-    main_df = main_df.sort_values("produced_at")
+    merged_df = merged_df.sort_values("produced_at")
 
     # Merge all other DataFrames using asof join
     for df in dfs:
-        if df is main_df:
+        if df.equals(main_df):
             continue  # Skip merging the main dataframe with itself
         
         df["produced_at"] = pd.to_datetime(df["produced_at"])
         df = df.sort_values("produced_at")  # Sort for merge_asof
 
         # Merge using closest timestamps
-        main_df = pd.merge_asof(
-            main_df, df, on="produced_at", direction="nearest", tolerance=tolerance
+        merged_df = pd.merge_asof(
+            merged_df, df, on="produced_at", direction="nearest", tolerance=tolerance
         )
 
     # Sort by produced_at
-    main_df = main_df.sort_values(by='produced_at')
-    main_df = main_df.reset_index(drop=True)
+    merged_df = merged_df.sort_values(by='produced_at')
+    merged_df = merged_df.reset_index(drop=True)
 
     # Forward fill NaN values with most recent non-null value
-    main_df = main_df.fillna(method='ffill')
+    merged_df = merged_df.fillna(method='ffill')
 
     # Count NaN values in each column (excluding produced_at)
-    nan_counts = main_df.drop('produced_at', axis=1).isna().sum()
+    nan_counts = merged_df.drop('produced_at', axis=1).isna().sum()
     #print("\nNaN counts per column after forward fill:")
     #print(nan_counts)
     
@@ -328,9 +331,9 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
     #main_df.to_csv(output_path, index=False)
     #print(f"\nData exported to: {output_path}")
 
-    nrows = len(main_df)
+    nrows = len(merged_df)
     
-    return main_df, nan_counts, total_nans, nrows
+    return merged_df, nan_counts, total_nans, nrows
 
 def resample_ffill(df: pd.DataFrame, interval: str):
     """

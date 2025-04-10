@@ -109,15 +109,15 @@ async def get_query(
         total_nans = 0
     elif merge == "raw":
         merged_signals, nan_counts, total_nans, nrows = raw_merge_df(*list_of_signal_dfs)
-        loss_mean = 0.0
+        loss_mean = 0
         loss_max = 0
     elif merge == "largest":
         merged_signals, nan_counts, total_nans, nrows = merge_to_largest(*list_of_signal_dfs)
-        loss_mean = 0.0
+        loss_mean = 0
         loss_max = 0
     elif merge == "largest_fill":
         merged_signals, nan_counts, total_nans, nrows = merge_to_largest_fill(*list_of_signal_dfs)
-        loss_mean = 0.0
+        loss_mean = 0
         loss_max = 0
     else:
         raise HTTPException(
