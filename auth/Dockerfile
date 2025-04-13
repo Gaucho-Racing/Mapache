@@ -12,7 +12,7 @@ RUN go mod download
 COPY . ./
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /app
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /auth
 
 ##
 ## Deploy
@@ -21,9 +21,9 @@ FROM alpine:3.21
 
 WORKDIR /
 
-COPY --from=builder /app /app
+COPY --from=builder /auth /auth
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
 
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/auth"]
