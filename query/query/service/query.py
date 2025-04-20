@@ -3,8 +3,9 @@ from query.database.connection import get_db
 from query.model import *
 import pandas as pd
 import numpy as np
-from query.model.exceptions import TripNotFoundError, LapNotFoundError
 from sqlalchemy import text
+from typing import List
+from query.model.query import DataInstance, TripNotFoundError, LapNotFoundError
 
 # <------------- query functions ------------->
 def query_vehicle_id(vehicle_id):
@@ -80,14 +81,14 @@ def merge_to_smallest(*dfs: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
         - Array of data points lost for each signal (compared to smallest)
     """
     smallest = min(dfs, key=len)
-    key = smallest
+    key = smallest.copy()
     loss = []
 
     for df in dfs:
         loss.append(len(df)) # keep track of data length
         if df.equals(smallest):
             continue
-        key = pd.merge_asof(smallest, df, on='produced_at')
+        key = pd.merge_asof(key, df, on='produced_at')
     
     nrows = len(smallest)
     loss = np.array(loss)
@@ -95,10 +96,7 @@ def merge_to_smallest(*dfs: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
 
     return key, loss, nrows
 
-from typing import List
-from query.model.query import Data, DataInstance
-
-def df_to_pydantic(df: pd.DataFrame) -> Data:
+def df_to_pydantic(df: pd.DataFrame) -> List[DataInstance]:
     """
     Converts a pandas DataFrame into a list of Data objects containing DataInstance objects.
     Each row in the DataFrame becomes a separate DataInstance.
@@ -329,42 +327,23 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
     return merged_df, nan_counts, total_nans, nrows
 
 def resample_ffill(df: pd.DataFrame, interval: str):
-    """
-    Resamples a DataFrame to a given time interval using forward fill for missing values.
-
-    Parameters:
-        df (pd.DataFrame): The input DataFrame with a datetime column.
-        interval (str): Resampling interval (e.g., "1T" for 1 minute, "5S" for 5 seconds).
-
-    Returns:
-        pd.DataFrame: A resampled DataFrame with forward-filled missing values.
-    """
     if "produced_at" not in df.columns:
         raise ValueError("DataFrame must contain a 'produced_at' column")
-    
-    # Ensure 'produced_at' is a datetime column
+
+    df = df.copy()
     df["produced_at"] = pd.to_datetime(df["produced_at"])
     
-    # Set produced_at as the index for resampling
-    df = df.set_index("produced_at")
+    # Ensure non-datetime columns are numeric (replace NaT with NaN)
+    for col in df.select_dtypes(include=["object", "datetime64[ns]"]):
+        df[col] = pd.to_numeric(df[col], errors='coerce')  # Converts non-numeric values to NaN
 
-    # Resample with forward fill (nearest previous value)
-    resampled_df = df.resample(interval).ffill()
-    resampled_df = resampled_df.reset_index()
+    df.set_index("produced_at", inplace=True)
 
-    # Sort by produced_at
-    resampled_df = resampled_df.sort_values(by='produced_at')
-    resampled_df = resampled_df.reset_index(drop=True)
+    resampled = df.resample(interval).ffill().bfill().reset_index()
+    resampled = resampled.sort_values("produced_at").reset_index(drop=True)
 
-    # Count NaN values in each column (excluding produced_at)
-    nan_counts = resampled_df.drop('produced_at', axis=1).isna().sum()
-   #print("\nNaN counts per column after forward fill:")
-    #print(nan_counts)
-    
-    # Total NaN count
+    nan_counts = resampled.drop(columns="produced_at").isna().sum()
     total_nans = nan_counts.sum()
-    #print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
+    nrows = len(resampled)
 
-    nrows = len(resampled_df)
-
-    return resampled_df, total_nans, nrows
+    return resampled, total_nans, nrows

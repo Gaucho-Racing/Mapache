@@ -2,9 +2,10 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Annotated
 from query.service.query import * #only import what is needed
 from query.model.query import *
-from datetime import datetime
+from datetime import datetime, UTC
 import time # for processing time
-from query.model.exceptions import TripNotFoundError, LapNotFoundError
+from query.model.query import TripNotFoundError, LapNotFoundError
+from query.config.config import Config
 #from query.resources.resources import get_sensors
 
 '''
@@ -18,7 +19,11 @@ class query(BaseModel):
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("/ping")
+async def ping():
+    return {"message": f"Ping v{Config.VERSION} is online!"}
+
+@router.get("/signals")
 async def get_query(
     vehicle_id: str,
     signals: Annotated[list[str], Query()],
@@ -77,7 +82,7 @@ async def get_query(
                     detail=f"Lap '{lap}' not found"
                 )
         if start:
-            dt = datetime.utcfromtimestamp(start)
+            dt = datetime.fromtimestamp(start, UTC)
             start = dt.strftime('%Y-%m-%d %H:%M:%S')
         elif trip_start:
             start = trip_start
@@ -87,7 +92,7 @@ async def get_query(
                 detail=f"Must provide either trip id or start timestamp"
             )
         if stop:
-            dt = datetime.utcfromtimestamp(stop)
+            dt = datetime.fromtimestamp(stop, UTC)
             stop = dt.strftime('%Y-%m-%d %H:%M:%S')
         elif trip_stop:
             stop = trip_stop
@@ -126,7 +131,7 @@ async def get_query(
                 detail=f"Provided invalid merge method"
             )
         # <----- merges the data ----->
-
+        print(type(merged_signals['produced_at'][0]))
         if resample: # needs to be its own merge or smth
             merged_signals, total_nans, nrows = resample_ffill(merged_signals, resample)
             warnings.add_warning("resample is poorly implemented and not recommended atm")
@@ -139,17 +144,15 @@ async def get_query(
         processing_time = int((query_end_time - query_start_time)*1000)
 
         metadata = Metadata(
-            nrows = nrows,
+            num_rows = nrows,
             processing_time_ms = processing_time,
             max_rows_lost = loss_max,
             avg_rows_lost = loss_mean,
-            #nan_counts = nan_counts,
             total_nans = total_nans,
         )
 
-
         return ResponseModel(
-            timestamp = str(datetime.utcnow())[0:10] + 'T' + str(datetime.utcnow())[11:19] + 'Z',
+            timestamp = str(datetime.now(UTC))[0:10] + 'T' + str(datetime.now(UTC))[11:19] + 'Z',
             data = data,
             metadata = metadata,
             warnings = warnings.get_warnings()

@@ -5,11 +5,8 @@ class DataInstance(BaseModel):
     class Config:
         extra = "allow"
 
-class Data(BaseModel):
-    data: List[DataInstance]
-
 class Metadata(BaseModel):
-    nrows: int
+    num_rows: int
     processing_time_ms: int
     max_rows_lost: float
     avg_rows_lost: float
@@ -29,3 +26,9 @@ class ResponseModel(BaseModel):
     data: List[DataInstance]
     metadata: Metadata
     warnings: list[str]
+
+class TripNotFoundError(Exception):
+    pass
+
+class LapNotFoundError(Exception):
+    pass 
