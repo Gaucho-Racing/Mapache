@@ -1,12 +1,15 @@
 from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
+from datetime import timezone
 from query.model.base import Base
 
-class RequestLog(Base):
-    __tablename__ = "request_logs"
+class QueryLog(Base):
+    __tablename__ = "query_log"
 
-    id = Column(Integer, primary_key=True, index=True)
-    method = Column(String)
-    path = Column(String)
+    id = Column(String(255), primary_key=True)
+    user_id = Column(String(255))
+    parameters = Column(String(1000))
     status_code = Column(Integer)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    latency = Column(Integer)
+    error_message = Column(String(1000))
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

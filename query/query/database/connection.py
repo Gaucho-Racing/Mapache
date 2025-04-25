@@ -30,6 +30,8 @@ def init_db():
             )
         )
         
+        from query.model.log import QueryLog
+
         # Create all tables
         Base.metadata.create_all(bind=engine)
         print("Database initialized")

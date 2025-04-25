@@ -2,14 +2,19 @@ from fastapi import FastAPI
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
-from query.routes import query
-from  query.middleware.logging import LogMiddleware
+from query.routes import query, ping
 
 def create_app():
     app = FastAPI(
         title="Gaucho Racing Query",
         description="API Documentation",
         version=Config.VERSION
+    )
+
+    app.include_router(
+        ping.router,
+        prefix="/query",
+        tags=["Ping"]
     )
     
     app.include_router(
@@ -18,7 +23,7 @@ def create_app():
         tags=["Query"]
     )
 
-    app.add_middleware(LogMiddleware)
+    # app.add_middleware(LogMiddleware)
     
     return app
 

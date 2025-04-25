@@ -5,30 +5,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from typing import List
-from query.model.query import DataInstance, TripNotFoundError, LapNotFoundError
-
-# <------------- query functions ------------->
-def query_vehicle_id(vehicle_id):
-    db = get_db()
-    result = db.execute(
-        text("SELECT EXISTS (SELECT 1 FROM vehicle WHERE name = :id)"),
-        {"id": vehicle_id}
-    ).scalar()
-    return result
-
-def query_trip(trip_id, lap_num=None): # lap not incorperated yet
-    db = get_db()
-    result = db.execute(
-        text("SELECT start_time, end_time FROM trip WHERE id = :id"),
-        {"id": trip_id}
-        ).fetchone()
-    if not result:
-        raise TripNotFoundError
-    
-    if lap_num: # index from 1
-        pass
-
-    return result[0], result[1]
+from query.model.query import DataInstance
 
 def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
     """

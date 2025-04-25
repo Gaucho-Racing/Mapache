@@ -8,7 +8,8 @@ run:
 	./scripts/run.sh
 
 test:
-	poetry run pytest
+	chmod +x scripts/test.sh
+	./scripts/test.sh
 
 lint:
 	poetry run black .

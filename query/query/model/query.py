@@ -7,11 +7,11 @@ class DataInstance(BaseModel):
 
 class Metadata(BaseModel):
     num_rows: int
-    processing_time_ms: int
-    max_rows_lost: float
+    query_latency: int
+    max_rows_lost: int
     avg_rows_lost: float
-    #nan_counts: int
     total_nans: int
+    average_nans: float
 
 class QueryWarning():
     def __init__(self):
@@ -27,8 +27,14 @@ class ResponseModel(BaseModel):
     metadata: Metadata
     warnings: list[str]
 
+class InvalidTimestampError(Exception):
+    pass
+
 class TripNotFoundError(Exception):
     pass
 
 class LapNotFoundError(Exception):
-    pass 
+    pass
+
+class VehicleNotFoundError(Exception):
+    pass
