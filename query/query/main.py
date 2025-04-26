@@ -3,7 +3,7 @@ import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import query, ping
-
+from query.service.query import query_signals
 def create_app():
     app = FastAPI(
         title="Gaucho Racing Query",
@@ -29,9 +29,11 @@ def create_app():
 
 def main():
   init_db()
-  print(Config.PORT)
-  app = create_app()
-  uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
+  result = query_signals(['vdm_speed'])
+  print(len(result[0]))
+  print(result)
+#   app = create_app()
+#   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
 if __name__ == "__main__":
   main()

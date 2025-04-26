@@ -7,7 +7,7 @@ from sqlalchemy import text
 from typing import List
 from query.model.query import DataInstance
 
-def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
+def query_signals(signals: list, start: str = None, end: str = None) -> list[pd.DataFrame]:
     """
     Retrieves signal data within a specified time range.
     
@@ -29,10 +29,14 @@ def query_signals(signals: list, start: str, end: str) -> list[pd.DataFrame]:
     query = f"""
     SELECT produced_at, `name`, `value` 
     FROM `signal`
-    WHERE produced_at > '{start}' 
-    AND produced_at < '{end}'
-    AND `name` IN {signals_str}
-    ORDER BY produced_at ASC;"""
+    WHERE `name` IN {signals_str}
+    ORDER BY produced_at ASC"""
+
+    if start is not None:
+        query += f" AND produced_at > '{start}'"
+    if end is not None:
+        query += f" AND produced_at < '{end}'"
+
     db = get_db()
     result = pd.read_sql(query, db.bind)
     return [
