@@ -212,8 +212,8 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
     merged_df = merged_df.sort_values(by='produced_at')
     merged_df = merged_df.reset_index(drop=True)
 
-    # Forward fill NaN values with most recent non-null value
-    merged_df = merged_df.fillna(method='ffill')
+    merged_df = merged_df.fillna(method='ffill')  
+    merged_df = merged_df.fillna(0)
 
     # Count NaN values in each column (excluding produced_at)
     nan_counts = merged_df.drop('produced_at', axis=1).isna().sum()
@@ -223,10 +223,6 @@ def merge_to_largest_fill(*dfs: pd.DataFrame):
     # Total NaN count
     total_nans = nan_counts.sum()
     #print(f"\nTotal NaN values across all columns after forward fill: {total_nans}")
-
-    #output_path = "~/Downloads/export.csv"
-    #main_df.to_csv(output_path, index=False)
-    #print(f"\nData exported to: {output_path}")
 
     nrows = len(merged_df)
     
