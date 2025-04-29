@@ -32,6 +32,10 @@ def main():
   result = query_signals(['vdm_speed'])
   print(len(result[0]))
   print(result)
+  result = query_signals(['vdm_speed'], None, '2024-11-09 22:57:41.00')
+  print(len(result[0]))
+  print(result)
+
 #   app = create_app()
 #   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
