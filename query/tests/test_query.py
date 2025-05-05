@@ -62,7 +62,6 @@ expected_columns = ['produced_at'] + two_signals
 def test_query_signals_two_signals():
     init_db()
     result = query_signals(vehicle_id='gr24', signals=two_signals)
-    print(result)
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -122,5 +121,61 @@ def test_query_signals_invalid_range_two_signals():
     assert len(result[1]) == 0
 
 # ======== 5 SIGNAL TESTS ========
+
+five_signals = ['vdm_speed', 'inverter_erpm', 'acu_cell34_voltage', 'pedal_apps_one', 'mobile_accelerometer_x']
+expected_columns = ['produced_at'] + five_signals
+
+def test_query_signals_five_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=five_signals)
+    assert len(result) == 5
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', five_signals[i]]
+
+    assert len(result[0]) == 234980
+    assert len(result[1]) == 234993
+    assert len(result[2]) == 234964
+    assert len(result[3]) == 234969
+    assert len(result[4]) == 205006
+
+def test_query_signals_start_time_five_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=five_signals, start='2024-11-09 22:53:55.00')
+    assert len(result) == 5
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', five_signals[i]]
+    assert len(result[0]) == 135540
+    assert len(result[1]) == 135548
+    assert len(result[2]) == 135532
+    assert len(result[3]) == 135527
+    assert len(result[4]) == 171590
+    
+def test_query_signals_end_time_five_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=five_signals, end='2024-11-09 22:57:41.00')
+    assert len(result) == 5
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', five_signals[i]]
+    assert len(result[0]) == 101786
+    assert len(result[1]) == 101791
+    assert len(result[2]) == 101778
+    assert len(result[3]) == 101788
+    assert len(result[4]) == 34544
+
+def test_query_signals_start_end_time_five_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=five_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
+    assert len(result) == 5
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', five_signals[i]]
+    assert len(result[0]) == 2346
+    assert len(result[1]) == 2346
+    assert len(result[2]) == 2346
+    assert len(result[3]) == 2346
+    assert len(result[4]) == 1128
 
 # ======== 20 SIGNAL TESTS ========
