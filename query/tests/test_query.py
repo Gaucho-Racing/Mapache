@@ -71,6 +71,56 @@ def test_query_signals_two_signals():
     assert len(result[0]) == 234980
     assert len(result[1]) == 234993
 
+def test_query_signals_start_time_two_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=two_signals, start='2024-11-09 22:53:55.00')
+    assert len(result) == 2
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', two_signals[i]]
+    assert len(result[0]) == 135540
+    assert len(result[1]) == 135548
+    
+def test_query_signals_end_time_two_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=two_signals, end='2024-11-09 22:57:41.00')
+    assert len(result) == 2
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', two_signals[i]]
+    assert len(result[0]) == 101786
+    assert len(result[1]) == 101791
+
+def test_query_signals_start_end_time_two_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=two_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
+    assert len(result) == 2
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', two_signals[i]]
+    assert len(result[0]) == 2346
+    assert len(result[1]) == 2346
+
+def test_query_signals_invalid_vehicle_id_two_signals():
+    init_db()
+    result = query_signals(vehicle_id='invalid', signals=two_signals)
+    assert len(result) == 2
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', two_signals[i]]
+    assert len(result[0]) == 0
+    assert len(result[1]) == 0
+
+def test_query_signals_invalid_range_two_signals():
+    init_db()
+    result = query_signals(vehicle_id='gr24', signals=two_signals, start='2022-11-09 22:53:55.00', end='2022-11-09 22:57:41.00')
+    assert len(result) == 2
+    for i in range(len(result)):
+        assert isinstance(result[i], pd.DataFrame)
+        assert list(result[i].columns) == ['produced_at', two_signals[i]]
+    assert len(result[0]) == 0
+    assert len(result[1]) == 0
+
 # ======== 5 SIGNAL TESTS ========
 
 # ======== 20 SIGNAL TESTS ========
