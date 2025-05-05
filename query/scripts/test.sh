@@ -5,15 +5,15 @@ if [ ! -f pyproject.toml ]; then
     exit 1
 fi
 
-# check if .env exists in current directory
-if [ ! -f .env ]; then
-    echo ".env not found"
-    echo "Please make sure the .env file is present in the current directory"
+# check if test.env exists in scripts directory
+if [ ! -f scripts/test.env ]; then
+    echo "test.env not found"
+    echo "Please make sure the test.env file is present in the scripts directory"
     exit 1
 fi
 
 
 set -a
-. .env
+. scripts/test.env
 poetry install
 poetry run pytest

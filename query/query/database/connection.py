@@ -36,6 +36,17 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         print("Database initialized")
 
+def init_test_db():
+    global db_session
+    engine = create_engine(DATABASE_URL)
+    db_session = scoped_session(
+        sessionmaker(
+            autocommit=False,
+            autoflush=False,
+            bind=engine
+        )
+    )
+
 def get_db():
     """Get the database session"""
     if not db_session:
