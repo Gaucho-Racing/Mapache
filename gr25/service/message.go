@@ -23,6 +23,15 @@ func SubscribeTopics() {
 		vehicleID := strings.Split(topic, "/")[1]
 		nodeID := strings.Split(topic, "/")[2]
 		canID := strings.Split(topic, "/")[3]
+
+		if canID == "ping" {
+			go HandlePing(vehicleID, nodeID, msg.Payload())
+			return
+		} else if canID == "pong" {
+			// ignore loopback pong messages
+			return
+		}
+
 		message := msg.Payload()
 		canIDInt, err := strconv.ParseInt(canID, 16, 64)
 		if err != nil {

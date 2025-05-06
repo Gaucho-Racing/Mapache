@@ -1,4 +1,4 @@
-package controller
+package api
 
 import (
 	"jeddah/service"
@@ -35,4 +35,13 @@ func CreateVehicle(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, service.GetVehicleByID(input.ID))
+}
+
+func DeleteVehicle(c *gin.Context) {
+	err := service.DeleteVehicle(c.Param("vehicleID"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Vehicle with id: " + c.Param("vehicleID") + " deleted successfully"})
 }

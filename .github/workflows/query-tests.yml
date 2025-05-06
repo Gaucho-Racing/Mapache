@@ -1,0 +1,26 @@
+name: query
+run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
+
+on: [push]
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    name: unit
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 2.0.0
+      - name: Run Unit Tests
+        run: |
+          cd query
+          make test

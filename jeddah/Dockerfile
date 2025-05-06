@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine3.19 as builder
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
 
 RUN apk --no-cache add ca-certificates
 RUN apk add --no-cache tzdata
@@ -12,18 +12,18 @@ RUN go mod download
 COPY . ./
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /mapache
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /jeddah
 
 ##
 ## Deploy
 ##
-FROM alpine:3.19
+FROM alpine:3.21
 
 WORKDIR /
 
-COPY --from=builder /mapache /mapache
+COPY --from=builder /jeddah /jeddah
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
 
-ENTRYPOINT ["/mapache"]
+ENTRYPOINT ["/jeddah"]

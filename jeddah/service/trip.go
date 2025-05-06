@@ -64,3 +64,16 @@ func CreateTrip(trip mapache.Trip) error {
 	}
 	return nil
 }
+
+func DeleteTrip(id string) error {
+	result := database.DB.Where("id = ?", id).Delete(&mapache.Trip{})
+	if result.Error != nil {
+		return result.Error
+	}
+	// Cascade delete laps
+	result = database.DB.Where("trip_id = ?", id).Delete(&mapache.Lap{})
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}

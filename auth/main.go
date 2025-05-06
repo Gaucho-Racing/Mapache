@@ -14,6 +14,7 @@ func main() {
 	utils.VerifyConfig()
 	defer utils.Logger.Sync()
 
+	service.RegisterRincon()
 	database.InitializeDB()
 	service.InitializeKeys()
 	service.PingSentinel()
