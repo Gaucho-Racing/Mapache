@@ -28,3 +28,8 @@ func CreateVehicle(vehicle mapache.Vehicle) error {
 	}
 	return result.Error
 }
+
+func DeleteVehicle(vehicleID string) error {
+	result := database.DB.Where("id = ?", vehicleID).Delete(&mapache.Vehicle{})
+	return result.Error
+}

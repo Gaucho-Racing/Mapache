@@ -1,4 +1,10 @@
 [[redirects]]
+  from = "/api/*"
+  to = "https://mapache-api.gauchoracing.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
