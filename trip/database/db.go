@@ -2,9 +2,9 @@ package database
 
 import (
 	"fmt"
-	"jeddah/config"
-	"jeddah/utils"
 	"time"
+	"trip/config"
+	"trip/utils"
 
 	"github.com/gaucho-racing/mapache-go"
 	singlestore "github.com/singlestore-labs/gorm-singlestore"

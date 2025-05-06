@@ -1,6 +1,6 @@
-module jeddah
+module trip
 
-go 1.22
+go 1.23.6
 
 require (
 	github.com/bk1031/rincon-go v1.1.2

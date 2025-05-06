@@ -2,7 +2,7 @@ package api
 
 import (
 	"fmt"
-	"jeddah/config"
+	"trip/config"
 
 	"github.com/gin-gonic/gin"
 )

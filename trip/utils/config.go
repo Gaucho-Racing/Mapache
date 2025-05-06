@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"jeddah/config"
+	"trip/config"
 )
 
 func VerifyConfig() {

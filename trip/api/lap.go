@@ -1,8 +1,8 @@
 package api
 
 import (
-	"jeddah/service"
 	"net/http"
+	"trip/service"
 
 	"github.com/gaucho-racing/mapache-go"
 	"github.com/gin-gonic/gin"

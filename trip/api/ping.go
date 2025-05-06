@@ -1,8 +1,8 @@
 package api
 
 import (
-	"jeddah/config"
 	"net/http"
+	"trip/config"
 
 	"github.com/gin-gonic/gin"
 )
