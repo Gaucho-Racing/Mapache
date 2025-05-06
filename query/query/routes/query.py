@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Query, HTTPException, Response
 from typing import Annotated
 from loguru import logger
@@ -67,6 +68,7 @@ async def get_signals(
                     }
                 )
             
+        start_time = datetime.now()
         dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
 
         if merge == 'smallest':
@@ -91,6 +93,8 @@ async def get_signals(
         # Replace inf/-inf and NaN values with None
         df_dict = df_dict.replace([np.inf, -np.inf], None)
         df_dict = df_dict.replace({np.nan: None})
+
+        metadata.query_latency = (datetime.now() - start_time).total_seconds() * 1000
 
         if export == 'json':
             return JSONResponse(
