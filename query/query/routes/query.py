@@ -1,20 +1,12 @@
 from datetime import datetime
-from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi import APIRouter, Query, Response
 from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
 from query.service.query import query_signals, merge_to_smallest, merge_to_largest
 import numpy as np
-
-'''
-class query(BaseModel):
-    status: str
-    timestamp: datetime
-    signals: list[dict[str:int]]
-    errors: dict[str:int]
-    metadata: dict[str:int]
-'''
+import traceback
 
 router = APIRouter()
 
@@ -131,8 +123,7 @@ async def get_signals(
             )
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
+        logger.error(traceback.format_exc())
         return JSONResponse(
             status_code=500,
             content={
