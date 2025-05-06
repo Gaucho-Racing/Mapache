@@ -1,20 +1,20 @@
-from fastapi import APIRouter, Query, HTTPException
-from typing import Annotated
-from query.service.query import * #only import what is needed
-from query.model.query import *
-import time
-from query.model.query import TripNotFoundError, LapNotFoundError
+# from fastapi import APIRouter, Query, HTTPException
+# from typing import Annotated
+# from query.service.query import * #only import what is needed
+# from query.model.query import *
+# import time
+# from query.model.query import TripNotFoundError, LapNotFoundError
 
-'''
-class query(BaseModel):
-    status: str
-    timestamp: datetime
-    signals: list[dict[str:int]]
-    errors: dict[str:int]
-    metadata: dict[str:int]
-'''
+# '''
+# class query(BaseModel):
+#     status: str
+#     timestamp: datetime
+#     signals: list[dict[str:int]]
+#     errors: dict[str:int]
+#     metadata: dict[str:int]
+# '''
 
-router = APIRouter()
+# router = APIRouter()
 
 # @router.get("/signals")
 # async def get_query(
