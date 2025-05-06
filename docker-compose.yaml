@@ -41,6 +41,27 @@ services:
     ports:
       - "10311:10311"
 
+  gr25:
+    image: gauchoracing/mp_gr25:latest
+    container_name: gr25
+    restart: unless-stopped
+    ports:
+      - "7005:7005"
+    environment:
+      ENV: ${ENV}
+      PORT: "7005"
+      MQTT_HOST: ${MQTT_HOST}
+      MQTT_PORT: ${MQTT_PORT}
+      MQTT_USER: ${MQTT_USER}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      RINCON_USER: ${RINCON_USER}
+      RINCON_PASSWORD: ${RINCON_PASSWORD}
+
   nanomq:
     image: emqx/nanomq:latest
     restart: unless-stopped

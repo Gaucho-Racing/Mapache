@@ -12,7 +12,7 @@ RUN go mod download
 COPY . ./
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /mapache
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /gr24
 
 ##
 ## Deploy
@@ -21,9 +21,9 @@ FROM alpine:3.19
 
 WORKDIR /
 
-COPY --from=builder /mapache /mapache
+COPY --from=builder /gr24 /gr24
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
 
-ENTRYPOINT ["/mapache"]
+ENTRYPOINT ["/gr24"]

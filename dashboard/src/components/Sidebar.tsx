@@ -1,8 +1,15 @@
 import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircle, faHospital } from "@fortawesome/free-regular-svg-icons";
-import { currentVehicle } from "@/consts/config";
+import { useVehicle } from "@/lib/store";
+import {
+  CarFront,
+  Gauge,
+  LayoutDashboard,
+  MapPinned,
+  MessageSquareText,
+  SearchCode,
+  Settings,
+} from "lucide-react";
 
 interface SidebarProps {
   selectedPage?: string;
@@ -15,20 +22,36 @@ interface SidebarProps {
 
 const Sidebar = (props: SidebarProps) => {
   const navigate = useNavigate();
+  const currentVehicle = useVehicle();
 
-  const MapacheTitle = () => {
+  const MapacheHeader = (props: { isSidebarExpanded: boolean }) => {
     return (
       <div className="flex items-center p-4">
-        <img src="/logo/mapache.png" className="h-10 pr-4" />
-        <h2>Mapache</h2>
-      </div>
-    );
-  };
-
-  const MapacheLogo = () => {
-    return (
-      <div className="flex w-full items-center justify-center p-4">
-        <img src="/logo/mapache.png" className="h-10" />
+        <div className="flex min-w-[60px] items-center justify-center">
+          <img src="/logo/mapache.png" className="h-10" />
+        </div>
+        <div
+          style={{
+            animation: props.isSidebarExpanded
+              ? "slideIn 0.3s ease forwards"
+              : "slideOut 0.3s ease forwards",
+          }}
+          className="whitespace-nowrap pl-4"
+        >
+          <h2>Mapache</h2>
+          <style>
+            {`
+              @keyframes slideIn {
+                from { transform: translateX(2px); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+              }
+              @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(2px); opacity: 0; }
+              }
+            `}
+          </style>
+        </div>
       </div>
     );
   };
@@ -42,24 +65,45 @@ const Sidebar = (props: SidebarProps) => {
   }) => {
     return (
       <div
-        className={`mx-2 my-2 flex items-center ${props.isSelected ? "bg-gradient-to-br from-gr-purple to-gr-pink" : ""} cursor-pointer rounded-lg p-1 transition-all duration-150 hover:bg-neutral-800/50`}
+        className={`mx-2 my-2 flex items-center overflow-hidden ${
+          props.isSelected
+            ? "bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px]"
+            : ""
+        } cursor-pointer rounded-lg transition-all duration-150`}
         onClick={() => navigate(props.link)}
       >
         <div
-          className={`flex ${props.isSidebarExpanded ? "w-1/4" : "w-full"} items-center justify-center`}
+          className={`flex w-full items-center rounded-lg ${
+            props.isSelected ? "bg-card/50" : ""
+          } h-10 p-1 hover:bg-neutral-800`}
         >
-          <FontAwesomeIcon
-            icon={props.icon}
-            className={`transition-all duration-200 ${props.isSelected ? "text-white" : "text-neutral-400"}`}
-            size="lg"
-          />
-        </div>
-        <div className={`${props.isSidebarExpanded ? "w-3/4" : "w-0"}`}>
-          <p
-            className={`bg-clip-text font-semibold tracking-tight text-transparent transition-all duration-200 ${props.isSidebarExpanded ? "block opacity-100" : "hidden opacity-0"} ${props.isSelected ? "bg-white" : "bg-neutral-400"}`}
+          <div className="flex min-w-[60px] items-center justify-center">
+            <props.icon
+              className={`${props.isSelected ? "text-white" : "text-neutral-400"}`}
+            />
+          </div>
+          <div
+            style={{
+              animation: props.isSidebarExpanded
+                ? "slideIn 0.3s ease forwards"
+                : "slideOut 0.3s ease forwards",
+            }}
+            className={`whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"}`}
           >
+            <style>
+              {`
+                @keyframes slideIn {
+                  from { transform: translateX(8px); opacity: 0; }
+                  to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                  from { transform: translateX(0); opacity: 1; }
+                  to { transform: translateX(8px); opacity: 0; }
+                }
+              `}
+            </style>
             {props.text}
-          </p>
+          </div>
         </div>
       </div>
     );
@@ -67,7 +111,7 @@ const Sidebar = (props: SidebarProps) => {
 
   return (
     <nav
-      className={`fixed left-0 top-0 z-30 border-r bg-card transition-all duration-200 ${props.className}`}
+      className={`fixed left-0 top-0 z-30 overflow-hidden border-r bg-card transition-all duration-300 ${props.className}`}
       style={{
         height: "100vh",
         width: props.sidebarWidth,
@@ -77,78 +121,62 @@ const Sidebar = (props: SidebarProps) => {
     >
       <div className="flex h-full flex-grow flex-col items-start justify-between">
         <div className="w-full">
-          {/* <MapacheTitle /> */}
-          {props.isSidebarExpanded ? <MapacheTitle /> : <MapacheLogo />}
+          <MapacheHeader isSidebarExpanded={props.isSidebarExpanded} />
           <Separator />
           <div className="p-2" />
           <SidebarItem
-            icon={faHospital}
+            icon={LayoutDashboard}
             text="Dashboard"
-            link={`/${currentVehicle.type}/dash`}
-            isSelected={props.selectedPage === "dash"}
+            link={`/dashboard?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "dashboard"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={faCircle}
-            text="Nodes"
-            link={`/${currentVehicle.type}/nodes`}
-            isSelected={props.selectedPage === "nodes"}
+            icon={Gauge}
+            text="Widgets"
+            link={`/widgets?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "widgets"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={faCircle}
-            text="ACU"
-            link={`/${currentVehicle.type}/acu`}
-            isSelected={props.selectedPage === "acu"}
+            icon={SearchCode}
+            text="Query"
+            link={`/query?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "query"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={faCircle}
-            text="BCM"
-            link={`/${currentVehicle.type}/bcm`}
-            isSelected={props.selectedPage === "bcm"}
+            icon={MessageSquareText}
+            text="Chat"
+            link={`/chat?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "chat"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <div className="px-4 py-2">
+            <Separator />
+          </div>
+          <SidebarItem
+            icon={MapPinned}
+            text="Trips"
+            link={`/trips?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "trips"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={faCircle}
-            text="Dash Panel"
-            link={`/${currentVehicle.type}/dpanel`}
-            isSelected={props.selectedPage === "dpanel"}
+            icon={CarFront}
+            text="Vehicles"
+            link={`/vehicles?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "vehicles"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
+          <div className="px-4 py-2">
+            <Separator />
+          </div>
           <SidebarItem
-            icon={faCircle}
-            text="Inverter"
-            link={`/${currentVehicle.type}/inverter`}
-            isSelected={props.selectedPage === "inverter"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={faCircle}
-            text="Mobile"
-            link={`/${currentVehicle.type}/mobile`}
-            isSelected={props.selectedPage === "mobile"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={faCircle}
-            text="Pedals"
-            link={`/${currentVehicle.type}/pedal`}
-            isSelected={props.selectedPage === "pedal"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={faCircle}
-            text="VDM"
-            link={`/${currentVehicle.type}/vdm`}
-            isSelected={props.selectedPage === "vdm"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={faCircle}
-            text="Wheels"
-            link={`/${currentVehicle.type}/wheel`}
-            isSelected={props.selectedPage === "wheel"}
+            icon={Settings}
+            text="Settings"
+            link={`/settings?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "settings"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
         </div>
