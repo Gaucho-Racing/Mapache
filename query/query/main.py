@@ -10,7 +10,9 @@ def create_app():
     app = FastAPI(
         title="Gaucho Racing Query",
         description="API Documentation",
-        version=Config.VERSION
+        version=Config.VERSION,
+        docs_url="/query/docs",
+        redoc_url="/query/redoc"
     )
 
     app.include_router(
