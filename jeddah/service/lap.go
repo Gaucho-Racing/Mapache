@@ -1,7 +1,7 @@
 package service
 
 import (
-	"trip/database"
+	"jeddah/database"
 
 	"github.com/gaucho-racing/mapache-go"
 	"github.com/google/uuid"

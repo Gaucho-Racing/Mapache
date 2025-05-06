@@ -1,8 +1,8 @@
 package service
 
 import (
+	"jeddah/database"
 	"strings"
-	"trip/database"
 
 	"github.com/gaucho-racing/mapache-go"
 )

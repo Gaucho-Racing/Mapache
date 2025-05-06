@@ -12,7 +12,7 @@ RUN go mod download
 COPY . ./
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /trip
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /jeddah
 
 ##
 ## Deploy
@@ -21,9 +21,9 @@ FROM alpine:3.21
 
 WORKDIR /
 
-COPY --from=builder /trip /trip
+COPY --from=builder /jeddah /jeddah
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
 
-ENTRYPOINT ["/trip"]
+ENTRYPOINT ["/jeddah"]

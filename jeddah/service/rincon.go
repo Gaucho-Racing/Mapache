@@ -1,10 +1,10 @@
 package service
 
 import (
+	"jeddah/config"
+	"jeddah/utils"
 	"strings"
 	"time"
-	"trip/config"
-	"trip/utils"
 
 	"github.com/bk1031/rincon-go/v2"
 )

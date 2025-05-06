@@ -1,4 +1,4 @@
-module trip
+module jeddah
 
 go 1.23.6
 

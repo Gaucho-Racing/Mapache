@@ -1,11 +1,11 @@
 package main
 
 import (
-	"trip/api"
-	"trip/config"
-	"trip/database"
-	"trip/service"
-	"trip/utils"
+	"jeddah/api"
+	"jeddah/config"
+	"jeddah/database"
+	"jeddah/service"
+	"jeddah/utils"
 )
 
 func main() {

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"trip/config"
+	"jeddah/config"
 
 	"go.uber.org/zap"
 )
