@@ -1,157 +1,137 @@
-# from fastapi import APIRouter, Query, HTTPException
-# from typing import Annotated
-# from query.service.query import * #only import what is needed
-# from query.model.query import *
-# import time
-# from query.model.query import TripNotFoundError, LapNotFoundError
+from fastapi import APIRouter, Query, HTTPException, Response
+from typing import Annotated
+from loguru import logger
+from fastapi.responses import JSONResponse
+import pandas as pd
+from query.service.query import query_signals, merge_to_smallest, merge_to_largest
+import numpy as np
 
-# '''
-# class query(BaseModel):
-#     status: str
-#     timestamp: datetime
-#     signals: list[dict[str:int]]
-#     errors: dict[str:int]
-#     metadata: dict[str:int]
-# '''
+'''
+class query(BaseModel):
+    status: str
+    timestamp: datetime
+    signals: list[dict[str:int]]
+    errors: dict[str:int]
+    metadata: dict[str:int]
+'''
 
-# router = APIRouter()
+router = APIRouter()
 
-# @router.get("/signals")
-# async def get_query(
-#     vehicle_id: str,
-#     signals: Annotated[list[str], Query()],
-#     trip: Annotated[str | None, Query()] = None,
-#     lap: Annotated[str | None, Query()] = None,
-#     start: Annotated[int | None, Query()] = None,
-#     stop: Annotated[int | None, Query()] = None,
-#     merge: Annotated[str | None, Query(enum=['shortest', 'largest', 'largest_fill', 'raw'])] = 'shortest',
-#     resample: Annotated[str | None, Query()] = None,
-# ):
-#     """
-#     Get items filtered by vehicle ID and sensors
-    
-#     Parameters:
-#     - vehicle_id: Required vehicle identifier
-#     - signals: Required list of sensor names to retrieve
-#     - trip: Optional trip identifier
-#     - lap: Optional lap identifier
-#     - start: As integer (seconds since 1970-01-01T00:00:00Z)
-#     - stop: As integer (seconds since 1970-01-01T00:00:00Z)
-#     - merge: method for data to be merged
-#     - resample: frequency for data to be resampled
-
-#     Response:
-#     {
-#         "timestamp": "2024-03-21T15:30:45Z",
-#         "data": [...],
-#         "metadata": {
-#             "signal_count": 5,
-#             "total_data_points": 1000,
-#             "processing_time_ms": 123
-#         }
-#     }
-#     """
-#     try:
-#         warnings = QueryWarning()
-#         query_start_time = time.time()
-
-#         #verify vehicle id
-#         if not query_vehicle_id(vehicle_id):
-#             raise HTTPException(status_code=404, detail=f"The vehicle id '{vehicle_id}' does not exist")
+@router.get("/signals")
+async def get_signals(
+    vehicle_id: Annotated[str | None, Query()] = None,
+    signals: Annotated[str | None, Query()] = None,
+    start: Annotated[str | None, Query()] = None,
+    end: Annotated[str | None, Query()] = None,
+    merge: Annotated[str | None, Query(enum=['smallest', 'largest'])] = 'smallest',
+    fill: Annotated[str | None, Query(enum=['none', 'forward', 'backward', 'linear', 'time'])] = 'none',
+    tolerance: Annotated[int | None, Query()] = 50,
+    export: Annotated[str | None, Query(enum=['csv', 'json', 'parquet'])] = 'json'
+):
+    try:
+        if vehicle_id is None:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "message": "vehicle_id is required",
+                }
+            )
         
-#         # <----- set and verify start/stop parameters ----->
-#         trip_start, trip_stop = None, None
-#         if trip:
-#             try:
-#                 trip_start, trip_stop = query_trip(trip)
-#             except TripNotFoundError:
-#                 raise HTTPException(
-#                     status_code=404,
-#                     detail=f"Trip '{trip}' not found"
-#                 )
-#             except LapNotFoundError:
-#                 raise HTTPException(
-#                     status_code=404,
-#                     detail=f"Lap '{lap}' not found"
-#                 )
-#         if start:
-#             dt = datetime.fromtimestamp(start, UTC)
-#             start = dt.strftime('%Y-%m-%d %H:%M:%S')
-#         elif trip_start:
-#             start = trip_start
-#         else:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail=f"Must provide either trip id or start timestamp"
-#             )
-#         if stop:
-#             dt = datetime.fromtimestamp(stop, UTC)
-#             stop = dt.strftime('%Y-%m-%d %H:%M:%S')
-#         elif trip_stop:
-#             stop = trip_stop
-#         else:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail=f"Must provide either trip id or stop timestamp"
-#             )
-#         # <----- set and verify start/stop parameters ----->
+        if signals is None or len(signals.split(",")) == 0 or any(not s.strip() for s in signals.split(",")):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "message": "one or more signals are required",
+                }
+            )
+        
+        if start is not None:
+            try:
+                pd.to_datetime(start)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": "Invalid start timestamp format",
+                    }
+                )
 
-#         # query corresponding signals
-#         list_of_signal_dfs = query_signals(signals, start, stop)
+        if end is not None:
+            try:
+                pd.to_datetime(end)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": "Invalid end timestamp format", 
+                    }
+                )
+            
+        dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
 
-#         # <----- merges the data ----->
-#         if merge == "shortest":
-#             merged_signals, loss, nrows = merge_to_smallest(*list_of_signal_dfs)
-#             loss_max = loss.max()
-#             loss_mean = loss.mean()
-#             nan_counts = 0
-#             total_nans = 0
-#         elif merge == "raw":
-#             merged_signals, nan_counts, total_nans, nrows = raw_merge_df(*list_of_signal_dfs)
-#             loss_mean = 0
-#             loss_max = 0
-#         elif merge == "largest":
-#             merged_signals, nan_counts, total_nans, nrows = merge_to_largest(*list_of_signal_dfs)
-#             loss_mean = 0
-#             loss_max = 0
-#         elif merge == "largest_fill":
-#             merged_signals, nan_counts, total_nans, nrows = merge_to_largest_fill(*list_of_signal_dfs)
-#             loss_mean = 0
-#             loss_max = 0
-#         else:
-#             raise HTTPException(
-#                 status_code=404,
-#                 detail=f"Provided invalid merge method"
-#             )
-#         # <----- merges the data ----->
-#         print(type(merged_signals['produced_at'][0]))
-#         if resample: # needs to be its own merge or smth
-#             merged_signals, total_nans, nrows = resample_ffill(merged_signals, resample)
-#             warnings.add_warning("resample is poorly implemented and not recommended atm")
+        if merge == 'smallest':
+            merged_df, metadata = merge_to_smallest(*dfs, tolerance=tolerance, fill=fill)
+        elif merge == 'largest':
+            merged_df, metadata = merge_to_largest(*dfs, tolerance=tolerance, fill=fill)
+        else:
+            return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": "Invalid merge strategy", 
+                    }
+                )
+        
+        logger.info(f"Merged DataFrame: {merged_df}")
+        logger.info(f"Metadata: {metadata}")
+        
+        # Convert timestamps to ISO format strings and handle special float values
+        df_dict = merged_df.copy()
+        df_dict['produced_at'] = df_dict['produced_at'].dt.tz_localize('UTC').dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        
+        # Replace inf/-inf and NaN values with None
+        df_dict = df_dict.replace([np.inf, -np.inf], None)
+        df_dict = df_dict.replace({np.nan: None})
 
-#         # format data to json objects
-#         data = df_to_pydantic(merged_signals)
+        if export == 'json':
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "data": df_dict.to_dict(orient="records"),
+                    "metadata": metadata.to_dict()
+                }
+            )
+        elif export == 'csv':
+            csv_data = df_dict.to_csv(index=False)
+            return Response(
+                content=csv_data,
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": "attachment; filename=export.csv"
+                }
+            )
+        elif export == 'parquet':
+            parquet_data = df_dict.to_parquet()
+            return Response(
+                content=parquet_data,
+                media_type="application/octet-stream", 
+                headers={
+                    "Content-Disposition": "attachment; filename=export.parquet"
+                }
+            )
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "message": "Invalid export format",
+                }
+            )
 
-#         #summarize data
-#         query_end_time = time.time()
-#         processing_time = int((query_end_time - query_start_time)*1000)
-
-#         metadata = Metadata(
-#             num_rows = nrows,
-#             processing_time_ms = processing_time,
-#             max_rows_lost = loss_max,
-#             avg_rows_lost = loss_mean,
-#             total_nans = total_nans,
-#         )
-
-#         return ResponseModel(
-#             timestamp = str(datetime.now(UTC))[0:10] + 'T' + str(datetime.now(UTC))[11:19] + 'Z',
-#             data = data,
-#             metadata = metadata,
-#             warnings = warnings.get_warnings()
-#         )
-#     except:
-#         raise HTTPException(
-#                 status_code=500,
-#                 detail=f"ruh roh"
-#             ) 
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={
+                "message": str(e),
+            }
+        )

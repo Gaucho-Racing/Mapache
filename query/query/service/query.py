@@ -5,29 +5,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from typing import List
-from query.model.query import DataInstance, Metadata
-
-def df_to_pydantic(df: pd.DataFrame) -> List[DataInstance]:
-    """
-    Converts a pandas DataFrame into a list of Data objects containing DataInstance objects.
-    Each row in the DataFrame becomes a separate DataInstance.
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        DataFrame containing signal data with 'produced_at' and signal columns
-        
-    Returns:
-    --------
-    Data
-        A single Data object with all rows converted to DataInstances
-    """
-    data_instances = [
-        DataInstance(**row.to_dict()) 
-        for _, row in df.iterrows()
-    ]
-    
-    return data_instances
+from query.model.query import Metadata
 
 def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = None) -> list[pd.DataFrame]:
     """

@@ -1,11 +1,7 @@
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Optional
 from datetime import datetime
-
-class DataInstance(BaseModel):
-    class Config:
-        extra = "allow"
-
+        
 class Metadata(BaseModel):
     model_config = {
         "arbitrary_types_allowed": True
@@ -85,6 +81,28 @@ class Metadata(BaseModel):
             output.extend(f"  {item}" for item in items)
         
         return "\n".join(output) if output else "No metadata available"
+    
+    def to_dict(self):
+        return {
+            "num_rows": int(self.num_rows) if self.num_rows is not None else None,
+            "query_latency": int(self.query_latency) if self.query_latency is not None else None,
+            "merge_strategy": self.merge_strategy,
+            "merge_tolerance": int(self.merge_tolerance) if self.merge_tolerance is not None else None,
+            "num_signals": int(self.num_signals) if self.num_signals is not None else None,
+            "signal_names": self.signal_names,
+            "start_time": self.start_time.isoformat() + "Z" if self.start_time else None,
+            "end_time": self.end_time.isoformat() + "Z" if self.end_time else None,
+            "total_duration": int(self.total_duration) if self.total_duration is not None else None,
+            "max_gap_duration": int(self.max_gap_duration) if self.max_gap_duration is not None else None,
+            "min_gap_duration": int(self.min_gap_duration) if self.min_gap_duration is not None else None,
+            "avg_gap_duration": int(self.avg_gap_duration) if self.avg_gap_duration is not None else None,
+            "max_nan_count": int(self.max_nan_count) if self.max_nan_count is not None else None,
+            "min_nan_count": int(self.min_nan_count) if self.min_nan_count is not None else None,
+            "avg_nan_count": int(self.avg_nan_count) if self.avg_nan_count is not None else None,
+            "max_row_delta": int(self.max_row_delta) if self.max_row_delta is not None else None,
+            "min_row_delta": int(self.min_row_delta) if self.min_row_delta is not None else None,
+            "avg_row_delta": int(self.avg_row_delta) if self.avg_row_delta is not None else None,
+        }
 
 class QueryWarning():
     def __init__(self):
@@ -93,12 +111,6 @@ class QueryWarning():
         self.warnings.append(str(warning))
     def get_warnings(self):
         return self.warnings
-
-class ResponseModel(BaseModel):
-    timestamp: str
-    data: List[DataInstance]
-    metadata: Metadata
-    warnings: list[str]
 
 class InvalidTimestampError(Exception):
     pass
