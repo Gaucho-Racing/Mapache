@@ -111,15 +111,3 @@ class QueryWarning():
         self.warnings.append(str(warning))
     def get_warnings(self):
         return self.warnings
-
-class InvalidTimestampError(Exception):
-    pass
-
-class TripNotFoundError(Exception):
-    pass
-
-class LapNotFoundError(Exception):
-    pass
-
-class VehicleNotFoundError(Exception):
-    pass

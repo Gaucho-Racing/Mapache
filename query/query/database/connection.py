@@ -31,7 +31,8 @@ def init_db():
         )
         
         from query.model.log import QueryLog
-
+        from query.model.token import QueryToken
+        
         # Create all tables
         Base.metadata.create_all(bind=engine)
         print("Database initialized")

@@ -1,17 +1,22 @@
 from datetime import datetime
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Response, Header
 from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
+from query.service.auth import AuthService
 from query.service.query import query_signals, merge_to_smallest, merge_to_largest
 import numpy as np
 import traceback
+
+from query.service.token import get_token_by_id, validate_token
 
 router = APIRouter()
 
 @router.get("/signals")
 async def get_signals(
+    authorization: str = Header(None),
+    query_token: str = Header(None),
     vehicle_id: Annotated[str | None, Query()] = None,
     signals: Annotated[str | None, Query()] = None,
     start: Annotated[str | None, Query()] = None,
@@ -22,6 +27,29 @@ async def get_signals(
     export: Annotated[str | None, Query(enum=['csv', 'json', 'parquet'])] = 'json'
 ):
     try:
+        if "Bearer " in authorization:
+            token = authorization.split("Bearer ")[1]
+            user_id = AuthService.get_user_id_from_token(token)
+        elif query_token:
+            token = get_token_by_id(query_token)
+            if not validate_token(token):
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "message": "invalid query token provided",
+                    }
+                )
+            user_id = token.user_id
+        else:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "message": "you are not authorized to access this resource",
+                }
+            )
+        
+        logger.info(f"Successfully authenticated user: {user_id}")
+        
         if vehicle_id is None:
             return JSONResponse(
                 status_code=400,
@@ -45,7 +73,7 @@ async def get_signals(
                 return JSONResponse(
                     status_code=400,
                     content={
-                        "message": "Invalid start timestamp format",
+                        "message": "invalid start timestamp format",
                     }
                 )
 
@@ -56,7 +84,7 @@ async def get_signals(
                 return JSONResponse(
                     status_code=400,
                     content={
-                        "message": "Invalid end timestamp format", 
+                        "message": "invalid end timestamp format", 
                     }
                 )
             
@@ -69,11 +97,11 @@ async def get_signals(
             merged_df, metadata = merge_to_largest(*dfs, tolerance=tolerance, fill=fill)
         else:
             return JSONResponse(
-                    status_code=400,
-                    content={
-                        "message": "Invalid merge strategy", 
-                    }
-                )
+                status_code=400,
+                content={
+                    "message": "invalid merge strategy", 
+                }
+            )
         
         logger.info(f"Merged DataFrame: {merged_df}")
         logger.info(f"Metadata: {metadata}")
@@ -118,7 +146,7 @@ async def get_signals(
             return JSONResponse(
                 status_code=400,
                 content={
-                    "message": "Invalid export format",
+                    "message": "invalid export format",
                 }
             )
 
