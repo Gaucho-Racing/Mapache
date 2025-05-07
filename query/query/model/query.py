@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+import math
         
 class Metadata(BaseModel):
     model_config = {
@@ -83,25 +84,30 @@ class Metadata(BaseModel):
         return "\n".join(output) if output else "No metadata available"
     
     def to_dict(self):
+        def safe_int_convert(value):
+            if value is None or math.isnan(value):
+                return None
+            return int(value)
+
         return {
-            "num_rows": int(self.num_rows) if self.num_rows is not None else None,
-            "query_latency": int(self.query_latency) if self.query_latency is not None else None,
+            "num_rows": safe_int_convert(self.num_rows),
+            "query_latency": safe_int_convert(self.query_latency),
             "merge_strategy": self.merge_strategy,
-            "merge_tolerance": int(self.merge_tolerance) if self.merge_tolerance is not None else None,
-            "num_signals": int(self.num_signals) if self.num_signals is not None else None,
+            "merge_tolerance": safe_int_convert(self.merge_tolerance),
+            "num_signals": safe_int_convert(self.num_signals),
             "signal_names": self.signal_names,
             "start_time": self.start_time.isoformat() + "Z" if self.start_time else None,
             "end_time": self.end_time.isoformat() + "Z" if self.end_time else None,
-            "total_duration": int(self.total_duration) if self.total_duration is not None else None,
-            "max_gap_duration": int(self.max_gap_duration) if self.max_gap_duration is not None else None,
-            "min_gap_duration": int(self.min_gap_duration) if self.min_gap_duration is not None else None,
-            "avg_gap_duration": int(self.avg_gap_duration) if self.avg_gap_duration is not None else None,
-            "max_nan_count": int(self.max_nan_count) if self.max_nan_count is not None else None,
-            "min_nan_count": int(self.min_nan_count) if self.min_nan_count is not None else None,
-            "avg_nan_count": int(self.avg_nan_count) if self.avg_nan_count is not None else None,
-            "max_row_delta": int(self.max_row_delta) if self.max_row_delta is not None else None,
-            "min_row_delta": int(self.min_row_delta) if self.min_row_delta is not None else None,
-            "avg_row_delta": int(self.avg_row_delta) if self.avg_row_delta is not None else None,
+            "total_duration": safe_int_convert(self.total_duration),
+            "max_gap_duration": safe_int_convert(self.max_gap_duration),
+            "min_gap_duration": safe_int_convert(self.min_gap_duration),
+            "avg_gap_duration": safe_int_convert(self.avg_gap_duration),
+            "max_nan_count": safe_int_convert(self.max_nan_count),
+            "min_nan_count": safe_int_convert(self.min_nan_count),
+            "avg_nan_count": safe_int_convert(self.avg_nan_count),
+            "max_row_delta": safe_int_convert(self.max_row_delta),
+            "min_row_delta": safe_int_convert(self.min_row_delta),
+            "avg_row_delta": safe_int_convert(self.avg_row_delta)
         }
 
 class QueryWarning():

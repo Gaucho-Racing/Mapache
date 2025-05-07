@@ -4,7 +4,9 @@ from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
+from query.model.log import QueryLog
 from query.service.auth import AuthService
+from query.service.log import create_log
 from query.service.query import query_signals, merge_to_smallest, merge_to_largest
 import numpy as np
 import traceback
@@ -26,8 +28,9 @@ async def get_signals(
     tolerance: Annotated[int | None, Query()] = 50,
     export: Annotated[str | None, Query(enum=['csv', 'json', 'parquet'])] = 'json'
 ):
+    user_id = None
     try:
-        if "Bearer " in authorization:
+        if authorization and "Bearer " in authorization:
             auth_token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(auth_token)
         elif token:
@@ -103,9 +106,6 @@ async def get_signals(
                 }
             )
         
-        logger.info(f"Merged DataFrame: {merged_df}")
-        logger.info(f"Metadata: {metadata}")
-        
         # Convert timestamps to ISO format strings and handle special float values
         df_dict = merged_df.copy()
         df_dict['produced_at'] = df_dict['produced_at'].dt.tz_localize('UTC').dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
@@ -114,7 +114,18 @@ async def get_signals(
         df_dict = df_dict.replace([np.inf, -np.inf], None)
         df_dict = df_dict.replace({np.nan: None})
 
-        metadata.query_latency = (datetime.now() - start_time).total_seconds() * 1000
+        metadata.query_latency = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        logger.info(f"Merged DataFrame: {df_dict}")
+        logger.info(f"Metadata: {metadata}")
+
+        create_log(QueryLog(
+            user_id=user_id,
+            parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
+            latency=metadata.query_latency,
+            status_code=200,
+            error_message="",
+        ))
 
         if export == 'json':
             return JSONResponse(
@@ -152,6 +163,14 @@ async def get_signals(
 
     except Exception as e:
         logger.error(traceback.format_exc())
+        if user_id is not None:
+            create_log(QueryLog(
+                user_id=user_id,
+                parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
+                latency=0,
+                status_code=500,
+                error_message=str(e),
+            ))
         return JSONResponse(
             status_code=500,
             content={

@@ -5,11 +5,9 @@ from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
 from query.service.auth import AuthService
-from query.service.query import query_signals, merge_to_smallest, merge_to_largest
-import numpy as np
 import traceback
 
-from query.service.token import create_token, get_token_by_id, validate_token
+from query.service.token import create_token
 
 router = APIRouter()
 

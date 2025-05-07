@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from query.database.connection import get_db
 from query.model.token import QueryToken
@@ -31,10 +31,17 @@ def create_token(user_id: str, expires_at: datetime) -> QueryToken:
 def revoke_token(token_id: str) -> None:
     db = get_db()
     token = db.query(QueryToken).filter(QueryToken.id == token_id).first()
-    token.expires_at = datetime.now(datetime.UTC)
+    token.expires_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(token)
     return token
 
 def validate_token(token: QueryToken) -> bool:
-    return token is not None and token.expires_at > datetime.now(datetime.UTC)
+    if token is None:
+        return False
+        
+    now = datetime.now(timezone.utc)
+    if token.expires_at.tzinfo is None:
+        token.expires_at = token.expires_at.replace(tzinfo=timezone.utc)
+        
+    return token.expires_at > now
