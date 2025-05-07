@@ -3,7 +3,7 @@ import requests
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
-from query.routes import ping, query
+from query.routes import ping, query, token
 from query.service.auth import AuthService
 from query.service.rincon import RinconService
 
@@ -28,7 +28,11 @@ def create_app():
         tags=["Query"]
     )
 
-    # app.add_middleware(LogMiddleware)
+    app.include_router(
+        token.router,
+        prefix="/query",
+        tags=["Token"]
+    )
     
     return app
 

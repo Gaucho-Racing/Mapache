@@ -16,7 +16,7 @@ router = APIRouter()
 @router.get("/signals")
 async def get_signals(
     authorization: str = Header(None),
-    query_token: str = Header(None),
+    token: Annotated[str | None, Query()] = None,
     vehicle_id: Annotated[str | None, Query()] = None,
     signals: Annotated[str | None, Query()] = None,
     start: Annotated[str | None, Query()] = None,
@@ -28,18 +28,18 @@ async def get_signals(
 ):
     try:
         if "Bearer " in authorization:
-            token = authorization.split("Bearer ")[1]
-            user_id = AuthService.get_user_id_from_token(token)
-        elif query_token:
-            token = get_token_by_id(query_token)
-            if not validate_token(token):
+            auth_token = authorization.split("Bearer ")[1]
+            user_id = AuthService.get_user_id_from_token(auth_token)
+        elif token:
+            t = get_token_by_id(token)
+            if not validate_token(t):
                 return JSONResponse(
                     status_code=401,
                     content={
                         "message": "invalid query token provided",
                     }
                 )
-            user_id = token.user_id
+            user_id = t.user_id
         else:
             return JSONResponse(
                 status_code=401,
