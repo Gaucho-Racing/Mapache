@@ -6,6 +6,8 @@ from query.database.connection import init_db
 from query.routes import ping, query, token
 from query.service.auth import AuthService
 from query.service.rincon import RinconService
+from query.service.trip import get_all_trips, get_trip_by_id
+from query.service.vehicle import get_all_vehicles, get_vehicle_by_id
 
 def create_app():
     app = FastAPI(
@@ -44,6 +46,25 @@ def main():
     issuer="https://sso.gauchoracing.com",
     audience=Config.SENTINEL_CLIENT_ID
   )
+
+  vehicles = get_all_vehicles()
+  print(f"Vehicles: {vehicles}")
+
+  vehicle = get_vehicle_by_id("123")
+  if vehicle.get("id"):
+    print(f"Vehicle: {vehicle}")
+  else:
+    print("Vehicle not found")
+
+  trips = get_all_trips()
+  print(f"Trips: {trips}")
+
+  trip = get_trip_by_id("123")
+  if trip.get("id"):
+    print(f"Trip: {trip}")
+  else:
+    print("Trip not found")
+  
   app = create_app()
   uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
