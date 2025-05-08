@@ -88,35 +88,3 @@ func All(conditions ...bool) bool {
 	}
 	return true
 }
-
-func RequestUserHasID(c *gin.Context, id string) bool {
-	return GetRequestUserID(c) == id
-}
-
-func RequestUserHasEmail(c *gin.Context, email string) bool {
-	return GetRequestUserEmail(c) == email
-}
-
-func RequestUserHasRole(c *gin.Context, role string) bool {
-	user, err := service.GetUser(GetRequestUserID(c))
-	if err != nil {
-		return false
-	}
-	return user.HasRole(role)
-}
-
-func GetRequestUserID(c *gin.Context) string {
-	id, exists := c.Get("Auth-UserID")
-	if !exists {
-		return ""
-	}
-	return id.(string)
-}
-
-func GetRequestUserEmail(c *gin.Context) string {
-	email, exists := c.Get("Auth-Email")
-	if !exists {
-		return ""
-	}
-	return email.(string)
-}
