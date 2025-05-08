@@ -85,26 +85,9 @@ const Sidebar = (props: SidebarProps) => {
           <img src="/logo/mapache.png" className="h-10" />
         </div>
         <div
-          style={{
-            animation: props.isSidebarExpanded
-              ? "slideIn 0.3s ease forwards"
-              : "slideOut 0.3s ease forwards",
-          }}
-          className="whitespace-nowrap pl-4"
+          className={`whitespace-nowrap pl-4 ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
         >
           <h2>Mapache</h2>
-          <style>
-            {`
-              @keyframes slideIn {
-                from { transform: translateX(2px); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-              }
-              @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(2px); opacity: 0; }
-              }
-            `}
-          </style>
         </div>
       </div>
     );
@@ -123,7 +106,7 @@ const Sidebar = (props: SidebarProps) => {
           props.isSelected
             ? "bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px]"
             : ""
-        } cursor-pointer rounded-lg transition-all duration-150`}
+        } cursor-pointer rounded-lg`}
         onClick={(e) => {
           e.stopPropagation();
           navigate(props.link);
@@ -140,25 +123,8 @@ const Sidebar = (props: SidebarProps) => {
             />
           </div>
           <div
-            style={{
-              animation: props.isSidebarExpanded
-                ? "slideIn 0.3s ease forwards"
-                : "slideOut 0.3s ease forwards",
-            }}
-            className={`whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"}`}
+            className={`whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"} ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
           >
-            <style>
-              {`
-                @keyframes slideIn {
-                  from { transform: translateX(8px); opacity: 0; }
-                  to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                  from { transform: translateX(0); opacity: 1; }
-                  to { transform: translateX(8px); opacity: 0; }
-                }
-              `}
-            </style>
             {props.text}
           </div>
         </div>
@@ -185,25 +151,8 @@ const Sidebar = (props: SidebarProps) => {
                 />
               </div>
               <div
-                style={{
-                  animation: props.isSidebarExpanded
-                    ? "slideIn 0.3s ease forwards"
-                    : "slideOut 0.3s ease forwards",
-                }}
-                className={`whitespace-nowrap font-semibold text-white`}
+                className={`whitespace-nowrap font-semibold text-white ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
               >
-                <style>
-                  {`
-                @keyframes slideIn {
-                  from { transform: translateX(8px); opacity: 0; }
-                  to { transform: translateX(4px); opacity: 1; }
-                }
-                @keyframes slideOut {
-                  from { transform: translateX(4px); opacity: 1; }
-                  to { transform: translateX(8px); opacity: 0; }
-                }
-              `}
-                </style>
                 <div className="flex w-full items-center justify-between">
                   <div className="flex w-[160px] flex-col items-start justify-center">
                     <div className="text-sm font-semibold">
