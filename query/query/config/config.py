@@ -4,7 +4,7 @@ class Config:
     """Configuration settings for the application"""
     
     # Server settings
-    VERSION: str = "1.0.1"
+    VERSION: str = "1.1.0"
     PORT: int = int(os.getenv('PORT', 7000))
     SERVICE_ENDPOINT: str = os.getenv('SERVICE_ENDPOINT')
     SERVICE_HEALTH_CHECK: str = os.getenv('SERVICE_HEALTH_CHECK')
@@ -16,9 +16,15 @@ class Config:
     DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD')
     DATABASE_NAME: str = os.getenv('DATABASE_NAME')
 
+    # Rincon settings
     RINCON_USER: str = os.getenv('RINCON_USER')
     RINCON_PASSWORD: str = os.getenv('RINCON_PASSWORD')
     RINCON_ENDPOINT: str = os.getenv('RINCON_ENDPOINT')
+
+    # Auth settings
+    SENTINEL_URL: str = os.getenv('SENTINEL_URL')
+    SENTINEL_JWKS_URL: str = os.getenv('SENTINEL_JWKS_URL')
+    SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')
 
     @staticmethod
     def get_database_url() -> str:
