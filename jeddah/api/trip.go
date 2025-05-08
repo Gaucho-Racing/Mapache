@@ -71,3 +71,12 @@ func NewTrip(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, service.GetTripByID(input.ID))
 }
+
+func DeleteTrip(c *gin.Context) {
+	err := service.DeleteTrip(c.Param("tripID"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Trip with id: " + c.Param("tripID") + " deleted successfully"})
+}

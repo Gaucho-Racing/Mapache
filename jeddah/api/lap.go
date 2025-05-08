@@ -29,5 +29,5 @@ func DeleteLap(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Lap deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Lap with id: " + c.Param("lapID") + " deleted successfully"})
 }

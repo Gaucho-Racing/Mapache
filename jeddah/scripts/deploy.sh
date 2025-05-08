@@ -19,4 +19,4 @@ fi
 
 echo "Building container for $service_name v$VERSION"
 # Build the docker container
-docker build -t gauchoracing/mp_$service_name:"$VERSION" -t gauchoracing/mp_$service_name:latest --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6 --push --progress=plain .
+docker build -t gauchoracing/mp_$service_name:"$VERSION" -t gauchoracing/mp_$service_name:latest --platform linux/amd64,linux/arm64 --push --progress=plain .

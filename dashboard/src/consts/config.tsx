@@ -3,7 +3,8 @@ export const BACKEND_URL =
 
 export const SENTINEL_OAUTH_BASE_URL =
   "https://sso.gauchoracing.com/oauth/authorize";
-export const SENTINEL_CLIENT_ID = "z6V9NREjMFhf";
+export const SENTINEL_CLIENT_ID =
+  import.meta.env.VITE_SENTINEL_CLIENT_ID ?? "z6V9NREjMFhf";
 
 export const SOCIAL_LINKS = {
   github: "https://github.com/gaucho-racing/mapache",

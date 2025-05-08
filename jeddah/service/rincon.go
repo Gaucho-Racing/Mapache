@@ -3,69 +3,46 @@ package service
 import (
 	"jeddah/config"
 	"jeddah/utils"
-	"strings"
 	"time"
 
 	"github.com/bk1031/rincon-go/v2"
 )
 
 var rinconRetries = 0
-var isRunningInDocker = false
 
 func RegisterRincon() {
-	if config.RinconUser == "" || config.RinconPassword == "" {
-		utils.SugarLogger.Debugln("Rincon user or password is not set, skipping registration")
+	if config.RinconEndpoint == "" || config.RinconUser == "" || config.RinconPassword == "" {
+		utils.SugarLogger.Warnln("Rincon endpoint, user, or password not set, skipping registration")
 		return
 	}
-	rinconEndpoint := "http://rincon:10311"
 	client, err := rincon.NewClient(rincon.Config{
-		BaseURL:           rinconEndpoint,
+		BaseURL:           config.RinconEndpoint,
 		HeartbeatMode:     rincon.ServerHeartbeat,
 		HeartbeatInterval: 60,
 		AuthUser:          config.RinconUser,
 		AuthPassword:      config.RinconPassword,
 	})
 	if err != nil {
-		utils.SugarLogger.Errorf("Failed to create Rincon client with %s: %v", rinconEndpoint, err)
-		rinconEndpoint = "http://localhost:10311"
-		client, err = rincon.NewClient(rincon.Config{
-			BaseURL:           rinconEndpoint,
-			HeartbeatMode:     rincon.ServerHeartbeat,
-			HeartbeatInterval: 60,
-			AuthUser:          config.RinconUser,
-			AuthPassword:      config.RinconPassword,
-		})
-		if err != nil {
-			if rinconRetries < 5 {
-				utils.SugarLogger.Errorf("Failed to create Rincon client with %s: %v, retrying in 5s...", rinconEndpoint, err)
-				rinconRetries++
-				time.Sleep(time.Second * 5)
-				RegisterRincon()
-			} else {
-				utils.SugarLogger.Fatalln("Failed to create Rincon client after 5 attempts")
-				return
-			}
+		if rinconRetries < 5 {
+			utils.SugarLogger.Errorf("Failed to create Rincon client with %s: %v, retrying in 5s...", config.RinconEndpoint, err)
+			rinconRetries++
+			time.Sleep(time.Second * 5)
+			RegisterRincon()
 		} else {
-			utils.SugarLogger.Infof("Created Rincon client with endpoint %s", rinconEndpoint)
-			isRunningInDocker = false
+			utils.SugarLogger.Fatalln("Failed to create Rincon client after 5 attempts")
+			return
 		}
-	} else {
-		utils.SugarLogger.Infof("Created Rincon client with endpoint %s", rinconEndpoint)
-		isRunningInDocker = true
 	}
+	utils.SugarLogger.Infof("Created Rincon client with endpoint %s", config.RinconEndpoint)
 	config.RinconClient = client
-	if isRunningInDocker {
-		config.Service.Endpoint = "http://gr25:" + config.Port
-		config.Service.HealthCheck = "http://gr25:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
-	} else {
-		config.Service.Endpoint = "http://host.docker.internal:" + config.Port
-		config.Service.HealthCheck = "http://host.docker.internal:" + config.Port + "/" + strings.ToLower(config.Service.Name) + "/ping"
-	}
-	id, err := config.RinconClient.Register(config.Service, config.Routes)
+
+	config.Service.Endpoint = config.ServiceEndpoint
+	config.Service.HealthCheck = config.ServiceHealthCheck
+	id, err := client.Register(config.Service, config.Routes)
 	if err != nil {
-		utils.SugarLogger.Errorf("Failed to register service with Rincon: %v", err)
+		utils.SugarLogger.Fatalf("Failed to register service with Rincon: %v", err)
 		return
 	}
-	config.Service = *config.RinconClient.Service()
+	config.Service = *client.Service()
 	utils.SugarLogger.Infof("Registered service with ID: %d", id)
 }

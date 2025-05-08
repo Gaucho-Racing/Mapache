@@ -1,13 +1,10 @@
 #!/bin/bash
-
 service_name=$(basename $(dirname $(dirname "$(readlink -f "$0")")))
 
-# Extract version from config.go
-VERSION=$(grep 'Version: ' config/config.go | cut -d '"' -f 2)
-
-if [ -z "$VERSION" ]
-  then
-    echo "Error: Unable to extract version from config/config.go"
+# Get version from config.py
+VERSION=$(grep -o 'VERSION: str = "[^"]*"' query/config/config.py | cut -d'"' -f2)
+if [ -z "$VERSION" ]; then
+    echo "Error: Unable to extract version from query/config/config.py"
     exit 1
 fi
 
