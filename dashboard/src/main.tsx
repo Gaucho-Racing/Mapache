@@ -5,6 +5,9 @@ import "./index.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import App from "./App.tsx";
 import LoginPage from "@/pages/auth/LoginPage.tsx";
+import QueryPage from "@/pages/query/QueryPage.tsx";
+import WidgetsPage from "@/pages/widgets/WidgetsPage.tsx";
+import ChatPage from "@/pages/chat/ChatPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -18,6 +21,18 @@ const router = createBrowserRouter([
   {
     path: "/dashboard",
     element: <App />,
+  },
+  {
+    path: "/widgets",
+    element: <WidgetsPage />,
+  },
+  {
+    path: "/query",
+    element: <QueryPage />,
+  },
+  {
+    path: "/chat",
+    element: <ChatPage />,
   },
 ]);
 
