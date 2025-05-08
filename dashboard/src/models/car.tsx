@@ -9,11 +9,11 @@ export interface Vehicle {
 }
 
 export const initVehicle = {
-  id: "gr24-main",
-  name: "GR24 Prod",
-  description: "Gaucho Racing's 2024 EV Racecar",
+  id: "gr24",
+  name: "GR24",
+  description: "2024 Gaucho Racing EV Competition Vehicle",
   type: "gr24",
-  upload_key: "",
+  upload_key: 12345,
   updated_at: new Date(),
   created_at: new Date(),
 };

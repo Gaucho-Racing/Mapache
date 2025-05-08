@@ -1,6 +1,12 @@
 import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
-import { useVehicle, setVehicle } from "@/lib/store";
+import {
+  useVehicle,
+  setVehicle,
+  setVehicleList,
+  useVehicleList,
+  useSidebarExpanded,
+} from "@/lib/store";
 import {
   CarFront,
   ChevronsUpDown,
@@ -17,8 +23,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { initVehicle, Vehicle } from "@/models/car";
+import { BACKEND_URL } from "@/consts/config";
+import axios from "axios";
+import { notify } from "@/lib/notify";
+
 interface SidebarProps {
   selectedPage?: string;
   className?: string;
@@ -30,28 +40,35 @@ interface SidebarProps {
 
 const Sidebar = (props: SidebarProps) => {
   const navigate = useNavigate();
+  // const isSidebarExpanded = useSidebarExpanded();
   const currentVehicle = useVehicle();
-  const [vehicleList] = useState<Vehicle[]>([
-    initVehicle,
-    {
-      id: "gr23-main",
-      name: "GR23 Prod",
-      description: "Gaucho Racing's 2023 EV Racecar",
-      type: "gr23",
-      upload_key: "",
-      updated_at: new Date(),
-      created_at: new Date(),
-    },
-    {
-      id: "gr25-test",
-      name: "GR25 Test",
-      description: "Gaucho Racing's 2025 EV Racecar",
-      type: "gr25",
-      upload_key: "",
-      updated_at: new Date(),
-      created_at: new Date(),
-    },
-  ]);
+  const vehicleList = useVehicleList();
+
+  useEffect(() => {
+    getVehicles();
+  }, []);
+
+  const getVehicles = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/vehicles`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
+        },
+      });
+      if (response.status == 200) {
+        setVehicleList(
+          response.data.data.sort(
+            (a: Vehicle, b: Vehicle) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
+          ),
+        );
+        return 0;
+      }
+    } catch (error) {
+      notify.error("Failed to fetch vehicles: " + error);
+    }
+  };
 
   const VehicleClassIcon = (props: {
     vehicleClass: string;
@@ -107,7 +124,10 @@ const Sidebar = (props: SidebarProps) => {
             ? "bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px]"
             : ""
         } cursor-pointer rounded-lg transition-all duration-150`}
-        onClick={() => navigate(props.link)}
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(props.link);
+        }}
       >
         <div
           className={`flex w-full items-center rounded-lg ${
@@ -155,7 +175,7 @@ const Sidebar = (props: SidebarProps) => {
         <DropdownMenuTrigger asChild>
           <div
             className={`mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150`}
-            onClick={() => {}}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex h-12 w-full items-center rounded-lg bg-card/50 p-1 hover:bg-neutral-800">
               <div className="flex min-w-[60px] items-center justify-center">
@@ -207,8 +227,10 @@ const Sidebar = (props: SidebarProps) => {
         >
           {vehicleList.map((vehicle) => (
             <DropdownMenuItem
+              key={vehicle.id}
               className={`m-1 ${vehicle.id === currentVehicle.id ? "bg-neutral-800" : ""}`}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setVehicle(vehicle);
                 navigate(`/dashboard?vid=${vehicle.id}`);
               }}
