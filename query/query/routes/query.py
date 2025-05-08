@@ -12,6 +12,7 @@ import numpy as np
 import traceback
 
 from query.service.token import get_token_by_id, validate_token
+from query.service.trip import get_trip_by_id
 
 router = APIRouter()
 
@@ -21,6 +22,7 @@ async def get_signals(
     token: Annotated[str | None, Query()] = None,
     vehicle_id: Annotated[str | None, Query()] = None,
     signals: Annotated[str | None, Query()] = None,
+    trip_id: Annotated[str | None, Query()] = None,
     start: Annotated[str | None, Query()] = None,
     end: Annotated[str | None, Query()] = None,
     merge: Annotated[str | None, Query(enum=['smallest', 'largest'])] = 'smallest',
@@ -31,9 +33,11 @@ async def get_signals(
     user_id = None
     try:
         if authorization and "Bearer " in authorization:
+            logger.info(f"Found bearer token: {authorization}")
             auth_token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(auth_token)
         elif token:
+            logger.info(f"Found query token: {token}")
             t = get_token_by_id(token)
             if not validate_token(t):
                 return JSONResponse(
@@ -68,28 +72,46 @@ async def get_signals(
                     "message": "one or more signals are required",
                 }
             )
-        
-        if start is not None:
-            try:
-                pd.to_datetime(start)
-            except ValueError:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "message": "invalid start timestamp format",
-                    }
-                )
 
-        if end is not None:
+        if trip_id is not None:
             try:
-                pd.to_datetime(end)
-            except ValueError:
+                trip = get_trip_by_id(trip_id)
+                if trip.get("id"):
+                    start = trip.get("start_time").rstrip("Z")
+                    end = trip.get("end_time").rstrip("Z")
+                else:
+                    return JSONResponse(
+                        status_code=400,
+                        content=trip
+                    )
+            except Exception as e:
                 return JSONResponse(
                     status_code=400,
                     content={
-                        "message": "invalid end timestamp format", 
+                        "message": f"failed to get trip: {e}",
                     }
                 )
+        else:
+            if start is not None:
+                try:
+                    pd.to_datetime(start)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "message": "invalid start timestamp format",
+                        }
+                    )
+            if end is not None:
+                try:
+                    pd.to_datetime(end)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "message": "invalid end timestamp format", 
+                        }
+                    )
             
         start_time = datetime.now()
         dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
