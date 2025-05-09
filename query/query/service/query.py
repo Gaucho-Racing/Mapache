@@ -1,4 +1,6 @@
 from functools import reduce
+
+from loguru import logger
 from query.database.connection import get_db
 from query.model import *
 import pandas as pd
@@ -43,6 +45,7 @@ def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = 
         query += f" AND produced_at < '{end}'"
     
     query += " ORDER BY produced_at ASC"
+    logger.info(f"Query: {query}")
 
     db = get_db()
     result = pd.read_sql(query, db.bind)

@@ -4,7 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import { Card } from "./ui/card";
+import { Card } from "@/components/ui/card";
+import {
+  useSidebarExpanded,
+  setSidebarExpanded,
+  useSidebarWidth,
+  setSidebarWidth,
+} from "@/lib/store";
 
 interface LayoutProps {
   activeTab?: string;
@@ -21,8 +27,8 @@ const Layout: React.FC<LayoutProps> = ({
 
   const [loading, setLoading] = React.useState(true);
 
-  const [isSidebarExpanded, setSidebarExpanded] = React.useState(true);
-  const [sidebarWidth, setSidebarWidth] = React.useState(275);
+  const isSidebarExpanded = useSidebarExpanded();
+  const sidebarWidth = useSidebarWidth();
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [scrollY, setScrollY] = useState(0);
@@ -113,8 +119,8 @@ const Layout: React.FC<LayoutProps> = ({
       ) : (
         <div className="flex">
           <Sidebar
-            selectedPage={activeTab}
             isSidebarExpanded={isSidebarExpanded}
+            selectedPage={activeTab}
             sidebarWidth={sidebarWidth}
             toggleSidebar={toggleSidebar}
           />
