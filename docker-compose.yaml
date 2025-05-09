@@ -136,6 +136,9 @@ services:
       RINCON_USER: "admin"
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
+      SENTINEL_URL: ${SENTINEL_URL}
+      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
+      SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
 
   nanomq:
     image: emqx/nanomq:latest

@@ -1,6 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom";
 import "./index.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import App from "./App.tsx";
@@ -12,7 +16,7 @@ import ChatPage from "@/pages/chat/ChatPage.tsx";
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <Navigate to="/dashboard" replace />,
   },
   {
     path: "/auth/login",
