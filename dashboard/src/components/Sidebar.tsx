@@ -5,7 +5,6 @@ import {
   setVehicle,
   setVehicleList,
   useVehicleList,
-  useSidebarExpanded,
 } from "@/lib/store";
 import {
   CarFront,
@@ -23,8 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useEffect, useState } from "react";
-import { initVehicle, Vehicle } from "@/models/car";
+import { useEffect } from "react";
+import { Vehicle } from "@/models/car";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -40,7 +39,6 @@ interface SidebarProps {
 
 const Sidebar = (props: SidebarProps) => {
   const navigate = useNavigate();
-  // const isSidebarExpanded = useSidebarExpanded();
   const currentVehicle = useVehicle();
   const vehicleList = useVehicleList();
 
