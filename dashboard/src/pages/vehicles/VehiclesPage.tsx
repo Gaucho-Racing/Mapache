@@ -28,6 +28,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { OutlineButton } from "@/components/ui/outline-button";
 import { Trash2 } from "lucide-react";
+import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 
 function VehiclesPage() {
   const vehicleList = useVehicleList();
@@ -81,7 +82,7 @@ function VehiclesPage() {
         setIsEditDialogOpen(false);
       }
     } catch (error) {
-      notify.error("Failed to create vehicle: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
