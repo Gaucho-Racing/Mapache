@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { useEffect } from "react";
-import { Vehicle } from "@/models/car";
+import { Vehicle } from "@/models/vehicle";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { notify } from "@/lib/notify";

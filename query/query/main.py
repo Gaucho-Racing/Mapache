@@ -1,4 +1,5 @@
 from fastapi import FastAPI  
+from fastapi.middleware.cors import CORSMiddleware
 import requests
 import uvicorn
 from query.config.config import Config
@@ -16,6 +17,14 @@ def create_app():
         version=Config.VERSION,
         docs_url="/query/docs",
         redoc_url="/query/redoc"
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.include_router(

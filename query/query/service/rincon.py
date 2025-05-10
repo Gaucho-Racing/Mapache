@@ -56,7 +56,7 @@ class RinconService:
             json={
                 "route": "/query/**",
                 "service_name": service_name,
-                "method": "GET"
+                "method": "*"
             },
             auth=(Config.RINCON_USER, Config.RINCON_PASSWORD)
         )

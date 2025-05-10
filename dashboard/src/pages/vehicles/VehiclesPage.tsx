@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { BACKEND_URL } from "@/consts/config";
 import { notify } from "@/lib/notify";
 import { setVehicleList, useVehicleList } from "@/lib/store";
-import { Vehicle } from "@/models/car";
+import { Vehicle } from "@/models/vehicle";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
