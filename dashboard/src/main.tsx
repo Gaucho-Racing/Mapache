@@ -12,6 +12,7 @@ import LoginPage from "@/pages/auth/LoginPage.tsx";
 import QueryPage from "@/pages/query/QueryPage.tsx";
 import WidgetsPage from "@/pages/widgets/WidgetsPage.tsx";
 import ChatPage from "@/pages/chat/ChatPage.tsx";
+import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
   {
     path: "/chat",
     element: <ChatPage />,
+  },
+  {
+    path: "/vehicles",
+    element: <VehiclesPage />,
   },
 ]);
 

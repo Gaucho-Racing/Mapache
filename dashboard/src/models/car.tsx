@@ -3,7 +3,7 @@ export interface Vehicle {
   name: string;
   description: string;
   type: string;
-  upload_key: string;
+  upload_key: number;
   updated_at: Date;
   created_at: Date;
 }
