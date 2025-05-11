@@ -1,12 +1,6 @@
 import { Trip } from "@/models/trip";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@radix-ui/react-checkbox";
-import {
-  CheckCheckIcon,
-  CheckCircle,
-  CheckCircle2,
-  Circle,
-} from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { CheckCircle2, Circle } from "lucide-react";
 
 interface TripCardProps {
   trip: Trip;
