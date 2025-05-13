@@ -1,4 +1,4 @@
-import { initVehicle } from "@/models/car";
+import { initVehicle } from "@/models/vehicle";
 import { initUser } from "@/models/user";
 import createStore from "react-superstore";
 

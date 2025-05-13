@@ -36,7 +36,6 @@ def get_vehicle_by_id(vehicle_id: str) -> dict[str, Any]:
     try:
         route = f"/vehicles/{vehicle_id}"
         service = RinconService.match_route(route, "GET")
-        service["endpoint"] = "http://localhost:7003"
         r = requests.get(
             f"{service['endpoint']}{route}",
             # headers={"Authorization": f"Bearer {token}"}
