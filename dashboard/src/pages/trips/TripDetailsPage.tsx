@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/menubar";
 import { MenubarMenu } from "@/components/ui/menubar";
 import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
+import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
 
 function TripDetailsPage() {
   const { id } = useParams();
@@ -399,7 +400,14 @@ function TripDetailsPage() {
             setTripDetailsOpen={setTripDetailsOpen}
           />
           <div className="flex-1 overflow-y-auto p-4">
-            <div className="min-h-[100vh]">Scrollable content goes here</div>
+            <div className="min-h-[100vh]">
+              <PedalsWidget
+                vehicle_id={vehicle?.id || ""}
+                start_time={trip?.start_time || ""}
+                end_time={trip?.end_time || ""}
+                current_millis={currentTime}
+              />
+            </div>
           </div>
 
           <div className="sticky bottom-[20px] z-10">

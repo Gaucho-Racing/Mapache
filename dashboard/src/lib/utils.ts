@@ -29,3 +29,14 @@ export function formatDateMillis(date: Date) {
   const ms = date.getMilliseconds().toString().padStart(3, "0");
   return `${timeStr}.${ms}`;
 }
+
+export function formatTimeWithMillis(date: Date) {
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const ms = date.getMilliseconds().toString().padStart(3, "0");
+  return `${timeStr}.${ms}`;
+}
