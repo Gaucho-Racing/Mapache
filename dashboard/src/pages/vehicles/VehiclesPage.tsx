@@ -116,8 +116,8 @@ function VehiclesPage() {
       description: "",
       type: "",
       upload_key: 0,
-      updated_at: new Date(),
-      created_at: new Date(),
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
 
     return (
