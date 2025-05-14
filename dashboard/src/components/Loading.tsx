@@ -6,7 +6,7 @@ export const LoadingComponent = () => {
       <img
         src="/logo/mapache.png"
         alt="Mapache"
-        className="animate-scale mx-auto h-10"
+        className="mx-auto h-10 animate-scale"
       />
       <Loader2 className="mt-4 h-8 w-8 animate-spin text-primary" />
     </div>
