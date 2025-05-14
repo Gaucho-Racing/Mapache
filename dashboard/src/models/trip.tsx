@@ -15,8 +15,8 @@ export interface Trip {
   vehicle_id: String;
   name: String;
   description: String;
-  start_time: Date;
-  end_time: Date;
+  start_time: string;
+  end_time: string;
   laps: Lap[];
 }
 
@@ -24,7 +24,7 @@ export interface Lap {
   id: String;
   trip_id: String;
   name: String;
-  timestamp: Date;
+  timestamp: string;
 }
 
 export const initTrip: Trip = {
@@ -32,8 +32,8 @@ export const initTrip: Trip = {
   vehicle_id: "",
   name: "",
   description: "",
-  start_time: new Date(),
-  end_time: new Date(),
+  start_time: new Date().toISOString(),
+  end_time: new Date().toISOString(),
   laps: [],
 };
 
@@ -41,5 +41,5 @@ export const initLap: Lap = {
   id: "",
   trip_id: "",
   name: "",
-  timestamp: new Date(),
+  timestamp: new Date().toISOString(),
 };

@@ -58,7 +58,7 @@ function VehiclesPage() {
         return 0;
       }
     } catch (error) {
-      notify.error("Failed to fetch vehicles: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
@@ -105,7 +105,7 @@ function VehiclesPage() {
         setSelectedVehicle(null);
       }
     } catch (error) {
-      notify.error("Failed to delete vehicle: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
@@ -398,7 +398,7 @@ function VehiclesPage() {
             {vehicleList.map((vehicle) => (
               <div key={vehicle.id}>
                 <Card
-                  className="h-full w-full p-2 transition-all duration-150 hover:scale-[1.01] hover:cursor-pointer hover:bg-card"
+                  className="h-full w-full p-2 transition-all duration-150 hover:scale-[1.02] hover:cursor-pointer hover:bg-card"
                   onClick={() => {
                     setSelectedVehicle(vehicle);
                     setIsEditDialogOpen(true);
