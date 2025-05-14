@@ -12,7 +12,6 @@ def get_all_trips() -> list[dict[str, Any]]:
     try:
         route = "/trips"
         service = RinconService.match_route(route, "GET")
-        service["endpoint"] = "http://localhost:7003"
         r = requests.get(
             f"{service['endpoint']}{route}",
             # headers={"Authorization": f"Bearer {token}"}

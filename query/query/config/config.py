@@ -4,7 +4,7 @@ class Config:
     """Configuration settings for the application"""
     
     # Server settings
-    VERSION: str = "1.2.0"
+    VERSION: str = "1.2.2"
     PORT: int = int(os.getenv('PORT', 7000))
     SERVICE_ENDPOINT: str = os.getenv('SERVICE_ENDPOINT')
     SERVICE_HEALTH_CHECK: str = os.getenv('SERVICE_HEALTH_CHECK')
