@@ -50,9 +50,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from "recharts";
 import {
   ChartContainer,
@@ -109,22 +106,6 @@ const processChartData = (data: Record<string, any>[]) => {
   return { columns, chartData };
 };
 
-// Chart configuration
-const chartConfig = {
-  time: {
-    label: "Time",
-  },
-  ...Object.fromEntries(
-    CHART_COLORS.map((color, index) => [
-      `signal_${index}`,
-      {
-        color,
-        label: "Signal",
-      },
-    ]),
-  ),
-};
-
 function QueryPage() {
   const vehicle = useVehicle();
   const [availableSignals, setAvailableSignals] = useState<SignalDefinition[]>(
@@ -132,7 +113,7 @@ function QueryPage() {
   );
   const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
   const [data, setData] = useState<any>([]);
-  const [metadata, setMetadata] = useState<any>({});
+  const [setMetadata] = useState<any>({});
 
   // Query parameters state
   const [selectedSignals, setSelectedSignals] = useState<string[]>([]);
