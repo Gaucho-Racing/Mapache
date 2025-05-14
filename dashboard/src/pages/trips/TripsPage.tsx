@@ -74,7 +74,9 @@ function TripsPage() {
                       </div>
                       <div className="w-full">
                         <h4>{trip.name}</h4>
-                        <p className="text-gray-400">{trip.description}</p>
+                        <p className="text-gray-400">
+                          {trip.description?.split("\n")[0]}
+                        </p>
                         <Separator className="my-2" />
                         <p className="text-sm text-white/80">
                           {new Date(trip.start_time).toLocaleString()} -{" "}
