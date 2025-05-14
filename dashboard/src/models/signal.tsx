@@ -1,11 +1,11 @@
 export interface Signal {
-  timestamp: Number;
-  vehicle_id: String;
-  name: String;
-  value: Number;
-  raw_value: Number;
-  produced_at: Date;
-  created_at: Date;
+  timestamp: number;
+  vehicle_id: string;
+  name: string;
+  value: number;
+  raw_value: number;
+  produced_at: string;
+  created_at: string;
 }
 
 export const initSignal: Signal = {
@@ -14,8 +14,8 @@ export const initSignal: Signal = {
   name: "",
   value: 0,
   raw_value: 0,
-  produced_at: new Date(),
-  created_at: new Date(),
+  produced_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
 };
 
 export interface SignalDefinition {

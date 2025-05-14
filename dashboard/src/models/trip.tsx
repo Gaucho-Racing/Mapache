@@ -11,19 +11,19 @@
 */
 
 export interface Trip {
-  id: String;
-  vehicle_id: String;
-  name: String;
-  description: String;
+  id: string;
+  vehicle_id: string;
+  name: string;
+  description: string;
   start_time: string;
   end_time: string;
   laps: Lap[];
 }
 
 export interface Lap {
-  id: String;
-  trip_id: String;
-  name: String;
+  id: string;
+  trip_id: string;
+  name: string;
   timestamp: string;
 }
 
