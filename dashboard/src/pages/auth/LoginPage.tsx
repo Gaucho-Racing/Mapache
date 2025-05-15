@@ -43,7 +43,7 @@ function LoginPage() {
   const loginSentinel = async () => {
     const redirect_url = window.location.origin + "/auth/login";
     const scope = "user:read";
-    let oauthUrl = `${SENTINEL_OAUTH_BASE_URL}?client_id=${SENTINEL_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect_url)}&scope=${encodeURIComponent(scope)}`;
+    let oauthUrl = `${SENTINEL_OAUTH_BASE_URL}?client_id=${SENTINEL_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect_url)}&scope=${encodeURIComponent(scope)}&prompt=none`;
     const route = queryParameters.get("route");
     if (route) {
       oauthUrl += `&state=${encodeURIComponent(route)}`;
@@ -63,6 +63,11 @@ function LoginPage() {
     const code = queryParameters.get("code");
     if (!code) {
       setLoginStatus("none");
+      // Auto-login if we came from non-root route
+      const route = queryParameters.get("route");
+      if (route) {
+        loginSentinel();
+      }
       return;
     }
     try {

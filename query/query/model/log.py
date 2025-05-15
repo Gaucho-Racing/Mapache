@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from datetime import datetime
 from datetime import timezone
 from query.model.base import Base
@@ -8,10 +8,10 @@ class QueryLog(Base):
 
     id = Column(String(255), primary_key=True)
     user_id = Column(String(255))
-    parameters = Column(String(1000))
+    parameters = Column(Text)
     status_code = Column(Integer)
     latency = Column(Integer)
-    error_message = Column(String(1000))
+    error_message = Column(Text)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):

@@ -24,7 +24,7 @@ const Header = (props: HeaderProps) => {
 
   return (
     <nav
-      className={`fixed top-0 z-20 w-full items-center justify-start transition-all duration-200 ${props.scroll > 24 ? "bg-card shadow-lg" : "bg-background"} ${props.className}`}
+      className={`fixed top-0 z-20 w-full items-center justify-start transition-all duration-200 ${props.scroll > 24 ? "bg-background shadow-lg" : "bg-background"} ${props.className}`}
       style={{ ...props.style }}
     >
       <div className="flex flex-row items-center justify-between">

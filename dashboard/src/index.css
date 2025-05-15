@@ -50,6 +50,24 @@
 }
 
 @layer base {
+  :root {
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  .dark {
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
   * {
     @apply border-border;
   }
@@ -75,23 +93,23 @@
 
 @keyframes slideIn {
   from {
-    transform: translateX(12px);
-    opacity: 0;
+    /* transform: translateX(12px); */
+    /* opacity: 0; */
   }
   to {
-    transform: translateX(0);
-    opacity: 1;
+    /* transform: translateX(0); */
+    /* opacity: 1; */
   }
 }
 
 @keyframes slideOut {
   from {
-    transform: translateX(0);
-    opacity: 1;
+    /* transform: translateX(0); */
+    /* opacity: 1; */
   }
   to {
-    transform: translateX(12px);
-    opacity: 0;
+    /* transform: translateX(12px); */
+    /* opacity: 0; */
   }
 }
 

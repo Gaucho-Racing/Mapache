@@ -6,10 +6,18 @@ export const SENTINEL_OAUTH_BASE_URL =
 export const SENTINEL_CLIENT_ID =
   import.meta.env.VITE_SENTINEL_CLIENT_ID ?? "z6V9NREjMFhf";
 
+export const MAPBOX_ACCESS_TOKEN =
+  import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? "";
+
 export const SOCIAL_LINKS = {
   github: "https://github.com/gaucho-racing/mapache",
   instagram: "https://instagram.com/gauchoracingucsb",
   twitter: "https://twitter.com/gaucho_racing",
   linkedin:
     "https://www.linkedin.com/company/gaucho-racing-at-uc-santa-barbara",
+};
+
+export const GR_COLORS = {
+  PINK: "#e105a3",
+  PURPLE: "#8412fc",
 };

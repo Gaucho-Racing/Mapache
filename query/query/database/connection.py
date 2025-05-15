@@ -2,6 +2,7 @@ from query.model.base import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from query.config.config import Config
+from contextlib import contextmanager
 
 DATABASE_URL = Config.get_database_url()
 
@@ -26,12 +27,14 @@ def init_db():
             sessionmaker(
                 autocommit=False,
                 autoflush=False,
+                expire_on_commit=False,
                 bind=engine
             )
         )
         
         from query.model.log import QueryLog
         from query.model.token import QueryToken
+        from query.model.signal_definition import SignalDefinition
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
@@ -44,16 +47,27 @@ def init_test_db():
         sessionmaker(
             autocommit=False,
             autoflush=False,
+            expire_on_commit=False,
             bind=engine
         )
     )
 
+@contextmanager
 def get_db():
-    """Get the database session"""
+    """Get the database session with proper error handling"""
     if not db_session:
         raise ValueError("Database session is not initialized")
-    return db_session
-        
+    
+    try:
+        yield db_session
+        db_session.commit()
+    except Exception as e:
+        db_session.rollback()
+        raise e
+    finally:
+        db_session.remove()
+
 def shutdown_session(exception=None):
     """Remove the session at the end of request"""
-    db_session.remove()
+    if db_session:
+        db_session.remove()
