@@ -20,23 +20,18 @@ export function formatTime(milliseconds: number) {
   return `${minutes}m ${seconds}s`;
 }
 
-export function formatDateMillis(date: Date) {
-  const timeStr = date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const ms = date.getMilliseconds().toString().padStart(3, "0");
-  return `${timeStr}.${ms}`;
-}
-
-export function formatTimeWithMillis(date: Date) {
+export function formatTimeWithMillis(date: Date, hour12: boolean = false) {
   const timeStr = date.toLocaleTimeString("en-US", {
-    hour12: false,
+    hour12: hour12,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
   const ms = date.getMilliseconds().toString().padStart(3, "0");
-  return `${timeStr}.${ms}`;
+  if (hour12) {
+    const [time, ampm] = timeStr.split(" ");
+    return `${time}.${ms} ${ampm}`;
+  } else {
+    return `${timeStr}.${ms}`;
+  }
 }
