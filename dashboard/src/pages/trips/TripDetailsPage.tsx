@@ -30,6 +30,7 @@ import {
 import { MenubarMenu } from "@/components/ui/menubar";
 import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
 import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
+import MapWidget from "@/components/widgets/gr24/MapWidget";
 
 function TripDetailsPage() {
   const { id } = useParams();
@@ -71,7 +72,7 @@ function TripDetailsPage() {
 
       interval = setInterval(() => {
         setCurrentTime((prev) => {
-          const newTime = prev + 10 * playbackSpeed;
+          const newTime = prev + 50 * playbackSpeed;
           const tripDuration = endTime - startTime;
           if (newTime >= tripDuration) {
             setIsPlaying(false);
@@ -79,7 +80,7 @@ function TripDetailsPage() {
           }
           return newTime;
         });
-      }, 10);
+      }, 50);
     }
     return () => clearInterval(interval);
   }, [isPlaying, trip, playbackSpeed]);
@@ -399,13 +400,20 @@ function TripDetailsPage() {
             tripDetailsOpen={tripDetailsOpen}
             setTripDetailsOpen={setTripDetailsOpen}
           />
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="min-h-[100vh]">
+          <div className="min-h-[100vh] py-4">
+            <div className="flex flex-row flex-wrap gap-4">
               <PedalsWidget
                 vehicle_id={vehicle?.id || ""}
                 start_time={trip?.start_time || ""}
                 end_time={trip?.end_time || ""}
                 current_millis={currentTime}
+              />
+              <MapWidget
+                vehicle_id={vehicle?.id || ""}
+                start_time={trip?.start_time || ""}
+                end_time={trip?.end_time || ""}
+                current_millis={currentTime}
+                followVehicle={true}
               />
             </div>
           </div>

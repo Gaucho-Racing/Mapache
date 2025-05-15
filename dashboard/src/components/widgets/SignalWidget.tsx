@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
-import { AlertCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, Database } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +20,8 @@ interface SignalWidgetProps {
   current_millis: number;
   signals: string[];
   showDeltaBanner?: boolean;
+  width?: number;
+  height?: number;
   children: (
     data: any[],
     currentSignals: any,
@@ -34,6 +36,8 @@ export default function SignalWidget({
   current_millis,
   signals,
   showDeltaBanner = false,
+  width = 350,
+  height = 220,
   children,
 }: SignalWidgetProps) {
   const [data, setData] = useState<any>([]);
@@ -54,18 +58,10 @@ export default function SignalWidget({
   const querySignals = async () => {
     const params = new URLSearchParams();
 
-    if (signals.length > 0) {
-      params.append("signals", signals.join(","));
-    }
-    if (vehicle_id) {
-      params.append("vehicle_id", vehicle_id);
-    }
-    if (start_time) {
-      params.append("start", start_time.slice(0, -1));
-    }
-    if (end_time) {
-      params.append("end", end_time.slice(0, -1));
-    }
+    params.append("signals", signals.join(","));
+    params.append("vehicle_id", vehicle_id);
+    params.append("start", start_time.slice(0, -1));
+    params.append("end", end_time.slice(0, -1));
     params.append("merge", "largest");
     params.append("fill", "forward");
 
@@ -132,6 +128,20 @@ export default function SignalWidget({
     );
   };
 
+  const NoDataCard = () => {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-center">
+        <Database className="h-12 w-12 text-muted-foreground" />
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">No Data Available</h3>
+          <p className="text-sm text-muted-foreground">
+            No signal data was found for the selected time range
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const SyncWarning = () => {
     if (!isSignalOutOfSync()) return null;
     return (
@@ -191,15 +201,19 @@ export default function SignalWidget({
   };
 
   return (
-    <Card style={{ width: 350, height: 220 }} className="relative">
+    <Card style={{ width, height }} className="relative flex-shrink-0">
       {queryStatus === "error" ? (
         <FailureCard />
       ) : queryStatus === "success" ? (
-        <>
-          <SyncWarning />
-          {children(data, currentSignals, isSignalOutOfSync())}
-          {showDeltaBanner && <DeltaBanner />}
-        </>
+        data.length === 0 ? (
+          <NoDataCard />
+        ) : (
+          <>
+            <SyncWarning />
+            {children(data, currentSignals, isSignalOutOfSync())}
+            {showDeltaBanner && <DeltaBanner />}
+          </>
+        )
       ) : (
         <LoadingComponent />
       )}
