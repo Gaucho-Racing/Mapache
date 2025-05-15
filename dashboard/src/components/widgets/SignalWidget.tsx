@@ -43,8 +43,8 @@ export default function SignalWidget({
   const [data, setData] = useState<any>([]);
   const [currentSignals, setCurrentSignals] = useState<any>({});
   const [queryStatus, setQueryStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
+    "loading" | "success" | "error"
+  >("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
@@ -76,11 +76,11 @@ export default function SignalWidget({
         },
       );
       if (response.status === 200) {
-        setQueryStatus("success");
         setData(response.data.data.data);
+        setQueryStatus("success");
       } else {
-        setQueryStatus("error");
         setErrorMessage(response.data.data.message);
+        setQueryStatus("error");
       }
     } catch (error) {
       setErrorMessage(getAxiosErrorMessage(error));

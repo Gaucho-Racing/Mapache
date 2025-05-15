@@ -6,6 +6,7 @@ import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
 import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
 import InverterDebugWidget from "@/components/widgets/gr24/InverterDebugWidget";
 import VdmDebugWidget from "@/components/widgets/gr24/VdmDebugWidget";
+import PedalsWidget from "./gr24/PedalsWidget";
 
 export interface WidgetEntry {
   id: string;
@@ -19,7 +20,7 @@ export const gr24_registry = {
   ACU: [
     {
       id: "acu-debug",
-      name: "Debug",
+      name: "ACU Debug",
       description:
         "Shows all raw data from the ACU node. For performance reasons, this widget only shows every 8th cell.",
       component: AcuDebugWidget,
@@ -29,8 +30,17 @@ export const gr24_registry = {
   ],
   Pedal: [
     {
+      id: "pedals-full",
+      name: "Pedals",
+      description:
+        "Shows both raw and scaled pedal positions from both position sensors.",
+      component: PedalsWidget,
+      icon: Bug,
+      preview: "/widgets/gr24/pedals-full.png",
+    },
+    {
       id: "pedals-debug",
-      name: "Debug",
+      name: "Pedals Debug",
       description: "Shows all raw data from the pedals node.",
       component: PedalsDebugWidget,
       icon: Bug,
@@ -57,7 +67,7 @@ export const gr24_registry = {
     },
     {
       id: "mobile-debug",
-      name: "Debug",
+      name: "Mobile Debug",
       description: "Shows all raw data from the mobile node.",
       component: MobileDebugWidget,
       icon: Bug,
@@ -67,7 +77,7 @@ export const gr24_registry = {
   Inverter: [
     {
       id: "inverter-debug",
-      name: "Debug",
+      name: "Inverter Debug",
       description: "Shows all raw data from the inverter node.",
       component: InverterDebugWidget,
       icon: Bug,
@@ -77,7 +87,7 @@ export const gr24_registry = {
   VDM: [
     {
       id: "vdm-debug",
-      name: "Debug",
+      name: "VDM Debug",
       description: "Shows all raw data from the VDM node.",
       component: VdmDebugWidget,
       icon: Bug,

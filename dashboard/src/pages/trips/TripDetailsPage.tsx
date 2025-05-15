@@ -32,11 +32,6 @@ import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
 import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
 import MapWidget from "@/components/widgets/gr24/MapWidget";
 import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
-import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
-import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
-import VdmDebugWidget from "@/components/widgets/gr24/VdmDebugWidget";
-import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
-import InverterDebugWidget from "@/components/widgets/gr24/InverterDebugWidget";
 
 function TripDetailsPage() {
   const { id } = useParams();
@@ -422,36 +417,6 @@ function TripDetailsPage() {
                 current_millis={currentTime}
               />
               <AccelerometerWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <PedalsDebugWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <MobileDebugWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <VdmDebugWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <InverterDebugWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <AcuDebugWidget
                 vehicle_id={vehicle?.id || ""}
                 start_time={trip?.start_time || ""}
                 end_time={trip?.end_time || ""}
