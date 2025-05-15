@@ -103,9 +103,9 @@ const Layout: React.FC<LayoutProps> = ({
             <img
               src="/logo/mapache.png"
               alt="Mapache"
-              className="mx-auto h-14"
+              className="mx-auto h-14 animate-scale"
             />
-            <Loader2 className="mt-8 h-12 w-12 animate-spin" />
+            <Loader2 className="mt-8 h-12 w-12 animate-spin text-primary" />
           </div>
         </Card>
       </div>

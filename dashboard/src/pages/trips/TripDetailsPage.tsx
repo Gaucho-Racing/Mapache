@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BACKEND_URL } from "@/consts/config";
 import { notify } from "@/lib/notify";
-import { setVehicle, setTrip, useVehicle, useTrip } from "@/lib/store";
+import { setVehicle, useVehicle } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,12 +32,16 @@ import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
 import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
 import MapWidget from "@/components/widgets/gr24/MapWidget";
 import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
+import { initTrip, Trip } from "@/models/trip";
+import { LoadingComponent } from "@/components/Loading";
 
 function TripDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const vehicle = useVehicle();
-  const trip = useTrip();
+  const [trip, setTrip] = useState<Trip>(initTrip);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -392,43 +396,48 @@ function TripDetailsPage() {
   return (
     <>
       <Layout activeTab="trips" headerTitle="Trip Details">
-        <div className="flex h-full flex-col">
-          <div className="sticky top-[86px] z-10">
-            <TopToolbar />
-          </div>
+        {trip.id !== "" ? (
+          <div className="flex h-full flex-col">
+            <div className="sticky top-[86px] z-10">
+              <TopToolbar />
+            </div>
 
-          <TripDetailsDialog
-            tripDetailsOpen={tripDetailsOpen}
-            setTripDetailsOpen={setTripDetailsOpen}
-          />
-          <div className="min-h-[100vh] py-4">
-            <div className="flex flex-row flex-wrap gap-4">
-              <MapWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-                followVehicle={true}
-              />
-              <PedalsWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
-              <AccelerometerWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
+            <TripDetailsDialog
+              trip={trip}
+              tripDetailsOpen={tripDetailsOpen}
+              setTripDetailsOpen={setTripDetailsOpen}
+            />
+            <div className="min-h-[100vh] py-4">
+              <div className="flex flex-row flex-wrap gap-4">
+                <MapWidget
+                  vehicle_id={vehicle?.id || ""}
+                  start_time={trip?.start_time || ""}
+                  end_time={trip?.end_time || ""}
+                  current_millis={currentTime}
+                  followVehicle={true}
+                />
+                <PedalsWidget
+                  vehicle_id={vehicle?.id || ""}
+                  start_time={trip?.start_time || ""}
+                  end_time={trip?.end_time || ""}
+                  current_millis={currentTime}
+                />
+                <AccelerometerWidget
+                  vehicle_id={vehicle?.id || ""}
+                  start_time={trip?.start_time || ""}
+                  end_time={trip?.end_time || ""}
+                  current_millis={currentTime}
+                />
+              </div>
+            </div>
+
+            <div className="sticky bottom-[20px] z-10">
+              <BottomToolbar />
             </div>
           </div>
-
-          <div className="sticky bottom-[20px] z-10">
-            <BottomToolbar />
-          </div>
-        </div>
+        ) : (
+          <LoadingComponent />
+        )}
       </Layout>
     </>
   );

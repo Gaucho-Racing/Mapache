@@ -13,19 +13,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, ChangeEvent } from "react";
 import { OutlineButton } from "@/components/ui/outline-button";
-import { setTrip, useVehicle } from "@/lib/store";
-import { useTrip } from "@/lib/store";
+import { useVehicle } from "@/lib/store";
 
 interface TripDetailsDialogProps {
+  trip: Trip;
   tripDetailsOpen: boolean;
   setTripDetailsOpen: (open: boolean) => void;
 }
 
 export function TripDetailsDialog({
+  trip,
   tripDetailsOpen,
   setTripDetailsOpen,
 }: TripDetailsDialogProps) {
-  const trip = useTrip();
   const vehicle = useVehicle();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -52,7 +52,7 @@ export function TripDetailsDialog({
       if (response.status == 200) {
         notify.success("Updated trip successfully");
         setIsEditing(false);
-        setTrip(response.data.data);
+        window.location.reload();
       }
     } catch (error) {
       notify.error(getAxiosErrorMessage(error));
