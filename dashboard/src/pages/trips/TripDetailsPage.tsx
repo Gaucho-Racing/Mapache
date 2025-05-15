@@ -31,6 +31,7 @@ import { MenubarMenu } from "@/components/ui/menubar";
 import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
 import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
 import MapWidget from "@/components/widgets/gr24/MapWidget";
+import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
 
 function TripDetailsPage() {
   const { id } = useParams();
@@ -402,18 +403,24 @@ function TripDetailsPage() {
           />
           <div className="min-h-[100vh] py-4">
             <div className="flex flex-row flex-wrap gap-4">
-              <PedalsWidget
-                vehicle_id={vehicle?.id || ""}
-                start_time={trip?.start_time || ""}
-                end_time={trip?.end_time || ""}
-                current_millis={currentTime}
-              />
               <MapWidget
                 vehicle_id={vehicle?.id || ""}
                 start_time={trip?.start_time || ""}
                 end_time={trip?.end_time || ""}
                 current_millis={currentTime}
                 followVehicle={true}
+              />
+              <PedalsWidget
+                vehicle_id={vehicle?.id || ""}
+                start_time={trip?.start_time || ""}
+                end_time={trip?.end_time || ""}
+                current_millis={currentTime}
+              />
+              <AccelerometerWidget
+                vehicle_id={vehicle?.id || ""}
+                start_time={trip?.start_time || ""}
+                end_time={trip?.end_time || ""}
+                current_millis={currentTime}
               />
             </div>
           </div>
