@@ -118,7 +118,7 @@ export function TripDetailsDialog({
             </div>
           </CardHeader>
           <CardContent>
-            <div className="border-b pb-4">
+            <div className="pb-4">
               <h3 className="mb-3 text-sm font-semibold">Trip Vehicle</h3>
               <Card className="h-full w-full p-2">
                 <div className="relative">
