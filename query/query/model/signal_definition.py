@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, String, Text
 from query.model.base import Base
 
 class SignalDefinition(Base):
@@ -7,7 +7,7 @@ class SignalDefinition(Base):
     id = Column(String(255), primary_key=True)
     vehicle_type = Column(String(255))
     name = Column(String(255))
-    description = Column(String(1000))
+    description = Column(Text)
 
     def to_dict(self):
         return {
