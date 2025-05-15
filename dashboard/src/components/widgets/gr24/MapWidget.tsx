@@ -224,7 +224,7 @@ function MapComponent({
     return (
       <div className="flex items-center rounded-md bg-card p-4 text-center opacity-80">
         <div style={{ width: "50px" }}>
-          <h1>{((currentSignals.mobile_speed || 0) * 2.23694).toFixed(0)}</h1>
+          <h1>{(currentSignals.vdm_speed || 0).toFixed(0)}</h1>
           <div>MPH</div>
         </div>
         <div
@@ -232,7 +232,7 @@ function MapComponent({
           style={{ height: "50px" }}
         ></div>
         <div style={{ width: "50px" }}>
-          <h1>{((currentSignals.mobile_speed || 0) * 3.6).toFixed(0)}</h1>
+          <h1>{((currentSignals.vdm_speed || 0) * 1.60934).toFixed(0)}</h1>
           <div>KMPH</div>
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function MapWidget({
     "mobile_heading",
     "mobile_latitude",
     "mobile_longitude",
-    "mobile_speed",
+    "vdm_speed",
   ];
 
   return (
