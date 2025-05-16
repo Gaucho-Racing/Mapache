@@ -6,6 +6,7 @@ var messageMap = map[int]mp.Message{
 	0x003: ECUStatusOne,
 	0x004: ECUStatusTwo,
 	0x005: ECUStatusThree,
+	0x02A: TCMResourceUtil,
 }
 
 func GetMessage(id int) mp.Message {
