@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: query
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: query
+  template:
+    metadata:
+      labels:
+        app: query
+    spec:
+      containers:
+        - name: query
+          image: gauchoracing/mp_query:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SERVICE_ENDPOINT
+              value: "http://query:8080"
+            - name: SERVICE_HEALTH_CHECK
+              value: "http://query:8080/query/ping"
+            - name: RINCON_USER
+              value: "admin"
+            - name: RINCON_PASSWORD
+              value: "admin"
+            - name: RINCON_ENDPOINT
+              value: "http://rincon:10311"
+          envFrom:
+            - configMapRef:
+                name: db-config
+            - configMapRef:
+                name: sentinel-config
