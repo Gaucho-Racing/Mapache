@@ -27,7 +27,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
-            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /admin-gw/ping
@@ -35,7 +34,6 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 2
-            failureThreshold: 3
           env:
             - name: PORT
               value: "10310"
