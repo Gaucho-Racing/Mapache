@@ -18,6 +18,22 @@ spec:
           ports:
             - containerPort: 10311
               protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /rincon/ping
+              port: 10311
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /rincon/ping
+              port: 10311
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
           env:
             - name: PORT
               value: "10311"
