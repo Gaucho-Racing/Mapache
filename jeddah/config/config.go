@@ -8,7 +8,7 @@ import (
 
 var Service rincon.Service = rincon.Service{
 	Name:    "Jeddah",
-	Version: "2.2.0",
+	Version: "2.2.1",
 }
 
 var Routes = []rincon.Route{
