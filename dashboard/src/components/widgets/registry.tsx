@@ -12,9 +12,17 @@ export interface WidgetEntry {
   id: string;
   name: string;
   description: string;
+  component: React.ComponentType<any>;
   preview: string;
   icon: LucideIcon;
 }
+
+export const getWidgetRegistry = (vehicle_type: string) => {
+  if (vehicle_type === "gr24") {
+    return gr24_registry;
+  }
+  return {};
+};
 
 export const gr24_registry = {
   ACU: [

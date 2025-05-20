@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, ChevronRight } from "lucide-react";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 import { useParams, useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
@@ -26,14 +26,14 @@ import {
   MenubarSeparator,
   MenubarShortcut,
   MenubarTrigger,
+  MenubarCheckboxItem,
 } from "@/components/ui/menubar";
 import { MenubarMenu } from "@/components/ui/menubar";
 import { TripDetailsDialog } from "@/components/trips/TripDetailsDialog";
-import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
-import MapWidget from "@/components/widgets/gr24/MapWidget";
-import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
 import { initTrip, Trip } from "@/models/trip";
 import { LoadingComponent } from "@/components/Loading";
+import { WidgetEntry } from "@/components/widgets/registry";
+import { WidgetSelectionDialog } from "@/components/trips/WidgetSelectionDialog";
 
 function TripDetailsPage() {
   const { id } = useParams();
@@ -46,6 +46,10 @@ function TripDetailsPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [tripDetailsOpen, setTripDetailsOpen] = useState(false);
+  const [selectedWidgets, setSelectedWidgets] = useState<WidgetEntry[]>([]);
+  const [widgetSettingsOpen, setWidgetSettingsOpen] = useState(false);
+  const [showTopBar, setShowTopBar] = useState(true);
+  const [showBottomBar, setShowBottomBar] = useState(true);
 
   useEffect(() => {
     if (id) {
@@ -106,15 +110,40 @@ function TripDetailsPage() {
         e.preventDefault();
         handlePlayPause();
       }
-      // Left arrow for skip back
+      // K key for play/pause
+      else if (e.code === "KeyK") {
+        e.preventDefault();
+        handlePlayPause();
+      }
+      // Left arrow for skip back small (500ms)
       else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        handleSkipBack();
+        handleSkipBackSmall();
       }
-      // Right arrow for skip forward
+      // Right arrow for skip forward small (500ms)
       else if (e.code === "ArrowRight") {
         e.preventDefault();
-        handleSkipForward();
+        handleSkipForwardSmall();
+      }
+      // J key for skip back medium (1000ms)
+      else if (e.code === "KeyJ") {
+        e.preventDefault();
+        handleSkipBackMedium();
+      }
+      // L key for skip forward medium (1000ms)
+      else if (e.code === "KeyL") {
+        e.preventDefault();
+        handleSkipForwardMedium();
+      }
+      // Comma for skip back tiny (50ms)
+      else if (e.code === "Comma" && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleSkipBackTiny();
+      }
+      // Period for skip forward tiny (50ms)
+      else if (e.code === "Period") {
+        e.preventDefault();
+        handleSkipForwardTiny();
       }
       // Number keys for playback speed
       else if (e.code === "Digit1") {
@@ -189,17 +218,43 @@ function TripDetailsPage() {
     setIsPlaying(!isPlaying);
   };
 
-  const handleSkipBack = () => {
+  const handleSkipBackSmall = () => {
     if (!trip) return;
-    setCurrentTime((prev) => Math.max(0, prev - 5000));
+    setCurrentTime((prev) => Math.max(0, prev - 500));
   };
 
-  const handleSkipForward = () => {
+  const handleSkipForwardSmall = () => {
     if (!trip) return;
     const startTime = new Date(trip.start_time).getTime();
     const endTime = new Date(trip.end_time).getTime();
     const tripDuration = endTime - startTime;
-    setCurrentTime((prev) => Math.min(tripDuration, prev + 5000));
+    setCurrentTime((prev) => Math.min(tripDuration, prev + 500));
+  };
+
+  const handleSkipBackMedium = () => {
+    if (!trip) return;
+    setCurrentTime((prev) => Math.max(0, prev - 1000));
+  };
+
+  const handleSkipForwardMedium = () => {
+    if (!trip) return;
+    const startTime = new Date(trip.start_time).getTime();
+    const endTime = new Date(trip.end_time).getTime();
+    const tripDuration = endTime - startTime;
+    setCurrentTime((prev) => Math.min(tripDuration, prev + 1000));
+  };
+
+  const handleSkipBackTiny = () => {
+    if (!trip) return;
+    setCurrentTime((prev) => Math.max(0, prev - 50));
+  };
+
+  const handleSkipForwardTiny = () => {
+    if (!trip) return;
+    const startTime = new Date(trip.start_time).getTime();
+    const endTime = new Date(trip.end_time).getTime();
+    const tripDuration = endTime - startTime;
+    setCurrentTime((prev) => Math.min(tripDuration, prev + 50));
   };
 
   const handleTimelineChange = (value: number) => {
@@ -275,21 +330,67 @@ function TripDetailsPage() {
                 <MenubarTrigger>File</MenubarTrigger>
                 <MenubarContent>
                   <MenubarItem onClick={() => setTripDetailsOpen(true)}>
-                    Show Trip Details <MenubarShortcut>⌘,</MenubarShortcut>
+                    Show Trip Details{" "}
+                    <MenubarShortcut>
+                      {/Mac|iPhone|iPod|iPad/.test(navigator.userAgent)
+                        ? "⌘+,"
+                        : "Ctrl+,"}
+                    </MenubarShortcut>
+                  </MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>Edit</MenubarTrigger>
+                <MenubarContent>
+                  <MenubarItem onClick={() => setWidgetSettingsOpen(true)}>
+                    Add Widget
+                  </MenubarItem>
+                  <MenubarItem onClick={() => setWidgetSettingsOpen(true)}>
+                    Remove Widget
                   </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
               <MenubarMenu>
                 <MenubarTrigger>View</MenubarTrigger>
                 <MenubarContent>
+                  <MenubarCheckboxItem
+                    checked={showTopBar}
+                    onCheckedChange={setShowTopBar}
+                  >
+                    Show Menu Bar
+                  </MenubarCheckboxItem>
+                  <MenubarCheckboxItem
+                    checked={showBottomBar}
+                    onCheckedChange={setShowBottomBar}
+                  >
+                    Show Playback Bar
+                  </MenubarCheckboxItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger>Playback</MenubarTrigger>
+                <MenubarContent>
                   <MenubarItem>
-                    Play/Pause <MenubarShortcut>Space</MenubarShortcut>
+                    Play/Pause <MenubarShortcut>Space/K</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarSeparator />
+                  <MenubarItem>
+                    Skip Back (1s) <MenubarShortcut>J</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem>
-                    Skip Back <MenubarShortcut>←</MenubarShortcut>
+                    Skip Forward (1s) <MenubarShortcut>L</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem>
-                    Skip Forward <MenubarShortcut>→</MenubarShortcut>
+                    Skip Back (500ms) <MenubarShortcut>←</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem>
+                    Skip Forward (500ms) <MenubarShortcut>→</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem>
+                    Skip Back (50ms) <MenubarShortcut>,</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem>
+                    Skip Forward (50ms) <MenubarShortcut>.</MenubarShortcut>
                   </MenubarItem>
                   <MenubarSeparator />
                   <MenubarItem>
@@ -306,12 +407,7 @@ function TripDetailsPage() {
                   </MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
-              <MenubarMenu>
-                <MenubarTrigger>Playback</MenubarTrigger>
-                <MenubarContent></MenubarContent>
-              </MenubarMenu>
             </Menubar>
-
             <Separator orientation="vertical" className="h-8" />
             <div className="font-mono text-2xl">{formatCurrentTime()}</div>
           </div>
@@ -329,7 +425,7 @@ function TripDetailsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleSkipBack}
+                onClick={handleSkipBackMedium}
                 disabled={!trip}
               >
                 <SkipBack className="h-5 w-5" />
@@ -349,7 +445,7 @@ function TripDetailsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleSkipForward}
+                onClick={handleSkipForwardMedium}
                 disabled={!trip}
               >
                 <SkipForward className="h-5 w-5" />
@@ -393,47 +489,84 @@ function TripDetailsPage() {
     );
   };
 
+  const TopBarCollapsed = () => {
+    return (
+      <Card
+        className="group flex w-[50px] cursor-pointer items-center justify-center p-2 transition-all duration-150 hover:w-[200px] hover:bg-card"
+        onClick={() => setShowTopBar(true)}
+      >
+        <span className="mx-2 hidden overflow-hidden whitespace-nowrap group-hover:block">
+          Show Menu Bar
+        </span>
+        <ChevronRight className="my-2 h-5 w-5" />
+      </Card>
+    );
+  };
+
+  const BottomBarCollapsed = () => {
+    return (
+      <Card
+        className="group flex w-[50px] cursor-pointer items-center justify-center p-2 transition-all duration-150 hover:w-[200px] hover:bg-card"
+        onClick={() => setShowBottomBar(true)}
+      >
+        <span className="mx-2 hidden overflow-hidden whitespace-nowrap group-hover:block">
+          Show Playback Bar
+        </span>
+        <ChevronRight className="my-2 h-5 w-5" />
+      </Card>
+    );
+  };
+
   return (
     <>
       <Layout activeTab="trips" headerTitle="Trip Details">
         {trip.id !== "" ? (
           <div className="flex h-full flex-col">
-            <div className="sticky top-[86px] z-10">
-              <TopToolbar />
-            </div>
+            {showTopBar ? (
+              <div className="sticky top-[86px] z-10">
+                <TopToolbar />
+              </div>
+            ) : (
+              <div className="sticky top-[86px] z-10">
+                <TopBarCollapsed />
+              </div>
+            )}
 
             <TripDetailsDialog
               trip={trip}
               tripDetailsOpen={tripDetailsOpen}
               setTripDetailsOpen={setTripDetailsOpen}
             />
+            <WidgetSelectionDialog
+              open={widgetSettingsOpen}
+              onOpenChange={setWidgetSettingsOpen}
+              selectedWidgets={selectedWidgets}
+              setSelectedWidgets={setSelectedWidgets}
+            />
             <div className="min-h-[100vh] py-4">
               <div className="flex flex-row flex-wrap gap-4">
-                <MapWidget
-                  vehicle_id={vehicle?.id || ""}
-                  start_time={trip?.start_time || ""}
-                  end_time={trip?.end_time || ""}
-                  current_millis={currentTime}
-                  followVehicle={true}
-                />
-                <PedalsWidget
-                  vehicle_id={vehicle?.id || ""}
-                  start_time={trip?.start_time || ""}
-                  end_time={trip?.end_time || ""}
-                  current_millis={currentTime}
-                />
-                <AccelerometerWidget
-                  vehicle_id={vehicle?.id || ""}
-                  start_time={trip?.start_time || ""}
-                  end_time={trip?.end_time || ""}
-                  current_millis={currentTime}
-                />
+                {selectedWidgets.map((widget) => {
+                  const props = {
+                    vehicle_id: vehicle?.id || "",
+                    start_time: trip?.start_time || "",
+                    end_time: trip?.end_time || "",
+                    current_millis: currentTime,
+                  };
+
+                  return <widget.component {...props} />;
+                })}
               </div>
             </div>
 
-            <div className="sticky bottom-[20px] z-10">
-              <BottomToolbar />
-            </div>
+            {showBottomBar ? (
+              <div className="sticky bottom-[20px] z-10">
+                <BottomToolbar />
+              </div>
+            ) : (
+              <div className="sticky bottom-[20px] z-10">
+                <BottomBarCollapsed />
+              </div>
+            )}
           </div>
         ) : (
           <LoadingComponent />

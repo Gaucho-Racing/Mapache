@@ -91,7 +91,7 @@ export function TripDetailsDialog({
   return (
     <Dialog open={tripDetailsOpen} onOpenChange={handleOpenChange}>
       <DialogTitle className="sr-only">Trip Details Dialog</DialogTitle>
-      <DialogContent>
+      <DialogContent className="max-w-[800px]">
         <Card className="border-none">
           <CardHeader className="flex flex-row items-center justify-between gap-4">
             {isEditing ? (

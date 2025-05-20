@@ -111,7 +111,7 @@ const Sidebar = (props: SidebarProps) => {
         }}
       >
         <div
-          className={`flex w-full items-center rounded-lg ${
+          className={`flex w-full items-center rounded-md ${
             props.isSelected ? "bg-card/50" : ""
           } h-10 p-1 hover:bg-card`}
         >
