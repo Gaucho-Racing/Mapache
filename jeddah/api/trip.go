@@ -11,23 +11,25 @@ import (
 )
 
 func GetAllTrips(c *gin.Context) {
-	result := service.GetAllTrips()
-	c.JSON(http.StatusOK, result)
-}
-
-func GetAllTripsByVehicleID(c *gin.Context) {
-	result := service.GetAllTripsByVehicleID(c.Param("vehicleID"))
-	c.JSON(http.StatusOK, result)
+	param, exists := c.GetQuery("vehicle_id")
+	if exists {
+		result := service.GetAllTripsByVehicleID(param)
+		c.JSON(http.StatusOK, result)
+	} else {
+		result := service.GetAllTrips()
+		c.JSON(http.StatusOK, result)
+	}
 }
 
 func GetAllOngoingTrips(c *gin.Context) {
-	result := service.GetAllOngoingTrips()
-	c.JSON(http.StatusOK, result)
-}
-
-func GetAllOngoingTripsByVehicleID(c *gin.Context) {
-	result := service.GetAllOngoingTripsByVehicleID(c.Param("vehicleID"))
-	c.JSON(http.StatusOK, result)
+	param, exists := c.GetQuery("vehicle_id")
+	if exists {
+		result := service.GetAllOngoingTripsByVehicleID(param)
+		c.JSON(http.StatusOK, result)
+	} else {
+		result := service.GetAllOngoingTrips()
+		c.JSON(http.StatusOK, result)
+	}
 }
 
 func GetTripByID(c *gin.Context) {
