@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kerbecs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kerbecs
+  template:
+    metadata:
+      labels:
+        app: kerbecs
+    spec:
+      containers:
+        - name: kerbecs
+          image: bk1031/kerbecs:latest
+          ports:
+            - containerPort: 10300
+              protocol: TCP
+            - containerPort: 10310
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "10310"
+            - name: ADMIN_PORT
+              value: "10300"
+            - name: KERBECS_USER
+              value: "admin"
+            - name: KERBECS_PASSWORD
+              value: "admin"
+            - name: KERBECS_ENDPOINT
+              value: "http://kerbecs:10300"
+            - name: KERBECS_HEALTH_CHECK
+              value: "http://kerbecs:10300/admin-gw/ping"
+            - name: RINCON_USER
+              value: "admin"
+            - name: RINCON_PASSWORD
+              value: "admin"
+            - name: RINCON_ENDPOINT
+              value: "http://rincon:10311"
