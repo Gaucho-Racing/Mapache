@@ -47,14 +47,14 @@ def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = 
     query += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query}")
 
-    db = get_db()
-    result = pd.read_sql(query, db.bind)
-    return [
-        result[result['name'] == signal][['produced_at', 'value']]
-        .rename(columns={'value': signal})
-        .reset_index(drop=True)
-        for signal in signals
-    ]
+    with get_db() as db:
+        result = pd.read_sql(query, db.bind)
+        return [
+            result[result['name'] == signal][['produced_at', 'value']]
+            .rename(columns={'value': signal})
+            .reset_index(drop=True)
+            for signal in signals
+        ]
 
 def merge_to_smallest(*dfs: pd.DataFrame, tolerance: int = 50, fill: str = "none") -> tuple[pd.DataFrame, Metadata]:
     """
