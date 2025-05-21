@@ -2,25 +2,30 @@ from datetime import datetime, timezone
 import uuid
 from query.database.connection import get_db
 from query.model.log import QueryLog
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
-def get_all_logs() -> list[QueryLog]:
-    db = get_db()
-    return db.query(QueryLog).all()
+#same as with token
 
-def get_logs_by_user_id(user_id: int) -> list[QueryLog]:
-    db = get_db()
-    return db.query(QueryLog).filter(QueryLog.user_id == user_id).all()
+async def get_all_logs() -> list[QueryLog]:
+    async with get_db() as db:
+        result = await db.execute(select(QueryLog))
+        return result.scalars().all()
 
-def get_log_by_id(log_id: int) -> QueryLog:
-    db = get_db()
-    return db.query(QueryLog).filter(QueryLog.id == log_id).first()
+async def get_logs_by_user_id(user_id: int) -> list[QueryLog]:
+    async with get_db() as db:
+        result = await db.execute(select(QueryLog).filter(QueryLog.user_id == user_id))
+        return result.scalars().all()
 
-def create_log(log: QueryLog) -> QueryLog:
-    log.id = uuid.uuid4()
+async def get_log_by_id(log_id: str) -> QueryLog:
+    async with get_db() as db:
+        result = await db.execute(select(QueryLog).filter(QueryLog.id == log_id))
+        return result.scalar_one_or_none()
+
+async def create_log(log: QueryLog) -> QueryLog:
+    log.id = str(uuid.uuid4())
     log.created_at = datetime.now(timezone.utc)
-    db = get_db()
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-    return log
+    async with get_db() as db:
+        db.add(log)
+        await db.commit()
+        await db.refresh(log)
+        return log

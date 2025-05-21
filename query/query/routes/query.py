@@ -38,8 +38,8 @@ async def get_signals(
             user_id = AuthService.get_user_id_from_token(auth_token)
         elif token:
             logger.info(f"Found query token: {token}")
-            t = get_token_by_id(token)
-            if not validate_token(t):
+            t = await get_token_by_id(token)
+            if not await validate_token(t):
                 return JSONResponse(
                     status_code=401,
                     content={
@@ -75,7 +75,7 @@ async def get_signals(
 
         if trip_id is not None:
             try:
-                trip = get_trip_by_id(trip_id)
+                trip = await get_trip_by_id(trip_id)
                 if trip.get("id"):
                     start = trip.get("start_time").rstrip("Z")
                     end = trip.get("end_time").rstrip("Z")
@@ -114,7 +114,7 @@ async def get_signals(
                     )
             
         start_time = datetime.now()
-        dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
+        dfs = await query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
 
         if merge == 'smallest':
             merged_df, metadata = merge_to_smallest(*dfs, tolerance=tolerance, fill=fill)
@@ -141,7 +141,7 @@ async def get_signals(
         logger.info(f"Merged DataFrame: {df_dict}")
         logger.info(f"Metadata: {metadata}")
 
-        create_log(QueryLog(
+        await create_log(QueryLog(
             user_id=user_id,
             parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
             latency=metadata.query_latency,
@@ -186,7 +186,7 @@ async def get_signals(
     except Exception as e:
         logger.error(traceback.format_exc())
         if user_id is not None:
-            create_log(QueryLog(
+            await create_log(QueryLog(
                 user_id=user_id,
                 parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
                 latency=0,

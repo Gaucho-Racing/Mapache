@@ -2,41 +2,49 @@ from datetime import datetime, timezone
 import uuid
 from query.database.connection import get_db
 from query.model.token import QueryToken
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
-def get_all_tokens() -> list[QueryToken]:   
-    db = get_db()
-    return db.query(QueryToken).all()
+#made each async
+#async with to close each session instance (get_db returns instance now)
 
-def get_tokens_by_user_id(user_id: int) -> list[QueryToken]:
-    db = get_db()
-    return db.query(QueryToken).filter(QueryToken.user_id == user_id).all()
+async def get_all_tokens() -> list[QueryToken]:   
+    async with get_db() as db:
+        result = await db.execute(select(QueryToken))
+        return result.scalars().all()
 
-def get_token_by_id(token_id: int) -> QueryToken:
-    db = get_db()
-    return db.query(QueryToken).filter(QueryToken.id == token_id).first()
+async def get_tokens_by_user_id(user_id: int) -> list[QueryToken]:
+    async with get_db() as db:
+        result = await db.execute(select(QueryToken).filter(QueryToken.user_id == user_id))
+        return result.scalars().all()
 
-def create_token(user_id: str, expires_at: datetime) -> QueryToken:
+async def get_token_by_id(token_id: str) -> QueryToken:
+    async with get_db() as db:
+        result = await db.execute(select(QueryToken).filter(QueryToken.id == token_id))
+        return result.scalar_one_or_none()
+
+async def create_token(user_id: str, expires_at: datetime) -> QueryToken:
     token = QueryToken(
-        id=uuid.uuid4(),
+        id=str(uuid.uuid4()),
         user_id=user_id,
         expires_at=expires_at
     )
-    db = get_db()
-    db.add(token)
-    db.commit()
-    db.refresh(token)
-    return token
+    async with get_db() as db:
+        db.add(token)
+        await db.commit()
+        await db.refresh(token)
+        return token
 
-def revoke_token(token_id: str) -> None:
-    db = get_db()
-    token = db.query(QueryToken).filter(QueryToken.id == token_id).first()
-    token.expires_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(token)
-    return token
+async def revoke_token(token_id: str) -> None:
+    async with get_db() as db:
+        result = await db.execute(select(QueryToken).filter(QueryToken.id == token_id))
+        token = result.scalar_one_or_none()
+        if token:
+            token.expires_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.refresh(token)
+        return token
 
-def validate_token(token: QueryToken) -> bool:
+async def validate_token(token: QueryToken) -> bool:
     if token is None:
         return False
         

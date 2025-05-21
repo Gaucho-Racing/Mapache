@@ -1,6 +1,7 @@
 from fastapi import FastAPI  
 import requests
 import uvicorn
+import asyncio
 from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import ping, query, token
@@ -38,17 +39,23 @@ def create_app():
     
     return app
 
+async def startup():
+    await init_db()
+    RinconService.register()
+    AuthService.configure(
+        jwks_url=Config.SENTINEL_JWKS_URL,
+        issuer="https://sso.gauchoracing.com",
+        audience=Config.SENTINEL_CLIENT_ID
+    )
+
 def main():
-  init_db()
-  RinconService.register()
-  AuthService.configure(
-    jwks_url=Config.SENTINEL_JWKS_URL,
-    issuer="https://sso.gauchoracing.com",
-    audience=Config.SENTINEL_CLIENT_ID
-  )
-  
-  app = create_app()
-  uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
+    app = create_app()
+    
+    @app.on_event("startup")
+    async def startup_event():
+        await startup()
+    
+    uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
 if __name__ == "__main__":
-  main()
+    main()

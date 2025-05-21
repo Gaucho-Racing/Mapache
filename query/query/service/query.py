@@ -9,7 +9,7 @@ from sqlalchemy import text
 from typing import List
 from query.model.query import Metadata
 
-def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = None) -> list[pd.DataFrame]:
+async def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = None) -> list[pd.DataFrame]:
     """
     Retrieves signal data within a specified time range.
     
@@ -47,13 +47,22 @@ def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = 
     query += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query}")
 
-    db = get_db()
-    result = pd.read_sql(query, db.bind)
+    async with get_db() as db:
+        result = await db.execute(text(query))
+        rows = result.all()
+
+    df = pd.DataFrame(rows, columns=["produced_at", "name", "value"])
+    df["produced_at"] = pd.to_datetime(df["produced_at"])
+
+    # split out one frame per signal
     return [
-        result[result['name'] == signal][['produced_at', 'value']]
-        .rename(columns={'value': signal})
-        .reset_index(drop=True)
-        for signal in signals
+        (
+            df[df["name"] == sig]
+            .loc[:, ["produced_at", "value"]]
+            .rename(columns={"value": sig})
+            .reset_index(drop=True)
+        )
+        for sig in signals
     ]
 
 def merge_to_smallest(*dfs: pd.DataFrame, tolerance: int = 50, fill: str = "none") -> tuple[pd.DataFrame, Metadata]:

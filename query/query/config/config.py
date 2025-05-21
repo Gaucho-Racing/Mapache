@@ -29,5 +29,5 @@ class Config:
     @staticmethod
     def get_database_url() -> str:
         """Constructs the MySQL database URL from individual settings"""
-        return f"mysql+pymysql://{Config.DATABASE_USER}:{Config.DATABASE_PASSWORD}@{Config.DATABASE_HOST}:{Config.DATABASE_PORT}/{Config.DATABASE_NAME}"
+        return f"mysql+aiomysql://{Config.DATABASE_USER}:{Config.DATABASE_PASSWORD}@{Config.DATABASE_HOST}:{Config.DATABASE_PORT}/{Config.DATABASE_NAME}"
 
