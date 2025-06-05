@@ -25,7 +25,7 @@ var ACUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "accumulator_current",
-			Value:    float64(f.Value)*0.1 - 327.68,
+			Value:    float64(f.Value) * 0.01 - 327.68,
 			RawValue: f.Value,
 		})
 		return signals
@@ -34,7 +34,7 @@ var ACUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "accumulator_soc",
-			Value:    float64(f.Value) * 20 / 51,
+			Value:    float64(f.Value) * (20.0 / 51.0),
 			RawValue: f.Value,
 		})
 		return signals
@@ -43,7 +43,7 @@ var ACUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "glv_soc",
-			Value:    float64(f.Value) * 20 / 51,
+			Value:    float64(f.Value) * (20.0 / 51.0),
 			RawValue: f.Value,
 		})
 		return signals
