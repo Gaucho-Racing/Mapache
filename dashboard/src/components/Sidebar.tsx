@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { useEffect } from "react";
-import { Vehicle } from "@/models/car";
+import { Vehicle } from "@/models/vehicle";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -111,7 +111,7 @@ const Sidebar = (props: SidebarProps) => {
         }}
       >
         <div
-          className={`flex w-full items-center rounded-lg ${
+          className={`flex w-full items-center rounded-md ${
             props.isSelected ? "bg-card/50" : ""
           } h-10 p-1 hover:bg-card`}
         >

@@ -13,6 +13,8 @@ import QueryPage from "@/pages/query/QueryPage.tsx";
 import WidgetsPage from "@/pages/widgets/WidgetsPage.tsx";
 import ChatPage from "@/pages/chat/ChatPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
+import TripsPage from "@/pages/trips/TripsPage.tsx";
+import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -38,6 +40,14 @@ const router = createBrowserRouter([
   {
     path: "/chat",
     element: <ChatPage />,
+  },
+  {
+    path: "/trips",
+    element: <TripsPage />,
+  },
+  {
+    path: "/trips/:id",
+    element: <TripDetailsPage />,
   },
   {
     path: "/vehicles",

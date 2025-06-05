@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { BACKEND_URL } from "@/consts/config";
 import { notify } from "@/lib/notify";
 import { setVehicleList, useVehicleList } from "@/lib/store";
-import { Vehicle } from "@/models/car";
+import { Vehicle } from "@/models/vehicle";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,6 +28,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { OutlineButton } from "@/components/ui/outline-button";
 import { Trash2 } from "lucide-react";
+import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 
 function VehiclesPage() {
   const vehicleList = useVehicleList();
@@ -57,7 +58,7 @@ function VehiclesPage() {
         return 0;
       }
     } catch (error) {
-      notify.error("Failed to fetch vehicles: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
@@ -81,7 +82,7 @@ function VehiclesPage() {
         setIsEditDialogOpen(false);
       }
     } catch (error) {
-      notify.error("Failed to create vehicle: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
@@ -104,7 +105,7 @@ function VehiclesPage() {
         setSelectedVehicle(null);
       }
     } catch (error) {
-      notify.error("Failed to delete vehicle: " + error);
+      notify.error(getAxiosErrorMessage(error));
     }
   };
 
@@ -115,8 +116,8 @@ function VehiclesPage() {
       description: "",
       type: "",
       upload_key: 0,
-      updated_at: new Date(),
-      created_at: new Date(),
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
 
     return (
@@ -397,7 +398,7 @@ function VehiclesPage() {
             {vehicleList.map((vehicle) => (
               <div key={vehicle.id}>
                 <Card
-                  className="h-full w-full p-2 transition-all duration-150 hover:scale-[1.01] hover:cursor-pointer hover:bg-card"
+                  className="h-full w-full p-2 transition-all duration-150 hover:scale-[1.02] hover:cursor-pointer hover:bg-card"
                   onClick={() => {
                     setSelectedVehicle(vehicle);
                     setIsEditDialogOpen(true);
