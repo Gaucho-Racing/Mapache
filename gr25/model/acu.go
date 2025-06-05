@@ -30,7 +30,7 @@ var ACUStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("accumulator_soc", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("accumulator_soc", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "accumulator_soc",
@@ -39,7 +39,7 @@ var ACUStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("glv_soc", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("glv_soc", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "glv_soc",
@@ -96,7 +96,7 @@ var ACUStatusTwo = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("error_warning", 3, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("error_warning_1", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		bitMap := []string{
 			"over_temp_error",
@@ -107,6 +107,19 @@ var ACUStatusTwo = mp.Message{
 			"under_voltage_20v_warning",
 			"under_voltage_12v_warning",
 			"under_voltage_sdc_warning",
+		}
+		for i := 0; i < len(bitMap); i++ {
+			signals = append(signals, mp.Signal{
+				Name:     bitMap[i],
+				Value:    float64(f.CheckBit(i)),
+				RawValue: f.CheckBit(i),
+			})
+		}
+		return signals
+	}),
+	mp.NewField("error_warning_2", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		bitMap := []string{
 			"precharge_error",
 			"ir_minus_state",
 			"ir_plus_state",
