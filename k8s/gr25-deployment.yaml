@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gr25
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gr25
+  template:
+    metadata:
+      labels:
+        app: gr25
+    spec:
+      containers:
+        - name: gr25
+          image: gauchoracing/mp_gr25:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /gr25/ping
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /gr25/ping
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SERVICE_ENDPOINT
+              value: "http://gr25:8080"
+            - name: SERVICE_HEALTH_CHECK
+              value: "http://gr25:8080/gr25/ping"
+            - name: RINCON_USER
+              value: "admin"
+            - name: RINCON_PASSWORD
+              value: "admin"
+            - name: RINCON_ENDPOINT
+              value: "http://rincon:10311"
+            - name: MQTT_HOST
+              value: "nanomq"
+            - name: MQTT_PORT
+              value: "1883"
+            - name: MQTT_USER
+              value: "gr25"
+            - name: MQTT_PASSWORD
+              value: "gr25"
+          envFrom:
+            - configMapRef:
+                name: db-config
+            - configMapRef:
+                name: sentinel-config

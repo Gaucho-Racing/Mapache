@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jeddah
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jeddah
+  template:
+    metadata:
+      labels:
+        app: jeddah
+    spec:
+      containers:
+        - name: jeddah
+          image: gauchoracing/mp_jeddah:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /jeddah/ping
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /jeddah/ping
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SERVICE_ENDPOINT
+              value: "http://jeddah:8080"
+            - name: SERVICE_HEALTH_CHECK
+              value: "http://jeddah:8080/jeddah/ping"
+            - name: RINCON_USER
+              value: "admin"
+            - name: RINCON_PASSWORD
+              value: "admin"
+            - name: RINCON_ENDPOINT
+              value: "http://rincon:10311"
+          envFrom:
+            - configMapRef:
+                name: db-config
+            - configMapRef:
+                name: sentinel-config

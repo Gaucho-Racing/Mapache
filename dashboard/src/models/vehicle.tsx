@@ -3,9 +3,9 @@ export interface Vehicle {
   name: string;
   description: string;
   type: string;
-  upload_key: string;
-  updated_at: Date;
-  created_at: Date;
+  upload_key: number;
+  updated_at: string;
+  created_at: string;
 }
 
 export const initVehicle = {
@@ -14,6 +14,6 @@ export const initVehicle = {
   description: "2024 Gaucho Racing EV Competition Vehicle",
   type: "gr24",
   upload_key: 12345,
-  updated_at: new Date(),
-  created_at: new Date(),
+  updated_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
 };

@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { useEffect } from "react";
-import { Vehicle } from "@/models/car";
+import { Vehicle } from "@/models/vehicle";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { notify } from "@/lib/notify";
@@ -111,9 +111,9 @@ const Sidebar = (props: SidebarProps) => {
         }}
       >
         <div
-          className={`flex w-full items-center rounded-lg ${
+          className={`flex w-full items-center rounded-md ${
             props.isSelected ? "bg-card/50" : ""
-          } h-10 p-1 hover:bg-neutral-800`}
+          } h-10 p-1 hover:bg-card`}
         >
           <div className="flex min-w-[60px] items-center justify-center">
             <props.icon
@@ -141,7 +141,7 @@ const Sidebar = (props: SidebarProps) => {
             className={`mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex h-12 w-full items-center rounded-lg bg-card/50 p-1 hover:bg-neutral-800">
+            <div className="flex h-12 w-full items-center rounded-lg bg-card/50 p-1 hover:bg-card">
               <div className="flex min-w-[60px] items-center justify-center">
                 <VehicleClassIcon
                   vehicleClass={currentVehicle.type}
@@ -203,7 +203,7 @@ const Sidebar = (props: SidebarProps) => {
 
   return (
     <nav
-      className={`fixed left-0 top-0 z-30 overflow-hidden border-r bg-card transition-all duration-300 ${props.className}`}
+      className={`fixed left-0 top-0 z-30 overflow-hidden border-r transition-all duration-300 ${props.className}`}
       style={{ height: "100vh", width: props.sidebarWidth, ...props.style }}
       onClick={props.toggleSidebar}
     >

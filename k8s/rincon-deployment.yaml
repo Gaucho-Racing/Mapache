@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rincon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rincon
+  template:
+    metadata:
+      labels:
+        app: rincon
+    spec:
+      containers:
+        - name: rincon
+          image: bk1031/rincon:latest
+          ports:
+            - containerPort: 10311
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /rincon/ping
+              port: 10311
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /rincon/ping
+              port: 10311
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          env:
+            - name: PORT
+              value: "10311"
+            - name: AUTH_USER
+              value: "admin"
+            - name: AUTH_PASSWORD
+              value: "admin"
+            - name: STORAGE_MODE
+              value: "local"
+            - name: HEARTBEAT_INTERVAL
+              value: "10"
+            - name: HEARTBEAT_TYPE
+              value: "server"
+            - name: OVERWRITE_ROUTES
+              value: "true"
+            - name: SELF_ENDPOINT
+              value: "http://rincon:10311"
+            - name: SELF_HEALTH_CHECK
+              value: "http://rincon:10311/rincon/ping"

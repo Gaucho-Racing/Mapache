@@ -3,6 +3,10 @@
 !example.env
 *.env
 
+# === K8S ===
+k8s/db-config.yaml
+k8s/sentinel-config.yaml
+
 # === VSCODE ===
 .vscode/*
 !.vscode/settings.json

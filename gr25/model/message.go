@@ -14,6 +14,7 @@ var messageMap = map[int]mp.Message{
 	0x00C: ACUConfigOperationalParameters,
 	0x00D: ACUCellDataOne,
 	0x00E: ACUCellDataTwo,
+	0x02A: TCMResourceUtil,
 }
 
 func GetMessage(id int) mp.Message {

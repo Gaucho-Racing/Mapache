@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nanomq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nanomq
+  template:
+    metadata:
+      labels:
+        app: nanomq
+    spec:
+      containers:
+        - name: nanomq
+          image: emqx/nanomq:latest
+          ports:
+            - containerPort: 1883
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 1883
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 1883
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
