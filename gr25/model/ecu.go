@@ -59,7 +59,7 @@ var ECUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "acu_state_of_charge",
-			Value:    float64(f.Value) * (20.0 / 51.0),
+			Value:    float64(f.Value) * 20 / 51,
 			RawValue: f.Value,
 		})
 		return signals
@@ -68,7 +68,7 @@ var ECUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "glv_state_of_charge",
-			Value:    float64(f.Value) * (20.0 / 51.0),
+			Value:    float64(f.Value) * 20 / 51,
 			RawValue: f.Value,
 		})
 		return signals

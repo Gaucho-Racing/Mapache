@@ -82,7 +82,7 @@ var ACUStatusTwo = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "min_cell_voltage",
-			Value:    float64(f.Value)*0.01 + 2,
+			Value:    float64(f.Value) * 0.01 + 2,
 			RawValue: f.Value,
 		})
 		return signals
@@ -111,8 +111,8 @@ var ACUStatusTwo = mp.Message{
 		for i := 0; i < len(bitMap); i++ {
 			signals = append(signals, mp.Signal{
 				Name:     bitMap[i],
-				Value:    float64(f.CheckBit(i)),
-				RawValue: f.CheckBit(i),
+				Value:    float64(f.Bytes[0] >> i & 1),
+				RawValue: int(f.Bytes[0] >> i & 1),
 			})
 		}
 		return signals
@@ -128,8 +128,8 @@ var ACUStatusTwo = mp.Message{
 		for i := 0; i < len(bitMap); i++ {
 			signals = append(signals, mp.Signal{
 				Name:     bitMap[i],
-				Value:    float64(f.CheckBit(i)),
-				RawValue: f.CheckBit(i),
+				Value:    float64(f.Bytes[0] >> i & 1),
+				RawValue: int(f.Bytes[0] >> i & 1),
 			})
 		}
 		return signals
