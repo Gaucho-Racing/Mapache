@@ -63,7 +63,7 @@ var ACUStatusTwo = mp.Message{
 	mp.NewField("12v_voltage", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
-			Name:     "ts_voltage",
+			Name:     "12v_voltage",
 			Value:    float64(f.Value) * 0.1,
 			RawValue: f.Value,
 		})
@@ -90,7 +90,7 @@ var ACUStatusTwo = mp.Message{
 	mp.NewField("max_cell_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
-			Name:     "glv_soc",
+			Name:     "max_cell_temp",
 			Value:    float64(f.Value) * 0.25,
 			RawValue: f.Value,
 		})
@@ -100,16 +100,16 @@ var ACUStatusTwo = mp.Message{
 		signals := []mp.Signal{}
 		bitMap := []string{
 			"over_temp_error",
-			"over_volt_error",
-			"under_volt_error",
-			"over_curr_error",
-			"under_curr_error",
-			"under_20v_warning",
-			"under_12v_warning",
-			"under_volt_sdc_warning",
+			"over_voltage_error",
+			"under_voltage_error",
+			"over_current_error",
+			"under_current_error",
+			"under_voltage_20v_warning",
+			"under_voltage_12v_warning",
+			"under_voltage_sdc_warning",
 			"precharge_error",
-			"precharge_state",
-			"ir_state",
+			"ir_minus_state",
+			"ir_plus_state",
 			"software_latch",
 		}
 		for i := 0; i < len(bitMap); i++ {

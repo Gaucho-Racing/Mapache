@@ -31,8 +31,7 @@ func SubscribeTopics() {
 		if nodeID == "" {
 			utils.SugarLogger.Infof("[MQ] Received invalid node id: %s, ignoring", topic)
 			return
-		}
-			
+		}	
 
 		if canID == "ping" {
 			go HandlePing(vehicleID, nodeID, msg.Payload())
