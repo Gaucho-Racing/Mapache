@@ -33,6 +33,7 @@ func SubscribeTopics() {
 		}
 
 		message := msg.Payload()
+		canID = strings.TrimPrefix(canID, "0x")
 		canIDInt, err := strconv.ParseInt(canID, 16, 64)
 		if err != nil {
 			utils.SugarLogger.Infof("[MQ] Received invalid can id: %s, ignoring", canID)
