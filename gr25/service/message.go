@@ -24,6 +24,16 @@ func SubscribeTopics() {
 		nodeID := strings.Split(topic, "/")[2]
 		canID := strings.Split(topic, "/")[3]
 
+		if vehicleID == "" {
+			utils.SugarLogger.Infof("[MQ] Received invalid vehicle id: %s, ignoring", topic)
+			return
+		}
+		if nodeID == "" {
+			utils.SugarLogger.Infof("[MQ] Received invalid node id: %s, ignoring", topic)
+			return
+		}
+			
+
 		if canID == "ping" {
 			go HandlePing(vehicleID, nodeID, msg.Payload())
 			return
