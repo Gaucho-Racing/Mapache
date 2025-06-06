@@ -242,11 +242,87 @@ var ACUCellDataOne = mp.Message{
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
 				Name:     fmt.Sprintf("cell%d_voltage", i),
-				Value:    float64(f.Bytes[i*2])*0.01 + 2,
+				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
 				Name:     fmt.Sprintf("cell%d_temp", i),
+				Value:    float64(f.Bytes[i*2+1]) * 0.25,
+				RawValue: int(f.Bytes[i*2+1]),
+			})
+		}
+		return signals
+	}),
+}
+
+var ACUCellDataTwo = mp.Message{
+	mp.NewField("data_2", 64, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		for i := 0; i < 32; i++ {
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_voltage", i + 32),
+				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				RawValue: int(f.Bytes[i*2]),
+			})
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_temp", i + 32),
+				Value:    float64(f.Bytes[i*2+1]) * 0.25,
+				RawValue: int(f.Bytes[i*2+1]),
+			})
+		}
+		return signals
+	}),
+}
+
+var ACUCellDataThree = mp.Message{
+	mp.NewField("data_3", 64, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		for i := 0; i < 32; i++ {
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_voltage", i + 64),
+				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				RawValue: int(f.Bytes[i*2]),
+			})
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_temp", i + 64),
+				Value:    float64(f.Bytes[i*2+1]) * 0.25,
+				RawValue: int(f.Bytes[i*2+1]),
+			})
+		}
+		return signals
+	}),
+}
+
+var ACUCellDataFour = mp.Message{
+	mp.NewField("data_4", 64, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		for i := 0; i < 32; i++ {
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_voltage", i + 96),
+				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				RawValue: int(f.Bytes[i*2]),
+			})
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_temp", i + 96),
+				Value:    float64(f.Bytes[i*2+1]) * 0.25,
+				RawValue: int(f.Bytes[i*2+1]),
+			})
+		}
+		return signals
+	}),
+}
+
+var ACUCellDataFive = mp.Message{
+	mp.NewField("data_5", 64, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		for i := 0; i < 32; i++ {
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_voltage", i + 128),
+				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				RawValue: int(f.Bytes[i*2]),
+			})
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_temp", i + 128),
 				Value:    float64(f.Bytes[i*2+1]) * 0.25,
 				RawValue: int(f.Bytes[i*2+1]),
 			})
