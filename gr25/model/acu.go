@@ -1,6 +1,10 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache-go"
+import (
+	"fmt"
+
+	mp "github.com/gaucho-racing/mapache-go"
+)
 
 var ACUStatusOne = mp.Message{
 	mp.NewField("accumulator_voltage", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
@@ -216,7 +220,7 @@ var ACUConfigOperationalParameters = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "min_cell_voltage",
-			Value:    float64(f.Value)*0.01 + 2,
+			Value:    float64(f.Value) * 0.01 + 2,
 			RawValue: f.Value,
 		})
 		return signals
@@ -228,6 +232,25 @@ var ACUConfigOperationalParameters = mp.Message{
 			Value:    float64(f.Value) * 0.25,
 			RawValue: f.Value,
 		})
+		return signals
+	}),
+}
+
+var ACUCellDataOne = mp.Message{
+	mp.NewField("data_1", 64, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		for i := 0; i < 32; i++ {
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_voltage", i),
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
+				RawValue: int(f.Bytes[i*2]),
+			})
+			signals = append(signals, mp.Signal{
+				Name:     fmt.Sprintf("cell%d_temp", i),
+				Value:    float64(f.Bytes[i*2+1]) * 0.25,
+				RawValue: int(f.Bytes[i*2+1]),
+			})
+		}
 		return signals
 	}),
 }

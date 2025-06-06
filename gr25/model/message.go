@@ -12,6 +12,7 @@ var messageMap = map[int]mp.Message{
 	0x00A: ACUPrecharge,
 	0x00B: ACUConfigChargeParameters,
 	0x00C: ACUConfigOperationalParameters,
+	0x00D: ACUCellDataOne,
 	0x02A: TCMResourceUtil,
 }
 
