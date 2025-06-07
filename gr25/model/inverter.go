@@ -188,7 +188,6 @@ var InverterCommand = mp.Message{
 				RawValue: int(f.Bytes[0] >> i & 1),
 			})
 		}
-
 		return signals
 	}),
 }
