@@ -29,7 +29,7 @@ var ACUStatusOne = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "accumulator_current",
-			Value:    float64(f.Value) * 0.01 - 327.68,
+			Value:    float64(f.Value)*0.01 - 327.68,
 			RawValue: f.Value,
 		})
 		return signals
@@ -86,7 +86,7 @@ var ACUStatusTwo = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "min_cell_voltage",
-			Value:    float64(f.Value) * 0.01 + 2,
+			Value:    float64(f.Value)*0.01 + 2,
 			RawValue: f.Value,
 		})
 		return signals
@@ -220,7 +220,7 @@ var ACUConfigOperationalParameters = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "min_cell_voltage",
-			Value:    float64(f.Value) * 0.01 + 2,
+			Value:    float64(f.Value)*0.01 + 2,
 			RawValue: f.Value,
 		})
 		return signals
@@ -242,7 +242,7 @@ var ACUCellDataOne = mp.Message{
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
 				Name:     fmt.Sprintf("cell%d_voltage", i),
-				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
@@ -260,12 +260,12 @@ var ACUCellDataTwo = mp.Message{
 		signals := []mp.Signal{}
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_voltage", i + 32),
-				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				Name:     fmt.Sprintf("cell%d_voltage", i+32),
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_temp", i + 32),
+				Name:     fmt.Sprintf("cell%d_temp", i+32),
 				Value:    float64(f.Bytes[i*2+1]) * 0.25,
 				RawValue: int(f.Bytes[i*2+1]),
 			})
@@ -279,12 +279,12 @@ var ACUCellDataThree = mp.Message{
 		signals := []mp.Signal{}
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_voltage", i + 64),
-				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				Name:     fmt.Sprintf("cell%d_voltage", i+64),
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_temp", i + 64),
+				Name:     fmt.Sprintf("cell%d_temp", i+64),
 				Value:    float64(f.Bytes[i*2+1]) * 0.25,
 				RawValue: int(f.Bytes[i*2+1]),
 			})
@@ -298,12 +298,12 @@ var ACUCellDataFour = mp.Message{
 		signals := []mp.Signal{}
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_voltage", i + 96),
-				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				Name:     fmt.Sprintf("cell%d_voltage", i+96),
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_temp", i + 96),
+				Name:     fmt.Sprintf("cell%d_temp", i+96),
 				Value:    float64(f.Bytes[i*2+1]) * 0.25,
 				RawValue: int(f.Bytes[i*2+1]),
 			})
@@ -317,12 +317,12 @@ var ACUCellDataFive = mp.Message{
 		signals := []mp.Signal{}
 		for i := 0; i < 32; i++ {
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_voltage", i + 128),
-				Value:    float64(f.Bytes[i*2]) * 0.01 + 2,
+				Name:     fmt.Sprintf("cell%d_voltage", i+128),
+				Value:    float64(f.Bytes[i*2])*0.01 + 2,
 				RawValue: int(f.Bytes[i*2]),
 			})
 			signals = append(signals, mp.Signal{
-				Name:     fmt.Sprintf("cell%d_temp", i + 128),
+				Name:     fmt.Sprintf("cell%d_temp", i+128),
 				Value:    float64(f.Bytes[i*2+1]) * 0.25,
 				RawValue: int(f.Bytes[i*2+1]),
 			})
