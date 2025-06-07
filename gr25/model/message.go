@@ -18,6 +18,7 @@ var messageMap = map[int]mp.Message{
 	0x010: ACUCellDataFour,
 	0x011: ACUCellDataFive,
 	0x012: DC_DCStatus,
+	0x018: FanStatus,
 	0x02A: TCMResourceUtil,
 }
 
