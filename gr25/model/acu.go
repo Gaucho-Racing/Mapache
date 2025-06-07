@@ -185,11 +185,13 @@ var ACUPrecharge = mp.Message{
 		bitMap := []string{
 			"set_ts_active",
 		}
-		signals = append(signals, mp.Signal{
-			Name:     bitMap[0],
-			Value:    float64(f.CheckBit(0)),
-			RawValue: f.CheckBit(0),
-		})
+		for i := 0; i < len(bitMap); i++ {
+			signals = append(signals, mp.Signal{
+				Name:     bitMap[i],
+				Value:    float64(f.Bytes[0] >> i & 1),
+				RawValue: int(f.Bytes[0] >> i & 1),
+			})
+		}
 		return signals
 	}),
 }
