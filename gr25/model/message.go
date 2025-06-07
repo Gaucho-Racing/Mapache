@@ -23,6 +23,7 @@ var messageMap = map[int]mp.Message{
 	0x01A: DashPanel,
 	0x01B: DashConfig,
 	0x02A: TCMResourceUtil,
+	0x02E: DashWarningFlags,
 }
 
 func GetMessage(id int) mp.Message {

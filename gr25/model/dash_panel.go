@@ -97,3 +97,21 @@ var DashConfig = mp.Message{
 		return signals
 	}),
 }
+
+// ECU sends this command to dash panel
+var DashWarningFlags = mp.Message{
+	mp.NewField("warning_flags", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		bitMap := []string{
+			"bse_apps_violation",
+		}
+		for i := 0; i < len(bitMap); i++ {
+			signals = append(signals, mp.Signal{
+				Name:     bitMap[i],
+				Value:    float64(f.Bytes[0] >> i & 1),
+				RawValue: int(f.Bytes[0] >> i & 1),
+			})
+		}
+		return signals
+	}),
+}
