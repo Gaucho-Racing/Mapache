@@ -134,3 +134,42 @@ var ECUStatusThree = mp.Message{
 		return signals
 	}),
 }
+
+var ECUPedals = mp.Message{
+	mp.NewField("apps_one", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "apps_one",
+			Value:    float64(f.Value) / 655.35,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("apps_two", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "apps_two",
+			Value:    float64(f.Value) / 655.35,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("brake_pressure", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "brake_pressure",
+			Value:    float64(f.Value) / 655.35,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("brake_force", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "brake_force",
+			Value:    float64(f.Value) / 655.35,
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+}

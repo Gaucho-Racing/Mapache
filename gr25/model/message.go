@@ -21,6 +21,7 @@ var messageMap = map[int]mp.Message{
 	0x018: FanStatus,
 	0x019: FanCommand,
 	0x02A: TCMResourceUtil,
+	0x02E: ECUPedals,
 }
 
 func GetMessage(id int) mp.Message {
