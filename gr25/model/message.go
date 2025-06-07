@@ -18,13 +18,18 @@ var messageMap = map[int]mp.Message{
 	0x010: ACUCellDataFour,
 	0x011: ACUCellDataFive,
 	0x012: DC_DCStatus,
+	0x013: InverterStatusOne,
+	0x014: InverterStatusTwo,
+	0x015: InverterStatusThree,
+	0x016: InverterConfig,
+	0x017: InverterCommand,
 	0x018: FanStatus,
 	0x019: FanCommand,
 	0x01A: DashPanel,
 	0x01B: DashConfig,
 	0x02A: TCMResourceUtil,
 	0x02B: DashWarningFlags,
-  0x02E: ECUPedals,
+	0x02E: ECUPedals,
 }
 
 func GetMessage(id int) mp.Message {
