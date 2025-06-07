@@ -19,6 +19,9 @@ var DashPanel = mp.Message{
 		}
 		return signals
 	}),
+	mp.NewField("ignored", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{}
+	}),
 }
 
 // ECU sends this command to dash panel
