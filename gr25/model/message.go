@@ -20,6 +20,8 @@ var messageMap = map[int]mp.Message{
 	0x012: DC_DCStatus,
 	0x018: FanStatus,
 	0x019: FanCommand,
+	0x01A: DashPanel,
+	0x01B: DashConfig,
 	0x02A: TCMResourceUtil,
 }
 
