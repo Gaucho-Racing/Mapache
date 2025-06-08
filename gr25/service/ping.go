@@ -34,7 +34,7 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	binary.BigEndian.PutUint64(payload[8:], pong)
 
 	mqtt.Client.Publish(topic, 0, false, payload)
-	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dμs", vehicleID, nodeID, latency)
+	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dms", vehicleID, nodeID, latency/1000)
 
 	err := CreatePing(mapache.Ping{
 		VehicleID: vehicleID,
