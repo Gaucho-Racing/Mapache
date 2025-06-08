@@ -86,7 +86,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		signal.Name = fmt.Sprintf("%s_%s", nodeID, signal.Name)
 		signal.Timestamp = int(binary.BigEndian.Uint64(timestamp))
 		signal.VehicleID = vehicleID
-		signal.ProducedAt = time.UnixMilli(int64(signal.Timestamp))
+		signal.ProducedAt = time.UnixMicro(int64(signal.Timestamp))
 		signal.CreatedAt = utils.WithPrecision(time.Now())
 
 		err := CreateSignal(signal)

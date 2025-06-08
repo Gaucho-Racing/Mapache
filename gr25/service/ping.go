@@ -14,7 +14,7 @@ import (
 
 func HandlePing(vehicleID string, nodeID string, payload []byte) {
 	utils.SugarLogger.Infof("[MQ] Received ping from gr25/%s/%s", vehicleID, nodeID)
-	ping := int(binary.BigEndian.Uint64(payload[:8]))
+	ping := binary.BigEndian.Uint64(payload[:8])
 	uploadKey := binary.BigEndian.Uint16(payload[8:10])
 	// TODO: Check upload key
 	if uploadKey == 0 {
@@ -24,32 +24,32 @@ func HandlePing(vehicleID string, nodeID string, payload []byte) {
 	go SendPong(vehicleID, nodeID, ping)
 }
 
-func SendPong(vehicleID string, nodeID string, ping int) {
+func SendPong(vehicleID string, nodeID string, ping uint64) {
 	topic := fmt.Sprintf("gr25/%s/%s/pong", vehicleID, nodeID)
-	pong := int(time.Now().UnixMilli())
+	pong := uint64(time.Now().UnixMicro())
 	latency := pong - ping
 
 	payload := make([]byte, 16)
-	binary.BigEndian.PutUint64(payload, uint64(ping))
-	binary.BigEndian.PutUint64(payload[8:], uint64(pong))
+	binary.BigEndian.PutUint64(payload, ping)
+	binary.BigEndian.PutUint64(payload[8:], pong)
 
 	mqtt.Client.Publish(topic, 0, false, payload)
-	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dms", vehicleID, nodeID, latency)
+	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dμs", vehicleID, nodeID, latency)
 
 	err := CreatePing(mapache.Ping{
 		VehicleID: vehicleID,
-		Ping:      ping,
-		Pong:      pong,
-		Latency:   latency,
+		Ping:      int(ping),
+		Pong:      int(pong),
+		Latency:   int(latency),
 	})
 	if err != nil {
 		utils.SugarLogger.Infof("Error creating ping: %s", err)
 	}
 }
 
-func GetPing(vehicleID string, millis int) mapache.Ping {
+func GetPing(vehicleID string, micros int) mapache.Ping {
 	var ping mapache.Ping
-	database.DB.Where("vehicle_id = ? AND ping = ?", vehicleID, millis).First(&ping)
+	database.DB.Where("vehicle_id = ? AND ping = ?", vehicleID, micros).First(&ping)
 	return ping
 }
 
