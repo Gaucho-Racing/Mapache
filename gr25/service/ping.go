@@ -26,7 +26,7 @@ func HandlePing(vehicleID string, nodeID string, payload []byte) {
 
 func SendPong(vehicleID string, nodeID string, ping int) {
 	topic := fmt.Sprintf("gr25/%s/%s/pong", vehicleID, nodeID)
-	pong := int(time.Now().UnixMilli())
+	pong := int(time.Now().UnixMicro())
 	latency := pong - ping
 
 	payload := make([]byte, 16)
@@ -34,7 +34,7 @@ func SendPong(vehicleID string, nodeID string, ping int) {
 	binary.BigEndian.PutUint64(payload[8:], uint64(pong))
 
 	mqtt.Client.Publish(topic, 0, false, payload)
-	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dms", vehicleID, nodeID, latency)
+	utils.SugarLogger.Infof("[PING] Received ping from gr25/%s/%s in %dμs", vehicleID, nodeID, latency)
 
 	err := CreatePing(mapache.Ping{
 		VehicleID: vehicleID,
@@ -47,9 +47,9 @@ func SendPong(vehicleID string, nodeID string, ping int) {
 	}
 }
 
-func GetPing(vehicleID string, millis int) mapache.Ping {
+func GetPing(vehicleID string, micros int) mapache.Ping {
 	var ping mapache.Ping
-	database.DB.Where("vehicle_id = ? AND ping = ?", vehicleID, millis).First(&ping)
+	database.DB.Where("vehicle_id = ? AND ping = ?", vehicleID, micros).First(&ping)
 	return ping
 }
 
