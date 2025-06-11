@@ -1,6 +1,8 @@
 package model
 
 import (
+	"math"
+
 	mp "github.com/gaucho-racing/mapache-go"
 )
 
@@ -9,7 +11,7 @@ var GPSLatitude = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_latitude",
-			Value:    float64(f.Value),
+			Value:    math.Float64frombits(uint64(f.Value)),
 			RawValue: f.Value,
 		})
 		return signals
@@ -21,7 +23,7 @@ var GPSLongitude = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_longitude",
-			Value:    float64(f.Value),
+			Value:    math.Float64frombits(uint64(f.Value)),
 			RawValue: f.Value,
 		})
 		return signals
@@ -33,7 +35,7 @@ var GPSAltitude = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_altitude",
-			Value:    float64(f.Value),
+			Value:    float64(math.Float32frombits(uint32(f.Value))),
 			RawValue: f.Value,
 		})
 		return signals
@@ -54,7 +56,7 @@ var GPSPx = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "x_theta",
-			Value:    (float64(f.Value) * 0.01),
+			Value:    (float64(f.Value) * 0.001),
 			RawValue: f.Value,
 		})
 		return signals
