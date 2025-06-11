@@ -132,7 +132,7 @@ var GPSRz = mp.Message{
 	}),
 }
 
-var UVW = mp.Message{
+var DGPS_UVW = mp.Message{
 	mp.NewField("DGPS_u", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
