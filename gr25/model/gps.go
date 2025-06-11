@@ -9,7 +9,7 @@ var GPSLatitude = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_latitude",
-			Value:    float64(f.Value) * 0.01,
+			Value:    float64(f.Value),
 			RawValue: f.Value,
 		})
 		return signals
@@ -21,7 +21,7 @@ var GPSLongitude = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_longitude",
-			Value:    float64(f.Value) * 0.01,
+			Value:    float64(f.Value),
 			RawValue: f.Value,
 		})
 		return signals
@@ -29,11 +29,20 @@ var GPSLongitude = mp.Message{
 }
 
 var GPSAltitude = mp.Message{
-	mp.NewField("gps_altitude", 8, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("gps_altitude", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "gps_altitude",
-			Value:    float64(f.Value) * 0.01,
+			Value:    float64(f.Value),
+			RawValue: f.Value,
+		})
+		return signals
+	}),
+	mp.NewField("gps_status", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		signals := []mp.Signal{}
+		signals = append(signals, mp.Signal{
+			Name:     "gps_altitude",
+			Value:    float64(f.Value),
 			RawValue: f.Value,
 		})
 		return signals
