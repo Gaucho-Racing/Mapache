@@ -12,8 +12,8 @@ import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
 import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
 import InverterDebugWidget from "@/components/widgets/gr24/InverterDebugWidget";
 import VdmDebugWidget from "@/components/widgets/gr24/VdmDebugWidget";
-import PedalsWidget from "./gr24/PedalsWidget";
-import AcuCellWidget from "./gr24/AcuCellWidget";
+import PedalsWidget from "@/components/widgets/gr24/PedalsWidget";
+import AcuCellWidget from "@/components/widgets/gr24/AcuCellWidget";
 
 export interface WidgetEntry {
   id: string;
