@@ -214,7 +214,7 @@ var TCMResourceUtil = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "voltage_draw",
-			Value:    float64(f.Value) * 0.001, // Volts (assuming raw is in millivolts)
+			Value:    float64(f.Value) / 1000, // Volts (assuming raw is in millivolts)
 			RawValue: f.Value,
 		})
 		return signals
@@ -223,7 +223,7 @@ var TCMResourceUtil = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "current_draw",
-			Value:    float64(f.Value) * 0.001, // Amps (assuming raw is in milliamps)
+			Value:    float64(f.Value) / 1000, // Amps (assuming raw is in milliamps)
 			RawValue: f.Value,
 		})
 		return signals
@@ -232,7 +232,7 @@ var TCMResourceUtil = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "power_draw",
-			Value:    float64(f.Value) * 0.001, // Watts (assuming raw is in milliWatts)
+			Value:    float64(f.Value) / 1000, // Watts (assuming raw is in milliWatts)
 			RawValue: f.Value,
 		})
 		return signals
