@@ -9,7 +9,7 @@ export interface Vehicle {
 }
 
 export const initVehicle = {
-  id: "gr24",
+  id: "gr24-main",
   name: "GR24",
   description: "2024 Gaucho Racing EV Competition Vehicle",
   type: "gr24",

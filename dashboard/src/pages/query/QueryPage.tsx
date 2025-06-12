@@ -113,7 +113,7 @@ function QueryPage() {
   );
   const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
   const [data, setData] = useState<any>([]);
-  const [setMetadata] = useState<any>({});
+  const [metadata, setMetadata] = useState<any>({});
 
   // Query parameters state
   const [selectedSignals, setSelectedSignals] = useState<string[]>([]);

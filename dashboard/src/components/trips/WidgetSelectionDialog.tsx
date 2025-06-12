@@ -19,7 +19,7 @@ import {
   Tooltip,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 
 export const WidgetSelectionDialog = ({
   open,

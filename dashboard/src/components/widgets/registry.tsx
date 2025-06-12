@@ -1,12 +1,19 @@
 import MapWidget from "@/components/widgets/gr24/MapWidget";
 import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
-import { Bug, CirclePlus, LucideIcon, MapIcon } from "lucide-react";
+import {
+  BatteryFull,
+  Bug,
+  CirclePlus,
+  LucideIcon,
+  MapIcon,
+} from "lucide-react";
 import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
 import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
 import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
 import InverterDebugWidget from "@/components/widgets/gr24/InverterDebugWidget";
 import VdmDebugWidget from "@/components/widgets/gr24/VdmDebugWidget";
 import PedalsWidget from "./gr24/PedalsWidget";
+import AcuCellWidget from "./gr24/AcuCellWidget";
 
 export interface WidgetEntry {
   id: string;
@@ -26,6 +33,14 @@ export const getWidgetRegistry = (vehicle_type: string) => {
 
 export const gr24_registry = {
   ACU: [
+    {
+      id: "acu-cell",
+      name: "ACU Cell",
+      description: "Shows all cell voltages and temperatures.",
+      component: AcuCellWidget,
+      icon: BatteryFull,
+      preview: "/widgets/gr24/acu-cell.png",
+    },
     {
       id: "acu-debug",
       name: "ACU Debug",

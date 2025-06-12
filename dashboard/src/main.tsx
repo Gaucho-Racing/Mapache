@@ -6,6 +6,7 @@ import {
   RouterProvider,
 } from "react-router-dom";
 import "./index.css";
+import "@xyflow/react/dist/style.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import App from "./App.tsx";
 import LoginPage from "@/pages/auth/LoginPage.tsx";
