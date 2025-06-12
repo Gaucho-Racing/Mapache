@@ -8,6 +8,21 @@ import (
 	"github.com/gaucho-racing/mapache-go"
 )
 
+// signalCallbacks is a list of functions that will be called when a signal is created or updated
+var signalCallbacks = []func(signal mapache.Signal){}
+
+// signalNotify fires all the callbacks in signalCallbacks with the provided signal
+func signalNotify(signal mapache.Signal) {
+	for _, callback := range signalCallbacks {
+		callback(signal)
+	}
+}
+
+// SubscribeSignals registers a function to be called when a signal is created or updated
+func SubscribeSignals(callback func(signal mapache.Signal)) {
+	signalCallbacks = append(signalCallbacks, callback)
+}
+
 func GetSignal(timestamp int, vehicleID string, name string) mapache.Signal {
 	var signal mapache.Signal
 	database.DB.Where("timestamp = ?", timestamp).Where("vehicle_id = ?", vehicleID).Where("name = ?", name).First(&signal)
@@ -40,5 +55,6 @@ func CreateSignal(signal mapache.Signal) error {
 			"name", signal.Name,
 		)
 	}
+	go signalNotify(signal)
 	return nil
 }
