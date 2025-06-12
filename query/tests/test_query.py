@@ -8,7 +8,7 @@ from query.database.connection import init_test_db
 
 def test_query_signals_single_signal():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=['vdm_speed'])
+    result = query_signals(vehicle_id='gr24-main', signals=['vdm_speed'])
     assert len(result) == 1
     assert isinstance(result[0], pd.DataFrame)
     assert list(result[0].columns) == ['produced_at', 'vdm_speed']
@@ -16,7 +16,7 @@ def test_query_signals_single_signal():
 
 def test_query_signals_start_time():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=['vdm_speed'], start='2024-11-09 22:53:55.00')
+    result = query_signals(vehicle_id='gr24-main', signals=['vdm_speed'], start='2024-11-09 22:53:55.00')
     assert len(result) == 1
     assert isinstance(result[0], pd.DataFrame)
     assert list(result[0].columns) == ['produced_at', 'vdm_speed']
@@ -24,7 +24,7 @@ def test_query_signals_start_time():
 
 def test_query_signals_end_time():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=['vdm_speed'], end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=['vdm_speed'], end='2024-11-09 22:57:41.00')
     assert len(result) == 1
     assert isinstance(result[0], pd.DataFrame)
     assert list(result[0].columns) == ['produced_at', 'vdm_speed']
@@ -32,7 +32,7 @@ def test_query_signals_end_time():
 
 def test_query_signals_start_end_time():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=['vdm_speed'], start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=['vdm_speed'], start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
     assert len(result) == 1
     assert isinstance(result[0], pd.DataFrame)
     assert list(result[0].columns) == ['produced_at', 'vdm_speed']
@@ -48,7 +48,7 @@ def test_query_signals_invalid_vehicle_id():
 
 def test_query_signals_invalid_range():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=['vdm_speed'], start='2022-11-09 22:53:55.00', end='2022-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=['vdm_speed'], start='2022-11-09 22:53:55.00', end='2022-11-09 22:57:41.00')
     assert len(result) == 1
     assert isinstance(result[0], pd.DataFrame)
     assert list(result[0].columns) == ['produced_at', 'vdm_speed']
@@ -61,7 +61,7 @@ expected_columns = ['produced_at'] + two_signals
 
 def test_query_signals_two_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=two_signals)
+    result = query_signals(vehicle_id='gr24-main', signals=two_signals)
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -72,7 +72,7 @@ def test_query_signals_two_signals():
 
 def test_query_signals_start_time_two_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=two_signals, start='2024-11-09 22:53:55.00')
+    result = query_signals(vehicle_id='gr24-main', signals=two_signals, start='2024-11-09 22:53:55.00')
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -82,7 +82,7 @@ def test_query_signals_start_time_two_signals():
     
 def test_query_signals_end_time_two_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=two_signals, end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=two_signals, end='2024-11-09 22:57:41.00')
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -92,7 +92,7 @@ def test_query_signals_end_time_two_signals():
 
 def test_query_signals_start_end_time_two_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=two_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=two_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -112,7 +112,7 @@ def test_query_signals_invalid_vehicle_id_two_signals():
 
 def test_query_signals_invalid_range_two_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=two_signals, start='2022-11-09 22:53:55.00', end='2022-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=two_signals, start='2022-11-09 22:53:55.00', end='2022-11-09 22:57:41.00')
     assert len(result) == 2
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -127,7 +127,7 @@ expected_columns = ['produced_at'] + five_signals
 
 def test_query_signals_five_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=five_signals)
+    result = query_signals(vehicle_id='gr24-main', signals=five_signals)
     assert len(result) == 5
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -141,7 +141,7 @@ def test_query_signals_five_signals():
 
 def test_query_signals_start_time_five_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=five_signals, start='2024-11-09 22:53:55.00')
+    result = query_signals(vehicle_id='gr24-main', signals=five_signals, start='2024-11-09 22:53:55.00')
     assert len(result) == 5
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -154,7 +154,7 @@ def test_query_signals_start_time_five_signals():
     
 def test_query_signals_end_time_five_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=five_signals, end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=five_signals, end='2024-11-09 22:57:41.00')
     assert len(result) == 5
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
@@ -167,7 +167,7 @@ def test_query_signals_end_time_five_signals():
 
 def test_query_signals_start_end_time_five_signals():
     init_test_db()
-    result = query_signals(vehicle_id='gr24-test', signals=five_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
+    result = query_signals(vehicle_id='gr24-main', signals=five_signals, start='2024-11-09 22:53:55.00', end='2024-11-09 22:57:41.00')
     assert len(result) == 5
     for i in range(len(result)):
         assert isinstance(result[i], pd.DataFrame)
