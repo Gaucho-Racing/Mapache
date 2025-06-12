@@ -25,5 +25,5 @@ func SetupRouter() *gin.Engine {
 
 func InitializeRoutes(router *gin.Engine) {
 	router.GET("/gr25/ping", Ping)
-	router.GET("/gr25/signal", GetLatestSignalWebSocket)
+	router.GET("/gr25/live", GetLatestSignalWebSocket)
 }
