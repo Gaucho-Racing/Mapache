@@ -25,11 +25,11 @@ var ACUStatusOne = mp.Message{
 		})
 		return signals
 	}),
-	mp.NewField("accumulator_current", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("accumulator_current", 2, mp.Signed, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "accumulator_current",
-			Value:    float64(f.Value)*0.01 - 327.68,
+			Value:    float64(f.Value) * 0.01,
 			RawValue: f.Value,
 		})
 		return signals
