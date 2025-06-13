@@ -1,24 +1,8 @@
 import { LoadingComponent } from "@/components/Loading";
 import { Card } from "@/components/ui/card";
-import { useCallback, useEffect, useState } from "react";
-import { BACKEND_URL } from "@/consts/config";
+import { useEffect, useState } from "react";
 import { BACKEND_WS_URL } from "@/consts/config";
-import axios from "axios";
-import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
-import {
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle,
-  CheckCircle2,
-  Database,
-} from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { formatTimeWithMillis } from "@/lib/utils";
+import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { Signal } from "@/models/signal";
 import { useVehicleList } from "@/lib/store";

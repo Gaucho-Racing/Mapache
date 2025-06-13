@@ -1,19 +1,14 @@
 import LiveWidget from "@/components/widgets/LiveWidget";
-import { formatTimeWithMillis } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Cpu,
   MemoryStick,
   HardDrive,
   Monitor,
-  Battery,
   Thermometer,
   BatteryCharging,
 } from "lucide-react";
-import { twMerge } from "tailwind-merge";
 
 interface TcmResourceOverviewWidgetProps {
   vehicle_id: string;
@@ -95,7 +90,7 @@ export default function TcmResourceOverviewWidget({
       width={700}
       height={500}
     >
-      {(data, currentSignals, lastMessageTime, isSignalOutOfSync) => (
+      {(_, currentSignals) => (
         <div className="h-full w-full p-4">
           <h1 className="mb-2 text-2xl font-bold">TCM Resource Utilization</h1>
           <div className="grid grid-cols-2 gap-4">
