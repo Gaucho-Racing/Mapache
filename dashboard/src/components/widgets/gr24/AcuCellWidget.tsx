@@ -62,7 +62,7 @@ export default function AcuCellWidget({
 
   // Use ReactFlow's state management hooks
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, _, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, onEdgesChange] = useEdgesState(initialEdges);
 
   // State to hold current signal data
   const [currentSignalData, setCurrentSignalData] = useState<any>({});
