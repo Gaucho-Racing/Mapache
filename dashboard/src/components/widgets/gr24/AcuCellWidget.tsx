@@ -1,13 +1,6 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
-import SignalWidget from "../SignalWidget";
-import {
-  ReactFlow,
-  Handle,
-  Position,
-  useNodesState,
-  useEdgesState,
-} from "@xyflow/react";
-import { formatTimeWithMillis } from "@/lib/utils";
+import { useMemo, useState, useEffect } from "react";
+import SignalWidget from "@/components/widgets/SignalWidget";
+import { ReactFlow, useNodesState, useEdgesState } from "@xyflow/react";
 
 interface AcuCellWidgetProps {
   vehicle_id: string;
@@ -69,7 +62,7 @@ export default function AcuCellWidget({
 
   // Use ReactFlow's state management hooks
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, _, onEdgesChange] = useEdgesState(initialEdges);
 
   // State to hold current signal data
   const [currentSignalData, setCurrentSignalData] = useState<any>({});
