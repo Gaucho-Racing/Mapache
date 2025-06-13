@@ -113,7 +113,7 @@ function QueryPage() {
   );
   const [availableTrips, setAvailableTrips] = useState<Trip[]>([]);
   const [data, setData] = useState<any>([]);
-  const [_, setMetadata] = useState<any>({});
+  const [metadata, setMetadata] = useState<any>({});
 
   // Query parameters state
   const [selectedSignals, setSelectedSignals] = useState<string[]>([]);
@@ -402,6 +402,11 @@ function QueryPage() {
   const RenderJson = () => {
     return (
       <div className="h-[calc(100vh-20rem)] min-h-[400px] overflow-auto rounded-lg bg-slate-900 p-4">
+        {metadata && (
+          <div className="mb-4">
+            <JsonView data={metadata} style={customDarkStyle} />
+          </div>
+        )}
         <JsonView
           data={data}
           shouldExpandNode={allExpanded}
