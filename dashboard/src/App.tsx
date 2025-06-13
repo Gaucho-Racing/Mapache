@@ -3,6 +3,7 @@ import TcmResourceOverviewWidget from "@/components/widgets/gr25/live/TcmResourc
 import TcmCpuWidget from "./components/widgets/gr25/live/TcmCpuWidget";
 import { TimeProvider } from "./context/time-context";
 import TcmCpuGraphWidget from "./components/widgets/gr25/live/TcmCpuGraphWidget";
+import EcuDebugWidget from "./components/widgets/gr25/live/EcuDebugWidget";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <TcmResourceOverviewWidget vehicle_id="gr25-test" showDeltaBanner />
           <TcmCpuWidget vehicle_id="gr25-test" showDeltaBanner />
           <TcmCpuGraphWidget vehicle_id="gr25-test" showDeltaBanner />
+          <EcuDebugWidget vehicle_id="gr25-test" showDeltaBanner />
         </div>
       </Layout>
     </TimeProvider>
