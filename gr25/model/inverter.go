@@ -77,7 +77,7 @@ var InverterStatusThree = mp.Message{
 		bitMap := []string{
 			"over_voltage_faults",
 			"under_voltage_fault",
-			"inverter_overtemp_fault",
+			"overtemp_fault",
 			"motor_overtemp_fault",
 			"transistor_fault",
 			"encoder_fault",
