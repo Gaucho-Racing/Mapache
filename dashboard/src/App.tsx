@@ -4,6 +4,7 @@ import TcmCpuWidget from "./components/widgets/gr25/live/TcmCpuWidget";
 import { TimeProvider } from "./context/time-context";
 import TcmCpuGraphWidget from "./components/widgets/gr25/live/TcmCpuGraphWidget";
 import EcuDebugWidget from "./components/widgets/gr25/live/EcuDebugWidget";
+import InverterDebugWidget from "./components/widgets/gr25/live/InverterDebugWidget";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <TcmCpuWidget vehicle_id="gr25-test" showDeltaBanner />
           <TcmCpuGraphWidget vehicle_id="gr25-test" showDeltaBanner />
           <EcuDebugWidget vehicle_id="gr25-test" showDeltaBanner />
+          <InverterDebugWidget vehicle_id="gr25-test" showDeltaBanner />
         </div>
       </Layout>
     </TimeProvider>
