@@ -37,6 +37,24 @@ var messageMap = map[int]mp.Message{
 	0x034: GPSPx,
 	0x035: GPSQy,
 	0x036: GPSRz,
+	// TODO: DTI Messages idk what position they are supposed to be
+	0x037: DTIControlOne,
+	0x038: DTIControlTwo,
+	0x039: DTIControlThree,
+	0x03A: DTIControlFour,
+	0x03B: DTIControlFive,
+	0x03C: DTIControlSix,
+	0x03D: DTIControlSeven,
+	0x03E: DTIControlEight,
+	0x03F: DTIControlNine,
+	0x040: DTIControlTen,
+	0x041: DTIControlEleven,
+	0x042: DTIControlTwelve,
+	0x043: DTIDataOne,
+	0x044: DTIDataTwo,
+	0x045: DTIDataThree,
+	0x046: DTIDataFour,
+	0x047: DTIDataFive,
 }
 
 func GetMessage(id int) mp.Message {
