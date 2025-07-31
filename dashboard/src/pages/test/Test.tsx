@@ -1,21 +1,201 @@
 import Layout from "@/components/Layout";
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useSidebarExpanded, useSidebarWidth } from '@/lib/store';
+
+// Object factory interface
+interface ObjectData {
+  id: string;
+  name: string;
+  type: 'cube' | 'sphere' | 'cylinder' | 'cone' | 'torus';
+  color: string;
+  position: [number, number, number];
+  scale?: [number, number, number];
+  metadata?: Record<string, any>;
+}
+
+// Factory function to create 3D objects
+const createObjectMesh = (data: ObjectData): {
+  id: string;
+  mesh: THREE.Mesh;
+  material: THREE.MeshBasicMaterial;
+  highlightMaterial: THREE.MeshBasicMaterial;
+  name: string;
+  type: string;
+  metadata?: Record<string, any>;
+} => {
+  let geometry: THREE.BufferGeometry;
+  
+  switch (data.type) {
+    case 'cube':
+      geometry = new THREE.BoxGeometry(1, 1, 1);
+      break;
+    case 'sphere':
+      geometry = new THREE.SphereGeometry(0.8, 32, 32);
+      break;
+    case 'cylinder':
+      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 32);
+      break;
+    case 'cone':
+      geometry = new THREE.ConeGeometry(0.6, 1.5, 32);
+      break;
+    case 'torus':
+      geometry = new THREE.TorusGeometry(0.7, 0.3, 16, 100);
+      break;
+    default:
+      geometry = new THREE.BoxGeometry(1, 1, 1);
+  }
+  
+  const color = new THREE.Color(data.color);
+  const material = new THREE.MeshBasicMaterial({ color });
+  const highlightMaterial = new THREE.MeshBasicMaterial({ 
+    color, 
+    transparent: true, 
+    opacity: 0.7 
+  });
+  
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(...data.position);
+  if (data.scale) {
+    mesh.scale.set(...data.scale);
+  }
+  
+  return {
+    id: data.id,
+    mesh,
+    material,
+    highlightMaterial,
+    name: data.name,
+    type: data.type,
+    metadata: data.metadata
+  };
+};
 
 function Test() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sidebarExpanded = useSidebarExpanded();
   const sidebarWidth = useSidebarWidth();
+  
+  // Track clicked objects with their data
+  const [clickedObjects, setClickedObjects] = useState<Array<{
+    id: string;
+    name: string;
+    color: string;
+    timestamp: Date;
+    type: string;
+    metadata?: Record<string, any>;
+  }>>([]);
+
+  // External object data sources
+  const [externalObjects, setExternalObjects] = useState<ObjectData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const mouseRef = useRef({
+    isDown: false,
+    lastX: 0,
+    lastY: 0,
+    isOverCube: false,
+    isHighlighted: false,
+    currentObject: null as {
+      id: string;
+      mesh: THREE.Mesh;
+      material: THREE.MeshBasicMaterial;
+      highlightMaterial: THREE.MeshBasicMaterial;
+      name: string;
+      type: string;
+      metadata?: Record<string, any>;
+    } | null
+  });
+  const raycastRef = useRef({
+    raycaster: new THREE.Raycaster(),
+    mouse: new THREE.Vector2()
+  });
   const sceneRef = useRef<{
     scene?: THREE.Scene;
     camera?: THREE.PerspectiveCamera;
     renderer?: THREE.WebGLRenderer;
-    cube?: THREE.Mesh;
-    geometry?: THREE.BoxGeometry;
-    material?: THREE.MeshBasicMaterial;
+    objects?: Array<{
+      id: string;
+      mesh: THREE.Mesh;
+      material: THREE.MeshBasicMaterial;
+      highlightMaterial: THREE.MeshBasicMaterial;
+      name: string;
+      type: string;
+      metadata?: Record<string, any>;
+    }>;
     animationId?: number;
   }>({});
+
+  // Load objects from external data source
+  const loadObjectsFromAPI = async () => {
+    setIsLoading(true);
+    try {
+      // Simulate API call - replace with real API endpoint
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const apiObjects: ObjectData[] = [
+        {
+          id: 'api-cube-1',
+          name: 'Server Data Cube',
+          type: 'cube',
+          color: '#ff6b6b',
+          position: [-3, 1.5, 0],
+          scale: [0.8, 0.8, 0.8],
+          metadata: { source: 'API', priority: 'high' }
+        },
+        {
+          id: 'api-sphere-1',
+          name: 'Analytics Sphere',
+          type: 'sphere',
+          color: '#4ecdc4',
+          position: [3, 1.5, 0],
+          metadata: { source: 'API', dataType: 'analytics' }
+        },
+        {
+          id: 'api-cone-1',
+          name: 'Alert Cone',
+          type: 'cone',
+          color: '#ffe66d',
+          position: [0, 1.5, 0],
+          metadata: { source: 'API', alertLevel: 'warning' }
+        }
+      ];
+      
+      setExternalObjects(apiObjects);
+      return apiObjects;
+    } catch (error) {
+      console.error('Failed to load objects:', error);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load objects from JSON file
+  const loadObjectsFromJSON = () => {
+    const jsonObjects: ObjectData[] = [
+      {
+        id: 'json-torus-1',
+        name: 'Config Torus',
+        type: 'torus',
+        color: '#a8e6cf',
+        position: [-1.5, -1.5, 0],
+        metadata: { source: 'JSON', configType: 'database' }
+      },
+      {
+        id: 'json-cylinder-1',
+        name: 'Log Cylinder',
+        type: 'cylinder',
+        color: '#dcedc1',
+        position: [1.5, -1.5, 0],
+        scale: [1.2, 0.8, 1.2],
+        metadata: { source: 'JSON', logLevel: 'info' }
+      }
+    ];
+    
+    setExternalObjects(prev => [...prev, ...jsonObjects]);
+    return jsonObjects;
+  };
 
   const createScene = () => {
     console.log("attempt to create a scene", {
@@ -35,11 +215,55 @@ function Test() {
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.setClearColor(0x222222);
 
-    // Add a simple cube
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    // Create objects array
+    const objects: Array<{
+      id: string;
+      mesh: THREE.Mesh;
+      material: THREE.MeshBasicMaterial;
+      highlightMaterial: THREE.MeshBasicMaterial;
+      name: string;
+      type: string;
+      metadata?: Record<string, any>;
+    }> = [];
+
+    // Add default static objects
+    const staticObjects: ObjectData[] = [
+      {
+        id: 'static-cube-1',
+        name: 'Default Green Cube',
+        type: 'cube',
+        color: '#00ff00',
+        position: [-2, 0, 0]
+      },
+      {
+        id: 'static-sphere-1',
+        name: 'Default Red Sphere',
+        type: 'sphere',
+        color: '#ff0000',
+        position: [2, 0, 0]
+      },
+      {
+        id: 'static-cylinder-1',
+        name: 'Default Blue Cylinder',
+        type: 'cylinder',
+        color: '#0000ff',
+        position: [0, 0, 0]
+      }
+    ];
+
+    // Create static objects using factory
+    staticObjects.forEach(data => {
+      const obj = createObjectMesh(data);
+      scene.add(obj.mesh);
+      objects.push(obj);
+    });
+
+    // Add external objects if any exist
+    externalObjects.forEach(data => {
+      const obj = createObjectMesh(data);
+      scene.add(obj.mesh);
+      objects.push(obj);
+    });
 
     camera.position.z = 5;
 
@@ -48,21 +272,181 @@ function Test() {
       scene,
       camera,
       renderer,
-      cube,
-      geometry,
-      material
+      objects
     };
 
-    // Animation loop
+    // Raycasting function to check if mouse is over any object
+    const updateRaycast = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      
+      // Convert mouse coordinates to normalized device coordinates (-1 to +1)
+      raycastRef.current.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      raycastRef.current.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      // Update raycaster
+      raycastRef.current.raycaster.setFromCamera(raycastRef.current.mouse, camera);
+      
+      // Check for intersections with all objects
+      const allMeshes = objects.map(obj => obj.mesh);
+      const intersects = raycastRef.current.raycaster.intersectObjects(allMeshes);
+      
+      if (intersects.length > 0) {
+        // Find which object was intersected
+        const intersectedMesh = intersects[0].object;
+        const intersectedObject = objects.find(obj => obj.mesh === intersectedMesh);
+        
+        if (intersectedObject && !mouseRef.current.isOverCube) {
+          mouseRef.current.isOverCube = true;
+          mouseRef.current.currentObject = intersectedObject;
+          canvas.style.cursor = 'grab';
+        }
+      } else {
+        if (mouseRef.current.isOverCube) {
+          mouseRef.current.isOverCube = false;
+          mouseRef.current.currentObject = null;
+          canvas.style.cursor = 'default';
+        }
+      }
+    };
+
+    // Mouse event handlers
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!mouseRef.current.isOverCube || !mouseRef.current.currentObject) return;
+      
+      const currentObj = mouseRef.current.currentObject;
+      
+      if (event.button === 0) { // Left mouse button
+        // Toggle highlight
+        mouseRef.current.isHighlighted = !mouseRef.current.isHighlighted;
+        if (mouseRef.current.isHighlighted) {
+          currentObj.mesh.material = currentObj.highlightMaterial;
+        } else {
+          currentObj.mesh.material = currentObj.material;
+        }
+        
+        // Add the clicked object to the list
+        setClickedObjects(prev => {
+          // Check if object already exists to avoid duplicates
+          const exists = prev.some(obj => obj.id === currentObj.id);
+          if (!exists) {
+            return [...prev, {
+              id: currentObj.id,
+              name: currentObj.name,
+              color: `#${currentObj.material.color.getHexString()}`,
+              timestamp: new Date(),
+              type: currentObj.type,
+              metadata: currentObj.metadata
+            }];
+          }
+          return prev;
+        });
+      } else if (event.button === 2) { // Right mouse button
+        event.preventDefault(); // Prevent context menu
+        
+        mouseRef.current.isDown = true;
+        mouseRef.current.lastX = event.clientX;
+        mouseRef.current.lastY = event.clientY;
+        canvas.style.cursor = 'grabbing';
+        
+        // Don't change highlight state on right click
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      // Always update raycast to check hover state (but only when not dragging)
+      if (!mouseRef.current.isDown) {
+        updateRaycast(event);
+      }
+      
+      // If we're dragging, rotate the current object
+      if (mouseRef.current.isDown && mouseRef.current.currentObject) {
+        const deltaX = event.clientX - mouseRef.current.lastX;
+        const deltaY = event.clientY - mouseRef.current.lastY;
+
+        // Rotate current object based on mouse movement
+        mouseRef.current.currentObject.mesh.rotation.y += deltaX * 0.01;
+        mouseRef.current.currentObject.mesh.rotation.x += deltaY * 0.01;
+
+        mouseRef.current.lastX = event.clientX;
+        mouseRef.current.lastY = event.clientY;
+      }
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+      mouseRef.current.isDown = false;
+      
+      // Preserve highlight state for current object
+      if (mouseRef.current.currentObject) {
+        if (mouseRef.current.isHighlighted) {
+          mouseRef.current.currentObject.mesh.material = mouseRef.current.currentObject.highlightMaterial;
+        } else {
+          mouseRef.current.currentObject.mesh.material = mouseRef.current.currentObject.material;
+        }
+      }
+      
+      // Check raycast state after releasing mouse to update cursor
+      updateRaycast(event);
+      
+      if (mouseRef.current.isOverCube) {
+        canvas.style.cursor = 'grab';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    };
+
+    const handleMouseLeave = () => {
+      mouseRef.current.isDown = false;
+      mouseRef.current.isOverCube = false;
+      
+      // Preserve highlight state for current object when leaving canvas
+      if (mouseRef.current.currentObject) {
+        if (mouseRef.current.isHighlighted) {
+          mouseRef.current.currentObject.mesh.material = mouseRef.current.currentObject.highlightMaterial;
+        } else {
+          mouseRef.current.currentObject.mesh.material = mouseRef.current.currentObject.material;
+        }
+      }
+      
+      mouseRef.current.currentObject = null;
+      canvas.style.cursor = 'default';
+    };
+
+    // Prevent context menu on right click
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+    };
+
+    // Add event listeners
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('contextmenu', handleContextMenu);
+
+    // Set initial cursor
+    canvas.style.cursor = 'default';
+
+    // Animation loop (just rendering, no automatic rotation)
     const animate = () => {
-      if (!sceneRef.current.scene || !sceneRef.current.cube || !sceneRef.current.renderer) return;
+      if (!sceneRef.current.scene || !sceneRef.current.objects || !sceneRef.current.renderer) return;
       
       sceneRef.current.animationId = requestAnimationFrame(animate);
-      sceneRef.current.cube.rotation.x += 0.01;
-      sceneRef.current.cube.rotation.y += 0.01;
       sceneRef.current.renderer.render(sceneRef.current.scene, sceneRef.current.camera!);
     };
     animate();
+
+    // Store cleanup function for mouse events
+    (sceneRef.current as any).cleanupMouse = () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+      canvas.removeEventListener('contextmenu', handleContextMenu);
+      
+      // Reset mouse state
+      mouseRef.current.isDown = false;
+      mouseRef.current.isOverCube = false;
+    };
   };
 
   const destroyScene = () => {
@@ -75,13 +459,26 @@ function Test() {
       cancelAnimationFrame(sceneRef.current.animationId);
     }
 
-    // Dispose resources
-    if (sceneRef.current.geometry) {
-      sceneRef.current.geometry.dispose();
+    // Cleanup mouse events
+    if ((sceneRef.current as any).cleanupMouse) {
+      (sceneRef.current as any).cleanupMouse();
     }
-    if (sceneRef.current.material) {
-      sceneRef.current.material.dispose();
+
+    // Dispose resources for all objects
+    if (sceneRef.current.objects) {
+      sceneRef.current.objects.forEach(obj => {
+        if (obj.mesh.geometry) {
+          obj.mesh.geometry.dispose();
+        }
+        if (obj.material) {
+          obj.material.dispose();
+        }
+        if (obj.highlightMaterial) {
+          obj.highlightMaterial.dispose();
+        }
+      });
     }
+    
     if (sceneRef.current.renderer) {
       sceneRef.current.renderer.dispose();
     }
@@ -89,6 +486,18 @@ function Test() {
     // Clear references
     sceneRef.current = {};
   };
+
+  // Effect to recreate scene when external objects change
+  useEffect(() => {
+    if (sceneRef.current.scene && externalObjects.length > 0) {
+      console.log('Recreating scene with external objects...');
+      destroyScene();
+      // Delay to ensure cleanup is complete
+      setTimeout(() => {
+        createScene();
+      }, 100);
+    }
+  }, [externalObjects]);
 
   // Visibility change listener with Three.js management
   useEffect(() => {
@@ -234,10 +643,14 @@ function Test() {
     return () => clearTimeout(timeoutId);
   }, [sidebarExpanded, sidebarWidth]); // Trigger when sidebar state changes
 
+  const removeClickedObject = (id: string) => {
+    setClickedObjects(prev => prev.filter(obj => obj.id !== id));
+  };
+
   return (
     <>
       <Layout activeTab="test" headerTitle="Test">
-        <div className="flex flex-col justify-start">
+        <div className="flex flex-col justify-start h-full">
           <div style={{ width: '100%', height: '60vh', position: 'relative' }}>
             <canvas
               ref={canvasRef}
@@ -250,6 +663,75 @@ function Test() {
               }}
             />
           </div>
+          {clickedObjects.length > 0 && (
+            <div 
+              style={{ 
+                width: '100%', 
+                height: '40vh', 
+                backgroundColor: '#333333',
+                border: '1px solid #666',
+                padding: '20px',
+                color: 'white',
+                overflowY: 'auto'
+              }}
+            >
+              <h2 style={{ margin: '0 0 15px 0', fontSize: '24px' }}>Clicked Objects ({clickedObjects.length})</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {clickedObjects.map((obj) => (
+                  <div 
+                    key={obj.id}
+                    style={{
+                      backgroundColor: '#444',
+                      padding: '15px',
+                      borderRadius: '8px',
+                      border: '1px solid #666',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>{obj.name}</h3>
+                      <p style={{ margin: '0 0 5px 0', fontSize: '14px', opacity: 0.8 }}>
+                        Type: {obj.type} | Color: {obj.color}
+                      </p>
+                      <p style={{ margin: '0', fontSize: '12px', opacity: 0.6 }}>
+                        Clicked: {obj.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => removeClickedObject(obj.id)}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#555',
+                        color: 'white',
+                        border: '1px solid #777',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => setClickedObjects([])}
+                style={{
+                  marginTop: '15px',
+                  padding: '10px 20px',
+                  backgroundColor: '#666',
+                  color: 'white',
+                  border: '1px solid #888',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear All
+              </button>
+            </div>
+          )}
         </div>
       </Layout>
     </>
