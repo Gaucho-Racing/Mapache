@@ -3,74 +3,6 @@ import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useSidebarExpanded, useSidebarWidth } from '@/lib/store';
 
-// Object factory interface
-interface ObjectData {
-  id: string;
-  name: string;
-  type: 'cube' | 'sphere' | 'cylinder' | 'cone' | 'torus';
-  color: string;
-  position: [number, number, number];
-  scale?: [number, number, number];
-  metadata?: Record<string, any>;
-}
-
-// Factory function to create 3D objects
-const createObjectMesh = (data: ObjectData): {
-  id: string;
-  mesh: THREE.Mesh;
-  material: THREE.MeshBasicMaterial;
-  highlightMaterial: THREE.MeshBasicMaterial;
-  name: string;
-  type: string;
-  metadata?: Record<string, any>;
-} => {
-  let geometry: THREE.BufferGeometry;
-  
-  switch (data.type) {
-    case 'cube':
-      geometry = new THREE.BoxGeometry(1, 1, 1);
-      break;
-    case 'sphere':
-      geometry = new THREE.SphereGeometry(0.8, 32, 32);
-      break;
-    case 'cylinder':
-      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 32);
-      break;
-    case 'cone':
-      geometry = new THREE.ConeGeometry(0.6, 1.5, 32);
-      break;
-    case 'torus':
-      geometry = new THREE.TorusGeometry(0.7, 0.3, 16, 100);
-      break;
-    default:
-      geometry = new THREE.BoxGeometry(1, 1, 1);
-  }
-  
-  const color = new THREE.Color(data.color);
-  const material = new THREE.MeshBasicMaterial({ color });
-  const highlightMaterial = new THREE.MeshBasicMaterial({ 
-    color, 
-    transparent: true, 
-    opacity: 0.7 
-  });
-  
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(...data.position);
-  if (data.scale) {
-    mesh.scale.set(...data.scale);
-  }
-  
-  return {
-    id: data.id,
-    mesh,
-    material,
-    highlightMaterial,
-    name: data.name,
-    type: data.type,
-    metadata: data.metadata
-  };
-};
-
 function Test() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sidebarExpanded = useSidebarExpanded();
@@ -83,12 +15,7 @@ function Test() {
     color: string;
     timestamp: Date;
     type: string;
-    metadata?: Record<string, any>;
   }>>([]);
-
-  // External object data sources
-  const [externalObjects, setExternalObjects] = useState<ObjectData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   
   const mouseRef = useRef({
     isDown: false,
@@ -103,7 +30,6 @@ function Test() {
       highlightMaterial: THREE.MeshBasicMaterial;
       name: string;
       type: string;
-      metadata?: Record<string, any>;
     } | null
   });
   const raycastRef = useRef({
@@ -121,81 +47,9 @@ function Test() {
       highlightMaterial: THREE.MeshBasicMaterial;
       name: string;
       type: string;
-      metadata?: Record<string, any>;
     }>;
     animationId?: number;
   }>({});
-
-  // Load objects from external data source
-  const loadObjectsFromAPI = async () => {
-    setIsLoading(true);
-    try {
-      // Simulate API call - replace with real API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const apiObjects: ObjectData[] = [
-        {
-          id: 'api-cube-1',
-          name: 'Server Data Cube',
-          type: 'cube',
-          color: '#ff6b6b',
-          position: [-3, 1.5, 0],
-          scale: [0.8, 0.8, 0.8],
-          metadata: { source: 'API', priority: 'high' }
-        },
-        {
-          id: 'api-sphere-1',
-          name: 'Analytics Sphere',
-          type: 'sphere',
-          color: '#4ecdc4',
-          position: [3, 1.5, 0],
-          metadata: { source: 'API', dataType: 'analytics' }
-        },
-        {
-          id: 'api-cone-1',
-          name: 'Alert Cone',
-          type: 'cone',
-          color: '#ffe66d',
-          position: [0, 1.5, 0],
-          metadata: { source: 'API', alertLevel: 'warning' }
-        }
-      ];
-      
-      setExternalObjects(apiObjects);
-      return apiObjects;
-    } catch (error) {
-      console.error('Failed to load objects:', error);
-      return [];
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Load objects from JSON file
-  const loadObjectsFromJSON = () => {
-    const jsonObjects: ObjectData[] = [
-      {
-        id: 'json-torus-1',
-        name: 'Config Torus',
-        type: 'torus',
-        color: '#a8e6cf',
-        position: [-1.5, -1.5, 0],
-        metadata: { source: 'JSON', configType: 'database' }
-      },
-      {
-        id: 'json-cylinder-1',
-        name: 'Log Cylinder',
-        type: 'cylinder',
-        color: '#dcedc1',
-        position: [1.5, -1.5, 0],
-        scale: [1.2, 0.8, 1.2],
-        metadata: { source: 'JSON', logLevel: 'info' }
-      }
-    ];
-    
-    setExternalObjects(prev => [...prev, ...jsonObjects]);
-    return jsonObjects;
-  };
 
   const createScene = () => {
     console.log("attempt to create a scene", {
@@ -215,7 +69,7 @@ function Test() {
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.setClearColor(0x222222);
 
-    // Create objects array
+    // Create multiple objects
     const objects: Array<{
       id: string;
       mesh: THREE.Mesh;
@@ -223,46 +77,69 @@ function Test() {
       highlightMaterial: THREE.MeshBasicMaterial;
       name: string;
       type: string;
-      metadata?: Record<string, any>;
     }> = [];
 
-    // Add default static objects
-    const staticObjects: ObjectData[] = [
-      {
-        id: 'static-cube-1',
-        name: 'Default Green Cube',
-        type: 'cube',
-        color: '#00ff00',
-        position: [-2, 0, 0]
-      },
-      {
-        id: 'static-sphere-1',
-        name: 'Default Red Sphere',
-        type: 'sphere',
-        color: '#ff0000',
-        position: [2, 0, 0]
-      },
-      {
-        id: 'static-cylinder-1',
-        name: 'Default Blue Cylinder',
-        type: 'cylinder',
-        color: '#0000ff',
-        position: [0, 0, 0]
-      }
-    ];
-
-    // Create static objects using factory
-    staticObjects.forEach(data => {
-      const obj = createObjectMesh(data);
-      scene.add(obj.mesh);
-      objects.push(obj);
+    // Add a cube
+    const cubeGeometry = new THREE.BoxGeometry();
+    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cubeHighlightMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x00ff00, 
+      transparent: true, 
+      opacity: 0.7 
+    });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(-2, 0, 0);
+    scene.add(cube);
+    
+    objects.push({
+      id: 'cube-1',
+      mesh: cube,
+      material: cubeMaterial,
+      highlightMaterial: cubeHighlightMaterial,
+      name: 'Green Cube',
+      type: 'cube'
     });
 
-    // Add external objects if any exist
-    externalObjects.forEach(data => {
-      const obj = createObjectMesh(data);
-      scene.add(obj.mesh);
-      objects.push(obj);
+    // Add a sphere
+    const sphereGeometry = new THREE.SphereGeometry(0.8, 32, 32);
+    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const sphereHighlightMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff0000, 
+      transparent: true, 
+      opacity: 0.7 
+    });
+    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphere.position.set(2, 0, 0);
+    scene.add(sphere);
+    
+    objects.push({
+      id: 'sphere-1',
+      mesh: sphere,
+      material: sphereMaterial,
+      highlightMaterial: sphereHighlightMaterial,
+      name: 'Red Sphere',
+      type: 'sphere'
+    });
+
+    // Add a cylinder
+    const cylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 32);
+    const cylinderMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const cylinderHighlightMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x0000ff, 
+      transparent: true, 
+      opacity: 0.7 
+    });
+    const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+    cylinder.position.set(0, 0, 0);
+    scene.add(cylinder);
+    
+    objects.push({
+      id: 'cylinder-1',
+      mesh: cylinder,
+      material: cylinderMaterial,
+      highlightMaterial: cylinderHighlightMaterial,
+      name: 'Blue Cylinder',
+      type: 'cylinder'
     });
 
     camera.position.z = 5;
@@ -334,8 +211,7 @@ function Test() {
               name: currentObj.name,
               color: `#${currentObj.material.color.getHexString()}`,
               timestamp: new Date(),
-              type: currentObj.type,
-              metadata: currentObj.metadata
+              type: currentObj.type
             }];
           }
           return prev;
@@ -486,18 +362,6 @@ function Test() {
     // Clear references
     sceneRef.current = {};
   };
-
-  // Effect to recreate scene when external objects change
-  useEffect(() => {
-    if (sceneRef.current.scene && externalObjects.length > 0) {
-      console.log('Recreating scene with external objects...');
-      destroyScene();
-      // Delay to ensure cleanup is complete
-      setTimeout(() => {
-        createScene();
-      }, 100);
-    }
-  }, [externalObjects]);
 
   // Visibility change listener with Three.js management
   useEffect(() => {
