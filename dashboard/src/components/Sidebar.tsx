@@ -15,6 +15,7 @@ import {
   MessageSquareText,
   SearchCode,
   Settings,
+  TestTube,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -238,6 +239,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Chat"
             link={`/chat?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "chat"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={TestTube}
+            text="Test"
+            link={`/test?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "test"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">

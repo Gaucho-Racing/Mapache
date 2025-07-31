@@ -1,0 +1,154 @@
+import Layout from "@/components/Layout";
+import { useRef, useEffect } from 'react';
+import * as THREE from 'three';
+
+function Test() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sceneRef = useRef<{
+    scene?: THREE.Scene;
+    camera?: THREE.PerspectiveCamera;
+    renderer?: THREE.WebGLRenderer;
+    cube?: THREE.Mesh;
+    geometry?: THREE.BoxGeometry;
+    material?: THREE.MeshBasicMaterial;
+    animationId?: number;
+  }>({});
+
+  const createScene = () => {
+    console.log("attempt to create a scene", {
+      cRef : canvasRef.current, 
+      sR : sceneRef.current.scene
+    });
+    if (!canvasRef.current || sceneRef.current.scene) return;
+
+    const canvas = canvasRef.current;
+    console.log('Creating Three.js scene...');
+    
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas });
+    
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setClearColor(0x222222);
+
+    // Add a simple cube
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    camera.position.z = 5;
+
+    // Store references
+    sceneRef.current = {
+      scene,
+      camera,
+      renderer,
+      cube,
+      geometry,
+      material
+    };
+
+    // Animation loop
+    const animate = () => {
+      if (!sceneRef.current.scene || !sceneRef.current.cube || !sceneRef.current.renderer) return;
+      
+      sceneRef.current.animationId = requestAnimationFrame(animate);
+      sceneRef.current.cube.rotation.x += 0.01;
+      sceneRef.current.cube.rotation.y += 0.01;
+      sceneRef.current.renderer.render(sceneRef.current.scene, sceneRef.current.camera!);
+    };
+    animate();
+  };
+
+  const destroyScene = () => {
+    if (!sceneRef.current.scene) return;
+
+    console.log('Destroying Three.js scene...');
+    
+    // Cancel animation
+    if (sceneRef.current.animationId) {
+      cancelAnimationFrame(sceneRef.current.animationId);
+    }
+
+    // Dispose resources
+    if (sceneRef.current.geometry) {
+      sceneRef.current.geometry.dispose();
+    }
+    if (sceneRef.current.material) {
+      sceneRef.current.material.dispose();
+    }
+    if (sceneRef.current.renderer) {
+      sceneRef.current.renderer.dispose();
+    }
+
+    // Clear references
+    sceneRef.current = {};
+  };
+
+  // Visibility change listener with Three.js management
+  useEffect(() => {
+    const instanceId = Math.random().toString(36).substr(2, 9);
+    
+    const handleVisibilityChange = () => {
+      console.log(`[${instanceId}] Page visibility changed:`, {
+        hidden: document.hidden,
+        visibilityState: document.visibilityState,
+        timestamp: new Date().toISOString()
+      });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Log initial state and create scene if visible
+    console.log(`[${instanceId}] Initial page visibility:`, {
+      hidden: document.hidden,
+      visibilityState: document.visibilityState,
+      timestamp: new Date().toISOString()
+    });
+
+    // Create scene initially if page is visible
+    if (!document.hidden) {
+      // Use setTimeout to ensure canvas is mounted before creating scene
+      setTimeout(() => {
+        console.log("Delayed scene creation attempt");
+        createScene();
+      }, 100);
+    }
+
+    return () => {
+      console.log(`[${instanceId}] Cleaning up visibility listener`);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      destroyScene();
+    };
+  }, []);
+
+  // Separate effect to handle initial canvas mounting
+  useEffect(() => {
+    if (canvasRef.current && !document.hidden && !sceneRef.current.scene) {
+      console.log("Canvas is now available, creating scene");
+      createScene();
+    }
+  }, [canvasRef.current]);
+
+  return (
+    <>
+      <Layout activeTab="test" headerTitle="Test">
+        <div className="flex flex-col justify-start">
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+              height: '70vh',
+              backgroundColor: '#222222',
+              border: '1px solid #444'
+            }}
+          />
+        </div>
+      </Layout>
+    </>
+  );
+}
+
+export default Test;

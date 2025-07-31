@@ -16,6 +16,7 @@ import ChatPage from "@/pages/chat/ChatPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
+import Test from "@/pages/test/Test.tsx"
 
 const router = createBrowserRouter([
   {
@@ -54,6 +55,10 @@ const router = createBrowserRouter([
     path: "/vehicles",
     element: <VehiclesPage />,
   },
+  {
+    path: "/test",
+    element: <Test />
+  }
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
