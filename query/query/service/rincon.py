@@ -1,8 +1,8 @@
 from loguru import logger
 import requests
 from typing import Dict, Any
-
 from query.config.config import Config
+from urllib.parse import urlparse, urlunparse
 
 class RinconService:
     @classmethod
@@ -85,4 +85,22 @@ class RinconService:
         r = requests.get(f"{Config.RINCON_ENDPOINT}/rincon/match?route={route}&method={method}")
         if r.status_code != 200:
             raise Exception(f"Failed to match route with Rincon: {r.json()['message']}")
-        return r.json()
+        data = r.json()
+        data["endpoint"] = cls.replace_endpoint(data["endpoint"])
+        return data
+
+    @classmethod
+    def replace_endpoint(cls, endpoint: str) -> str:
+        """
+        Replace the endpoint with a localhost endpoint.
+        """
+        parsed = urlparse(endpoint)
+        new_netloc = "localhost"
+        if parsed.port:
+            new_netloc += f":{parsed.port}"
+        if parsed.username and parsed.password:
+            new_netloc = f"{parsed.username}:{parsed.password}@{new_netloc}"
+        elif parsed.username:
+            new_netloc = f"{parsed.username}@{new_netloc}"
+        new_parsed = parsed._replace(netloc=new_netloc)
+        return urlunparse(new_parsed)
