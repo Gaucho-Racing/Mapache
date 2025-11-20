@@ -1,13 +1,13 @@
 from functools import reduce
 
 from loguru import logger
-from query.database.connection import get_db
+from query.database.clickhouse_client import get_client
 from query.model import *
 import pandas as pd
 import numpy as np
-from sqlalchemy import text
 from typing import List
 from query.model.query import Metadata
+
 
 def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = None) -> list[pd.DataFrame]:
     """
@@ -47,14 +47,17 @@ def query_signals(vehicle_id: str, signals: list, start: str = None, end: str = 
     query += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query}")
 
-    with get_db() as db:
-        result = pd.read_sql(query, db.bind)
-        return [
-            result[result['name'] == signal][['produced_at', 'value']]
-            .rename(columns={'value': signal})
-            .reset_index(drop=True)
-            for signal in signals
-        ]
+    client = get_client()
+    data, columns = client.execute(query, with_column_types=True)
+    column_names = [c[0] for c in columns]
+    result = pd.DataFrame(data, columns=column_names)
+    return [
+        result[result['name'] == signal][['produced_at', 'value']]
+        .rename(columns={'value': signal})
+        .reset_index(drop=True)
+        for signal in signals
+    ]
+
 
 def merge_to_smallest(*dfs: pd.DataFrame, tolerance: int = 50, fill: str = "none") -> tuple[pd.DataFrame, Metadata]:
     """
