@@ -82,11 +82,11 @@ const Sidebar = (props: SidebarProps) => {
         <div className="flex min-w-[60px] items-center justify-center flex-shrink-0">
           <img src="/logo/mapache.png" className="h-10" />
         </div>
-        {props.isSidebarExpanded && (
-          <div className="whitespace-nowrap pl-4 overflow-hidden">
-            <h2>Mapache</h2>
-          </div>
-        )}
+        <div
+          className={`whitespace-nowrap pl-4 overflow-hidden ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+        >
+          <h2>Mapache</h2>
+        </div>
       </div>
     );
   };
@@ -120,15 +120,11 @@ const Sidebar = (props: SidebarProps) => {
               className={`${props.isSelected ? "text-white" : "text-neutral-400"}`}
             />
           </div>
-          {props.isSidebarExpanded && (
-            <div
-              className={`whitespace-nowrap font-semibold overflow-hidden ${
-                props.isSelected ? "text-white" : "text-neutral-400"
-              }`}
-            >
-              {props.text}
-            </div>
-          )}
+          <div
+            className={`whitespace-nowrap font-semibold overflow-hidden ${props.isSelected ? "text-white" : "text-neutral-400"} ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+          >
+            {props.text}
+          </div>
         </div>
       </div>
     );
@@ -152,23 +148,23 @@ const Sidebar = (props: SidebarProps) => {
                   iconType={"pixel"}
                 />
               </div>
-              {props.isSidebarExpanded && (
-                <div className="whitespace-nowrap font-semibold text-white overflow-hidden">
-                  <div className="flex w-full items-center justify-between">
-                    <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
-                      <div className="text-sm font-semibold truncate w-full">
-                        {currentVehicle.name}
-                      </div>
-                      <div className="text-xs text-neutral-400 truncate w-full">
-                        {currentVehicle.id} • {currentVehicle.type}
-                      </div>
+              <div
+                className={`whitespace-nowrap font-semibold text-white overflow-hidden ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
+                    <div className="text-sm font-semibold truncate w-full">
+                      {currentVehicle.name}
                     </div>
-                    <div className="flex items-center justify-center flex-shrink-0">
-                      <ChevronsUpDown />
+                    <div className="text-xs text-neutral-400 truncate w-full">
+                      {currentVehicle.id} • {currentVehicle.type}
                     </div>
                   </div>
+                  <div className="flex items-center justify-center flex-shrink-0">
+                    <ChevronsUpDown />
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </DropdownMenuTrigger>
