@@ -78,12 +78,12 @@ const Sidebar = (props: SidebarProps) => {
 
   const MapacheHeader = (props: { isSidebarExpanded: boolean }) => {
     return (
-      <div className="flex items-center p-4">
-        <div className="flex min-w-[60px] items-center justify-center">
+      <div className="flex items-center overflow-hidden p-4">
+        <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
           <img src="/logo/mapache.png" className="h-10" />
         </div>
         <div
-          className={`whitespace-nowrap pl-4 ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+          className={`overflow-hidden whitespace-nowrap pl-4 ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
         >
           <h2>Mapache</h2>
         </div>
@@ -111,17 +111,17 @@ const Sidebar = (props: SidebarProps) => {
         }}
       >
         <div
-          className={`flex w-full items-center rounded-md ${
+          className={`flex w-full items-center overflow-hidden rounded-md ${
             props.isSelected ? "bg-card/50" : ""
           } h-10 p-1 hover:bg-card`}
         >
-          <div className="flex min-w-[60px] items-center justify-center">
+          <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
             <props.icon
               className={`${props.isSelected ? "text-white" : "text-neutral-400"}`}
             />
           </div>
           <div
-            className={`whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"} ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+            className={`overflow-hidden whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"} ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
           >
             {props.text}
           </div>
@@ -141,26 +141,26 @@ const Sidebar = (props: SidebarProps) => {
             className={`mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex h-12 w-full items-center rounded-lg bg-card/50 p-1 hover:bg-card">
-              <div className="flex min-w-[60px] items-center justify-center">
+            <div className="flex h-12 w-full items-center overflow-hidden rounded-lg bg-card/50 p-1 hover:bg-card">
+              <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
                 <VehicleClassIcon
                   vehicleClass={currentVehicle.type}
                   iconType={"pixel"}
                 />
               </div>
               <div
-                className={`whitespace-nowrap font-semibold text-white ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
+                className={`overflow-hidden whitespace-nowrap font-semibold text-white ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
               >
                 <div className="flex w-full items-center justify-between">
-                  <div className="flex w-[160px] flex-col items-start justify-center">
-                    <div className="text-sm font-semibold">
+                  <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
+                    <div className="w-full truncate text-sm font-semibold">
                       {currentVehicle.name}
                     </div>
-                    <div className="text-xs text-neutral-400">
+                    <div className="w-full truncate text-xs text-neutral-400">
                       {currentVehicle.id} • {currentVehicle.type}
                     </div>
                   </div>
-                  <div className="flex items-center justify-center">
+                  <div className="flex flex-shrink-0 items-center justify-center">
                     <ChevronsUpDown />
                   </div>
                 </div>
