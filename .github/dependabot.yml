@@ -10,8 +10,68 @@ updates:
     commit-message:
       prefix: "Dependabot"
       include: "scope"
+  - package-ecosystem: "npm"
+    directory: "/dashboard"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+- package-ecosystem: "pip"
+    directory: "/rigby"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+  - package-ecosystem: "pip"
+    directory: "/query"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
   - package-ecosystem: "gomod"
-    directory: "/"
+    directory: "/auth"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+  - package-ecosystem: "gomod"
+    directory: "/jeddah"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+  - package-ecosystem: "gomod"
+    directory: "/gr24"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+  - package-ecosystem: "gomod"
+    directory: "/gr25"
     schedule:
       interval: "weekly"
       day: "monday"
