@@ -20,7 +20,7 @@ updates:
     commit-message:
       prefix: "Dependabot"
       include: "scope"
-- package-ecosystem: "pip"
+  - package-ecosystem: "pip"
     directory: "/rigby"
     schedule:
       interval: "weekly"
