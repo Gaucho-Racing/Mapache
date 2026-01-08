@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "19:00"
+      timezone: "America/Los_Angeles"
+    commit-message:
+      prefix: "Dependabot"
+      include: "scope"
