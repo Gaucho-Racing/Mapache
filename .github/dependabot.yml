@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -12,6 +13,7 @@ updates:
       include: "scope"
   - package-ecosystem: "npm"
     directory: "/dashboard"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -22,6 +24,7 @@ updates:
       include: "scope"
   - package-ecosystem: "pip"
     directory: "/rigby"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -32,6 +35,7 @@ updates:
       include: "scope"
   - package-ecosystem: "pip"
     directory: "/query"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -42,6 +46,7 @@ updates:
       include: "scope"
   - package-ecosystem: "gomod"
     directory: "/auth"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -52,6 +57,7 @@ updates:
       include: "scope"
   - package-ecosystem: "gomod"
     directory: "/jeddah"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -62,6 +68,7 @@ updates:
       include: "scope"
   - package-ecosystem: "gomod"
     directory: "/gr24"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -72,6 +79,7 @@ updates:
       include: "scope"
   - package-ecosystem: "gomod"
     directory: "/gr25"
+    update-types: "version-update:semver-major"
     schedule:
       interval: "weekly"
       day: "monday"
