@@ -134,7 +134,7 @@ const Layout: React.FC<LayoutProps> = ({
               }}
             />
             <div
-              className="mt-14 p-8 transition-all duration-200"
+              className="mt-14 p-8 overflow-auto transition-all duration-200"
               style={{ marginLeft: sidebarWidth }}
             >
               {children}
