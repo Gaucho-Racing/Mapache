@@ -39,22 +39,14 @@ func CreateSignal(signal mapache.Signal) error {
 	if signal.Name == "" {
 		return fmt.Errorf("signal name cannot be empty")
 	}
-	if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
-		utils.SugarLogger.Infow("[DB] New signal created",
-			"timestamp", signal.Timestamp,
-			"vehicle_id", signal.VehicleID,
-			"name", signal.Name,
-		)
-		if result := database.DB.Create(&signal); result.Error != nil {
-			return result.Error
-		}
-	} else {
-		utils.SugarLogger.Infow("[DB] Existing signal updated",
-			"timestamp", signal.Timestamp,
-			"vehicle_id", signal.VehicleID,
-			"name", signal.Name,
-		)
+	if result := database.DB.Create(&signal); result.Error != nil {
+		return result.Error
 	}
+	utils.SugarLogger.Infow("[DB] Signal inserted",
+		"timestamp", signal.Timestamp,
+		"vehicle_id", signal.VehicleID,
+		"name", signal.Name,
+	)
 	go signalNotify(signal)
 	return nil
 }

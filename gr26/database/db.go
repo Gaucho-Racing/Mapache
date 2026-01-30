@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gaucho-racing/mapache-go"
-	singlestore "github.com/singlestore-labs/gorm-singlestore"
+	"gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
 )
 
@@ -17,8 +17,8 @@ var DB *gorm.DB
 var dbRetries = 0
 
 func InitializeDB() error {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=UTC", config.DatabaseUser, config.DatabasePassword, config.DatabaseHost, config.DatabasePort, config.DatabaseName)
-	db, err := gorm.Open(singlestore.Open(dsn), &gorm.Config{})
+	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%s/%s?dial_timeout=10s&read_timeout=20s", config.DatabaseUser, config.DatabasePassword, config.DatabaseHost, config.DatabasePort, config.DatabaseName)
+	db, err := gorm.Open(clickhouse.Open(dsn), &gorm.Config{})
 	if err != nil {
 		if dbRetries < 5 {
 			dbRetries++
@@ -30,7 +30,8 @@ func InitializeDB() error {
 		}
 	} else {
 		utils.SugarLogger.Infoln("[DB] Connected to database")
-		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{})
+		db.Set("gorm:table_options", "ENGINE=ReplacingMergeTree() ORDER BY (timestamp, vehicle_id, name)").AutoMigrate(&mapache.Signal{})
+		db.Set("gorm:table_options", "ENGINE=ReplacingMergeTree() ORDER BY (vehicle_id, ping)").AutoMigrate(&mapache.Ping{})
 		utils.SugarLogger.Infoln("[DB] AutoMigration complete")
 		DB = db
 	}

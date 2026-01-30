@@ -6,7 +6,6 @@ import (
 	"gr26/database"
 	"gr26/mqtt"
 	"gr26/utils"
-	"strings"
 	"time"
 
 	"github.com/gaucho-racing/mapache-go"
@@ -56,17 +55,13 @@ func GetPing(vehicleID string, micros int) mapache.Ping {
 func CreatePing(ping mapache.Ping) error {
 	result := database.DB.Create(&ping)
 	if result.Error != nil {
-		if strings.Contains(result.Error.Error(), "Duplicate entry") {
-			println("Duplicate entry")
-			result = database.DB.Where("vehicle_id = ? AND ping = ?", ping.VehicleID, ping.Ping).Updates(&ping)
-		}
-	} else {
-		utils.SugarLogger.Infow("[DB] New ping created",
-			"vehicle_id", ping.VehicleID,
-			"ping", ping.Ping,
-			"pong", ping.Pong,
-			"latency", ping.Latency,
-		)
+		return result.Error
 	}
-	return result.Error
+	utils.SugarLogger.Infow("[DB] New ping created",
+		"vehicle_id", ping.VehicleID,
+		"ping", ping.Ping,
+		"pong", ping.Pong,
+		"latency", ping.Latency,
+	)
+	return nil
 }

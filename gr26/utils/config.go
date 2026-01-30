@@ -16,7 +16,7 @@ func VerifyConfig() {
 		SugarLogger.Infof("DATABASE_HOST is not set, defaulting to %s", config.DatabaseHost)
 	}
 	if config.DatabasePort == "" {
-		config.DatabasePort = "3306"
+		config.DatabasePort = "9000"
 		SugarLogger.Infof("DATABASE_PORT is not set, defaulting to %s", config.DatabasePort)
 	}
 	if config.DatabaseUser == "" {
