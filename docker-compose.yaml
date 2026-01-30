@@ -88,9 +88,11 @@ services:
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
 
-  gr25:
-    image: gauchoracing/mp_gr25:latest
-    container_name: gr25
+  gr26:
+    build:
+      context: ./gr26
+      dockerfile: Dockerfile
+    container_name: gr26
     restart: unless-stopped
     depends_on:
       - nanomq
@@ -100,12 +102,12 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7005"
-      SERVICE_ENDPOINT: "http://gr25:7005"
-      SERVICE_HEALTH_CHECK: "http://gr25:7005/gr25/ping"
+      SERVICE_ENDPOINT: "http://gr26:7005"
+      SERVICE_HEALTH_CHECK: "http://gr26:7005/gr26/ping"
       MQTT_HOST: "nanomq"
       MQTT_PORT: "1883"
-      MQTT_USER: "gr25"
-      MQTT_PASSWORD: "gr25"
+      MQTT_USER: "gr26"
+      MQTT_PASSWORD: "gr26"
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_NAME: ${DATABASE_NAME}
@@ -146,5 +148,3 @@ services:
     ports:
       - "1883:1883"
 
-volumes:
-  s2data:
