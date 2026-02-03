@@ -3,14 +3,14 @@ package model
 import mp "github.com/gaucho-racing/mapache-go"
 
 var messageMap = map[int]mp.Message{
-	0x02A: TCMResourceUtil,
-	0x030: DGPS_UVW,
-	0x031: GPSLatitude,
-	0x032: GPSLongitude,
-	0x033: GPSAltitude,
-	0x034: GPSPx,
-	0x035: GPSQy,
-	0x036: GPSRz,
+	0x001: SimDriving,
+	0x002: SimTyresBrakes,
+	0x003: SimGForce,
+	0x010: SimElectronics,
+	0x012: SimRaceStatus,
+	0x055: SimCarDamage,
+	0x088: SimWeather,
+	0x099: SimTiming,
 }
 
 func GetMessage(id int) mp.Message {
