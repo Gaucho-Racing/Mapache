@@ -35,7 +35,11 @@ class AuthService:
         cls.jwks_url = jwks_url
         cls.issuer = issuer
         cls.audience = audience
-        cls.jwks_client = PyJWKClient(jwks_url)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+        }
+        cls.jwks_client = PyJWKClient(jwks_url, headers=headers)
         logger.info(f"AuthService configured with JWKS URL: {jwks_url}")
 
     @classmethod
