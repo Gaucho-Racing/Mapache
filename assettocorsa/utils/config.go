@@ -1,6 +1,6 @@
 package utils
 
-import "as/config"
+import "ac/config"
 
 func VerifyConfig() {
 	if config.Env == "" {

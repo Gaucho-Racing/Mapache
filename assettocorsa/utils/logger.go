@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"as/config"
+	"ac/config"
 
 	"go.uber.org/zap"
 )

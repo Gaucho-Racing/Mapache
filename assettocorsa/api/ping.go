@@ -1,7 +1,7 @@
 package api
 
 import (
-	"as/config"
+	"ac/config"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

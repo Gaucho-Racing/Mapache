@@ -1,9 +1,9 @@
 package service
 
 import (
-	"as/database"
-	"as/mqtt"
-	"as/utils"
+	"ac/database"
+	"ac/mqtt"
+	"ac/utils"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -12,7 +12,7 @@ import (
 )
 
 func HandlePing(vehicleID string, nodeID string, payload []byte) {
-	utils.SugarLogger.Infof("[MQ] Received ping from as/%s/%s", vehicleID, nodeID)
+	utils.SugarLogger.Infof("[MQ] Received ping from ac/%s/%s", vehicleID, nodeID)
 	ping := binary.BigEndian.Uint64(payload[:8])
 	uploadKey := binary.BigEndian.Uint16(payload[8:10])
 	// TODO: Check upload key
@@ -24,7 +24,7 @@ func HandlePing(vehicleID string, nodeID string, payload []byte) {
 }
 
 func SendPong(vehicleID string, nodeID string, ping uint64) {
-	topic := fmt.Sprintf("as/%s/%s/pong", vehicleID, nodeID)
+	topic := fmt.Sprintf("ac/%s/%s/pong", vehicleID, nodeID)
 	pong := uint64(time.Now().UnixMicro())
 	latency := pong - ping
 
@@ -33,7 +33,7 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	binary.BigEndian.PutUint64(payload[8:], pong)
 
 	mqtt.Client.Publish(topic, 0, false, payload)
-	utils.SugarLogger.Infof("[PING] Received ping from as/%s/%s in %dms", vehicleID, nodeID, latency/1000)
+	utils.SugarLogger.Infof("[PING] Received ping from ac/%s/%s in %dms", vehicleID, nodeID, latency/1000)
 
 	err := CreatePing(mapache.Ping{
 		VehicleID: vehicleID,

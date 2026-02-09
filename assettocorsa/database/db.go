@@ -1,8 +1,8 @@
 package database
 
 import (
-	"as/config"
-	"as/utils"
+	"ac/config"
+	"ac/utils"
 	"fmt"
 
 	"time"

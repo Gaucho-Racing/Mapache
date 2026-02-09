@@ -1,8 +1,8 @@
 package api
 
 import (
-	"as/service"
-	"as/utils"
+	"ac/service"
+	"ac/utils"
 	"net/http"
 	"slices"
 	"strconv"
@@ -50,10 +50,10 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
-			utils.SugarLogger.Errorln("[WS - as/live] error while reading message\n", err.Error())
+			utils.SugarLogger.Errorln("[WS - ac/live] error while reading message\n", err.Error())
 			c.AbortWithError(http.StatusInternalServerError, err)
 			break
 		}
-		utils.SugarLogger.Infoln("[WS - as/live] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
+		utils.SugarLogger.Infoln("[WS - ac/live] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
 	}
 }

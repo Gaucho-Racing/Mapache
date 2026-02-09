@@ -7,13 +7,13 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "AS",
+	Name:    "AC",
 	Version: "1.4.5",
 }
 
 var Routes = []rincon.Route{
 	{
-		Route:  "/as/**",
+		Route:  "/ac/**",
 		Method: "*",
 	},
 }

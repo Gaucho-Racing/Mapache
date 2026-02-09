@@ -1,9 +1,9 @@
 package service
 
 import (
-	"as/model"
-	"as/mqtt"
-	"as/utils"
+	"ac/model"
+	"ac/mqtt"
+	"ac/utils"
 	"encoding/binary"
 	"fmt"
 	"strconv"
@@ -14,7 +14,7 @@ import (
 )
 
 func SubscribeTopics() {
-	mqtt.Client.Subscribe("as/#", 0, func(client mq.Client, msg mq.Message) {
+	mqtt.Client.Subscribe("ac/#", 0, func(client mq.Client, msg mq.Message) {
 		topic := msg.Topic()
 		if len(strings.Split(topic, "/")) != 4 {
 			utils.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)

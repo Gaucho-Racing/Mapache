@@ -1,8 +1,8 @@
 package service
 
 import (
-	"as/config"
-	"as/utils"
+	"ac/config"
+	"ac/utils"
 	"time"
 
 	"github.com/bk1031/rincon-go/v2"

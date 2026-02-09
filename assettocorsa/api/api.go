@@ -1,7 +1,7 @@
 package api
 
 import (
-	"as/config"
+	"ac/config"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -24,6 +24,6 @@ func SetupRouter() *gin.Engine {
 }
 
 func InitializeRoutes(router *gin.Engine) {
-	router.GET("/as/ping", Ping)
-	router.GET("/as/live", GetLatestSignalWebSocket)
+	router.GET("/ac/ping", Ping)
+	router.GET("/ac/live", GetLatestSignalWebSocket)
 }

@@ -1,4 +1,4 @@
-module as
+module ac
 
 go 1.23.6
 

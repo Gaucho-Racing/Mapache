@@ -1,12 +1,12 @@
 package main
 
 import (
-	"as/api"
-	"as/config"
-	"as/database"
-	"as/mqtt"
-	"as/service"
-	"as/utils"
+	"ac/api"
+	"ac/config"
+	"ac/database"
+	"ac/mqtt"
+	"ac/service"
+	"ac/utils"
 )
 
 func main() {
