@@ -11,6 +11,16 @@ import (
 	"github.com/gaucho-racing/mapache-go"
 )
 
+var pingBatch *database.BatchInserter[mapache.Ping]
+
+func InitPingBatch() {
+	pingBatch = database.NewBatchInserter[mapache.Ping]("pings", 5000, 1*time.Second)
+}
+
+func StopPingBatch() {
+	pingBatch.Stop()
+}
+
 func HandlePing(vehicleID string, nodeID string, payload []byte) {
 	utils.SugarLogger.Infof("[MQ] Received ping from gr26/%s/%s", vehicleID, nodeID)
 	ping := binary.BigEndian.Uint64(payload[:8])
@@ -53,15 +63,6 @@ func GetPing(vehicleID string, micros int) mapache.Ping {
 }
 
 func CreatePing(ping mapache.Ping) error {
-	result := database.DB.Create(&ping)
-	if result.Error != nil {
-		return result.Error
-	}
-	utils.SugarLogger.Infow("[DB] New ping created",
-		"vehicle_id", ping.VehicleID,
-		"ping", ping.Ping,
-		"pong", ping.Pong,
-		"latency", ping.Latency,
-	)
+	pingBatch.Add(ping)
 	return nil
 }

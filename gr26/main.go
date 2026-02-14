@@ -17,6 +17,10 @@ func main() {
 
 	service.RegisterRincon()
 	database.InitializeDB()
+	service.InitSignalBatch()
+	service.InitPingBatch()
+	defer service.StopSignalBatch()
+	defer service.StopPingBatch()
 	mqtt.InitializeMQTT()
 	service.SubscribeTopics()
 

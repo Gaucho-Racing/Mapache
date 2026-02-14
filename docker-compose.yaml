@@ -117,6 +117,35 @@ services:
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
 
+  assettocorsa:
+    build:
+      context: ./assettocorsa
+      dockerfile: Dockerfile
+    container_name: assettocorsa
+    restart: unless-stopped
+    depends_on:
+      - nanomq
+      - rincon
+    ports:
+      - "7004:7004"
+    environment:
+      ENV: "DEV"
+      PORT: "7004"
+      SERVICE_ENDPOINT: "http://assettocorsa:7004"
+      SERVICE_HEALTH_CHECK: "http://assettocorsa:7004/ac/ping"
+      MQTT_HOST: "nanomq"
+      MQTT_PORT: "1883"
+      MQTT_USER: "assettocorsa"
+      MQTT_PASSWORD: "assettocorsa"
+      DATABASE_HOST: "host.docker.internal"
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      RINCON_USER: "admin"
+      RINCON_PASSWORD: "admin"
+      RINCON_ENDPOINT: "http://rincon:10311"
+
   query:
     image: gauchoracing/mp_query:latest
     container_name: query

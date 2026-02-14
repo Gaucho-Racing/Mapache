@@ -3,10 +3,20 @@ package service
 import (
 	"fmt"
 	"gr26/database"
-	"gr26/utils"
+	"time"
 
 	"github.com/gaucho-racing/mapache-go"
 )
+
+var signalBatch *database.BatchInserter[mapache.Signal]
+
+func InitSignalBatch() {
+	signalBatch = database.NewBatchInserter[mapache.Signal]("signals", 5000, 1*time.Second)
+}
+
+func StopSignalBatch() {
+	signalBatch.Stop()
+}
 
 // signalCallbacks is a list of functions that will be called when a signal is created or updated
 var signalCallbacks = []func(signal mapache.Signal){}
@@ -39,14 +49,7 @@ func CreateSignal(signal mapache.Signal) error {
 	if signal.Name == "" {
 		return fmt.Errorf("signal name cannot be empty")
 	}
-	if result := database.DB.Create(&signal); result.Error != nil {
-		return result.Error
-	}
-	utils.SugarLogger.Infow("[DB] Signal inserted",
-		"timestamp", signal.Timestamp,
-		"vehicle_id", signal.VehicleID,
-		"name", signal.Name,
-	)
+	signalBatch.Add(signal)
 	go signalNotify(signal)
 	return nil
 }
