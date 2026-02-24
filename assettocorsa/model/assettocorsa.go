@@ -182,6 +182,30 @@ var SimGForce = mp.Message{
 	}),
 }
 
+var SimGPS = mp.Message{
+	mp.NewField("car_coordinates_x", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{{
+			Name:     "gps_pos_x",
+			Value:    float64(math.Float32frombits(uint32(f.Value))),
+			RawValue: f.Value,
+		}}
+	}),
+	mp.NewField("car_coordinates_y", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{{
+			Name:     "gps_pos_y",
+			Value:    float64(math.Float32frombits(uint32(f.Value))),
+			RawValue: f.Value,
+		}}
+	}),
+	mp.NewField("car_coordinates_z", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{{
+			Name:     "gps_pos_z",
+			Value:    float64(math.Float32frombits(uint32(f.Value))),
+			RawValue: f.Value,
+		}}
+	}),
+}
+
 // Message ID 0x010
 // Fields: tc_level, abs_level, is_in_pit_lane, fuel_estimated_laps, current_tyre_set, delta_lap_time, exhaust_temp
 var SimElectronics = mp.Message{

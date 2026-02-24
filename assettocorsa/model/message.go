@@ -6,6 +6,7 @@ var messageMap = map[int]mp.Message{
 	0x001: SimDriving,
 	0x002: SimTyresBrakes,
 	0x003: SimGForce,
+	0x004: SimGPS,
 	0x010: SimElectronics,
 	0x012: SimRaceStatus,
 	0x055: SimCarDamage,
