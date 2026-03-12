@@ -2,14 +2,13 @@ package api
 
 import (
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -42,19 +41,29 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	service.SubscribeSignals(func(signal mapache.Signal) {
-		if signal.VehicleID == vehicleID && slices.Contains(signals, signal.Name) {
-			conn.WriteJSON(signal)
-		}
-	})
+	client := &service.Client{
+		Conn: conn,
+		Send: make(chan mapache.Signal, 64),
+	}
 
-	for {
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			logger.SugarLogger.Errorln("[WS - gr26/live] error while reading message\n", err.Error())
-			c.AbortWithError(http.StatusInternalServerError, err)
+	service.Hub.Subscribe(vehicleID, signals, client)
+
+	go func() {
+		defer close(client.Send)
+		defer service.Hub.Unsubscribe(vehicleID, signals, client)
+		for {
+			messageType, p, err := conn.ReadMessage()
+			if err != nil {
+				logger.SugarLogger.Errorln("[WS - gr26/live] error while reading message\n", err.Error())
+				return
+			}
+			logger.SugarLogger.Infoln("[WS - gr26/live] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
+		}
+	}()
+
+	for signal := range client.Send {
+		if err := conn.WriteJSON(signal); err != nil {
 			break
 		}
-		logger.SugarLogger.Infoln("[WS - gr26/live] Received message ("+strconv.Itoa(messageType)+"): ", string(p))
 	}
 }
