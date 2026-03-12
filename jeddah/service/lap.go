@@ -3,7 +3,7 @@ package service
 import (
 	"jeddah/database"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/Gaucho-Racing/Mapache/mapache-go"
 	"github.com/google/uuid"
 )
 

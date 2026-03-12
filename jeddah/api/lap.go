@@ -4,7 +4,7 @@ import (
 	"jeddah/service"
 	"net/http"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/Gaucho-Racing/Mapache/mapache-go"
 	"github.com/gin-gonic/gin"
 )
 

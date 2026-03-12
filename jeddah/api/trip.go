@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/Gaucho-Racing/Mapache/mapache-go"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

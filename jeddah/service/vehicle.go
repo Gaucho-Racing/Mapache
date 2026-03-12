@@ -4,7 +4,7 @@ import (
 	"jeddah/database"
 	"strings"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/Gaucho-Racing/Mapache/mapache-go"
 )
 
 func GetAllVehicles() []mapache.Vehicle {

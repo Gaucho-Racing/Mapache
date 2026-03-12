@@ -6,7 +6,7 @@ import (
 	"jeddah/utils"
 	"time"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/Gaucho-Racing/Mapache/mapache-go"
 	singlestore "github.com/singlestore-labs/gorm-singlestore"
 	"gorm.io/gorm"
 )
