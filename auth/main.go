@@ -1,28 +1,24 @@
 package main
 
 import (
-	"auth/api"
-	"auth/config"
-	"auth/database"
-	"auth/service"
-	"auth/utils"
+	"github.com/gaucho-racing/mapache/auth/api"
+	"github.com/gaucho-racing/mapache/auth/config"
+	"github.com/gaucho-racing/mapache/auth/database"
+	"github.com/gaucho-racing/mapache/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache/auth/pkg/rincon"
+	"github.com/gaucho-racing/mapache/auth/service"
 )
 
 func main() {
-	config.PrintStartupBanner()
-	utils.InitializeLogger()
-	utils.VerifyConfig()
-	defer utils.Logger.Sync()
+	logger.Init(config.IsProduction())
+	defer logger.Logger.Sync()
 
-	service.RegisterRincon()
-	database.InitializeDB()
+	config.Verify()
+	config.PrintStartupBanner()
+	rincon.Init(&config.Service, &config.Routes)
+	database.Init()
 	service.InitializeKeys()
 	service.PingSentinel()
 
-	router := api.SetupRouter()
-	api.InitializeRoutes(router)
-	err := router.Run(":" + config.Port)
-	if err != nil {
-		utils.SugarLogger.Fatalln(err)
-	}
+	api.Run()
 }

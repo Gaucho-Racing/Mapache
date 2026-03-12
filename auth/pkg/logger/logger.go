@@ -1,18 +1,16 @@
-package utils
+package logger
 
 import (
-	"auth/config"
-
 	"go.uber.org/zap"
 )
 
 var Logger *zap.Logger
 var SugarLogger *zap.SugaredLogger
 
-func InitializeLogger() {
+func Init(production bool) {
 	Logger = zap.Must(zap.NewProduction())
-	if config.Env == "DEV" {
-		Logger = zap.Must(zap.NewDevelopment())
+	if !production {
+		Logger = zap.Must(zap.NewDevelopment(zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel)))
 	}
 	SugarLogger = Logger.Sugar()
 }

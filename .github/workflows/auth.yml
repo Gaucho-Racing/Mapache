@@ -1,0 +1,153 @@
+name: auth
+run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "**"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate platform pair
+        id: platform
+        run: |
+          platform=${{ matrix.platform }}
+          echo "pair=${platform//\//-}" >> $GITHUB_OUTPUT
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: auth
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/gaucho-racing/mapache/auth,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
+          cache-to: type=gha,scope=build-${{ steps.platform.outputs.pair }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.platform.outputs.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    name: Merge manifests
+    needs: build
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if this commit has a release tag
+        id: release
+        run: |
+          tag=$(git tag --points-at HEAD | grep '^v' | head -n1)
+          if [ -n "$tag" ]; then
+            echo "Found tag: $tag"
+            if gh release view "$tag" --json tagName > /dev/null 2>&1; then
+              echo "release_tag=$tag" >> $GITHUB_OUTPUT
+              echo "is_release=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          echo "is_release=false" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate tag list
+        id: tags
+        shell: bash
+        run: |
+          TAGS="type=sha"
+
+          if [ "${GITHUB_REF_TYPE}" = "branch" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then
+            TAGS="${TAGS}\ntype=raw,value=latest"
+          fi
+
+          if [ "${{ steps.release.outputs.is_release }}" = "true" ]; then
+            CLEAN_TAG=$(echo "${{ steps.release.outputs.release_tag }}" | sed 's/^v//')
+            TAGS="${TAGS}\ntype=raw,value=${CLEAN_TAG}"
+          fi
+
+          echo -e "tags<<EOF\n$TAGS\nEOF" >> $GITHUB_OUTPUT
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/gaucho-racing/mapache/auth
+          tags: ${{ steps.tags.outputs.tags }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf 'ghcr.io/gaucho-racing/mapache/auth@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache/auth:${{ steps.meta.outputs.version }}

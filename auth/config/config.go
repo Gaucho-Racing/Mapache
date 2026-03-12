@@ -7,8 +7,10 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "Auth",
-	Version: "2.2.0",
+	Name:        "Auth",
+	Version:     "3.0.0",
+	Endpoint:    os.Getenv("SERVICE_ENDPOINT"),
+	HealthCheck: os.Getenv("SERVICE_HEALTH_CHECK"),
 }
 
 var Routes = []rincon.Route{
@@ -25,16 +27,12 @@ var Routes = []rincon.Route{
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
-var ServiceEndpoint = os.Getenv("SERVICE_ENDPOINT")
-var ServiceHealthCheck = os.Getenv("SERVICE_HEALTH_CHECK")
-
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
 var DatabaseUser = os.Getenv("DATABASE_USER")
 var DatabasePassword = os.Getenv("DATABASE_PASSWORD")
 var DatabaseName = os.Getenv("DATABASE_NAME")
 
-var RinconClient *rincon.Client
 var RinconUser = os.Getenv("RINCON_USER")
 var RinconPassword = os.Getenv("RINCON_PASSWORD")
 var RinconEndpoint = os.Getenv("RINCON_ENDPOINT")
@@ -53,4 +51,8 @@ var Sentinel = struct {
 	ClientSecret: os.Getenv("SENTINEL_CLIENT_SECRET"),
 	Token:        os.Getenv("SENTINEL_TOKEN"),
 	RedirectURI:  os.Getenv("SENTINEL_REDIRECT_URI"),
+}
+
+func IsProduction() bool {
+	return Env == "PROD"
 }

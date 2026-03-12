@@ -1,10 +1,11 @@
 package service
 
 import (
-	"github.com/gaucho-racing/mapache/vehicle/database"
 	"strings"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/vehicle/database"
+
+	mapache "github.com/gaucho-racing/mapache/mapache-go"
 )
 
 func GetAllVehicles() []mapache.Vehicle {
