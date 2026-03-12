@@ -67,13 +67,19 @@ services:
   #     SENTINEL_REDIRECT_URI: ${SENTINEL_REDIRECT_URI}
 
   vehicle:
-    image: gauchoracing/mp_vehicle:latest
+    build:
+      context: .
+      dockerfile: vehicle/Dockerfile.dev
     container_name: vehicle
     restart: unless-stopped
     depends_on:
       - rincon
     ports:
       - "7003:7003"
+    volumes:
+      - ./vehicle:/app/vehicle
+      - ./mapache-go:/app/mapache-go
+      - vehicle_go_cache:/go
     environment:
       ENV: "DEV"
       PORT: "7003"
@@ -159,3 +165,4 @@ services:
 
 volumes:
   pgdata:
+  vehicle_go_cache:
