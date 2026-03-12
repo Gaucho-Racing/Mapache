@@ -42,14 +42,14 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/vehicles/:vehicleID", GetVehicleByID)
 	router.POST("/vehicles/:vehicleID", CreateVehicle)
 	router.DELETE("/vehicles/:vehicleID", DeleteVehicle)
-	router.GET("/trips", GetAllTrips)
-	router.GET("/trips/:tripID", GetTripByID)
-	router.GET("/trips/ongoing", GetAllOngoingTrips)
-	router.POST("/trips/:tripID", CreateTrip)
-	router.POST("/trips/new", NewTrip)
-	router.DELETE("/trips/:tripID", DeleteTrip)
-	router.POST("/trips/:tripID/laps", CreateLap)
-	router.DELETE("/trips/:tripID/laps/:lapID", DeleteLap)
+	router.GET("/sessions", GetAllSessions)
+	router.GET("/sessions/:sessionID", GetSessionByID)
+	router.GET("/sessions/ongoing", GetAllOngoingSessions)
+	router.POST("/sessions/:sessionID", CreateSession)
+	router.POST("/sessions/new", NewSession)
+	router.DELETE("/sessions/:sessionID", DeleteSession)
+	router.POST("/sessions/:sessionID/markers", CreateMarker)
+	router.DELETE("/sessions/:sessionID/markers/:markerID", DeleteMarker)
 }
 
 func UnauthorizedPanicHandler() gin.HandlerFunc {

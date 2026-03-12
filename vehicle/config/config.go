@@ -7,8 +7,10 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "Vehicle",
-	Version: "3.0.0",
+	Name:        "Vehicle",
+	Version:     "3.0.0",
+	Endpoint:    os.Getenv("SERVICE_ENDPOINT"),
+	HealthCheck: os.Getenv("SERVICE_HEALTH_CHECK"),
 }
 
 var Routes = []rincon.Route{
@@ -25,20 +27,17 @@ var Routes = []rincon.Route{
 		Method: "*",
 	},
 	{
-		Route:  "/trips",
+		Route:  "/sessions",
 		Method: "*",
 	},
 	{
-		Route:  "/trips/**",
+		Route:  "/sessions/**",
 		Method: "*",
 	},
 }
 
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
-
-var ServiceEndpoint = os.Getenv("SERVICE_ENDPOINT")
-var ServiceHealthCheck = os.Getenv("SERVICE_HEALTH_CHECK")
 
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
