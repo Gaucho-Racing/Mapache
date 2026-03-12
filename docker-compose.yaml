@@ -100,32 +100,38 @@ services:
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
 
-  # gr25:
-  #   image: gauchoracing/mp_gr25:latest
-  #   container_name: gr25
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - nanomq
-  #     - rincon
-  #   ports:
-  #     - "7005:7005"
-  #   environment:
-  #     ENV: "DEV"
-  #     PORT: "7005"
-  #     SERVICE_ENDPOINT: "http://gr25:7005"
-  #     SERVICE_HEALTH_CHECK: "http://gr25:7005/gr25/ping"
-  #     MQTT_HOST: "nanomq"
-  #     MQTT_PORT: "1883"
-  #     MQTT_USER: "gr25"
-  #     MQTT_PASSWORD: "gr25"
-  #     DATABASE_HOST: ${DATABASE_HOST}
-  #     DATABASE_PORT: ${DATABASE_PORT}
-  #     DATABASE_NAME: ${DATABASE_NAME}
-  #     DATABASE_USER: ${DATABASE_USER}
-  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-  #     RINCON_USER: "admin"
-  #     RINCON_PASSWORD: "admin"
-  #     RINCON_ENDPOINT: "http://rincon:10311"
+  gr26:
+    build:
+      context: .
+      dockerfile: gr26/Dockerfile.dev
+    container_name: gr26
+    restart: unless-stopped
+    depends_on:
+      - rincon
+      - nanomq
+    ports:
+      - "7005:7005"
+    volumes:
+      - ./gr26:/app/gr26
+      - ./mapache-go:/app/mapache-go
+      - gr26_go_cache:/go
+    environment:
+      ENV: "DEV"
+      PORT: "7005"
+      SERVICE_ENDPOINT: "http://gr26:7005"
+      SERVICE_HEALTH_CHECK: "http://gr26:7005/gr26/ping"
+      MQTT_HOST: "nanomq"
+      MQTT_PORT: "1883"
+      MQTT_USER: "gr26"
+      MQTT_PASSWORD: "gr26"
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      RINCON_USER: "admin"
+      RINCON_PASSWORD: "admin"
+      RINCON_ENDPOINT: "http://rincon:10311"
 
   # query:
   #   image: gauchoracing/mp_query:latest
@@ -173,3 +179,4 @@ volumes:
   pgdata:
   auth_go_cache:
   vehicle_go_cache:
+  gr26_go_cache:
