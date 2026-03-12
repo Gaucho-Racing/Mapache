@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vehicle
+spec:
+  type: ClusterIP
+  selector:
+    app: vehicle
+  ports:
+    - name: api
+      protocol: TCP
+      port: 8080
+      targetPort: 8080

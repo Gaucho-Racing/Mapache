@@ -38,47 +38,53 @@ services:
     ports:
       - "10311:10311"
 
-  auth:
-    image: gauchoracing/mp_auth:latest
-    container_name: auth
-    restart: unless-stopped
-    depends_on:
-      - rincon
-    ports:
-      - "7002:7002"
-    environment:
-      ENV: "DEV"
-      PORT: "7002"
-      SERVICE_ENDPOINT: "http://auth:7002"
-      SERVICE_HEALTH_CHECK: "http://auth:7002/auth/ping"
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
-      SENTINEL_URL: ${SENTINEL_URL}
-      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
-      SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
-      SENTINEL_CLIENT_SECRET: ${SENTINEL_CLIENT_SECRET}
-      SENTINEL_TOKEN: ${SENTINEL_TOKEN}
-      SENTINEL_REDIRECT_URI: ${SENTINEL_REDIRECT_URI}
+  # auth:
+  #   image: gauchoracing/mp_auth:latest
+  #   container_name: auth
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - rincon
+  #   ports:
+  #     - "7002:7002"
+  #   environment:
+  #     ENV: "DEV"
+  #     PORT: "7002"
+  #     SERVICE_ENDPOINT: "http://auth:7002"
+  #     SERVICE_HEALTH_CHECK: "http://auth:7002/auth/ping"
+  #     DATABASE_HOST: ${DATABASE_HOST}
+  #     DATABASE_PORT: ${DATABASE_PORT}
+  #     DATABASE_NAME: ${DATABASE_NAME}
+  #     DATABASE_USER: ${DATABASE_USER}
+  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+  #     RINCON_USER: "admin"
+  #     RINCON_PASSWORD: "admin"
+  #     RINCON_ENDPOINT: "http://rincon:10311"
+  #     SENTINEL_URL: ${SENTINEL_URL}
+  #     SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
+  #     SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+  #     SENTINEL_CLIENT_SECRET: ${SENTINEL_CLIENT_SECRET}
+  #     SENTINEL_TOKEN: ${SENTINEL_TOKEN}
+  #     SENTINEL_REDIRECT_URI: ${SENTINEL_REDIRECT_URI}
 
-  jeddah:
-    image: gauchoracing/mp_jeddah:latest
-    container_name: jeddah
+  vehicle:
+    build:
+      context: .
+      dockerfile: vehicle/Dockerfile.dev
+    container_name: vehicle
     restart: unless-stopped
     depends_on:
       - rincon
     ports:
       - "7003:7003"
+    volumes:
+      - ./vehicle:/app/vehicle
+      - ./mapache-go:/app/mapache-go
+      - vehicle_go_cache:/go
     environment:
       ENV: "DEV"
       PORT: "7003"
-      SERVICE_ENDPOINT: "http://jeddah:7003"
-      SERVICE_HEALTH_CHECK: "http://jeddah:7003/jeddah/ping"
+      SERVICE_ENDPOINT: "http://vehicle:7003"
+      SERVICE_HEALTH_CHECK: "http://vehicle:7003/vehicle/ping"
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_NAME: ${DATABASE_NAME}
@@ -88,57 +94,57 @@ services:
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
 
-  gr25:
-    image: gauchoracing/mp_gr25:latest
-    container_name: gr25
-    restart: unless-stopped
-    depends_on:
-      - nanomq
-      - rincon
-    ports:
-      - "7005:7005"
-    environment:
-      ENV: "DEV"
-      PORT: "7005"
-      SERVICE_ENDPOINT: "http://gr25:7005"
-      SERVICE_HEALTH_CHECK: "http://gr25:7005/gr25/ping"
-      MQTT_HOST: "nanomq"
-      MQTT_PORT: "1883"
-      MQTT_USER: "gr25"
-      MQTT_PASSWORD: "gr25"
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
+  # gr25:
+  #   image: gauchoracing/mp_gr25:latest
+  #   container_name: gr25
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - nanomq
+  #     - rincon
+  #   ports:
+  #     - "7005:7005"
+  #   environment:
+  #     ENV: "DEV"
+  #     PORT: "7005"
+  #     SERVICE_ENDPOINT: "http://gr25:7005"
+  #     SERVICE_HEALTH_CHECK: "http://gr25:7005/gr25/ping"
+  #     MQTT_HOST: "nanomq"
+  #     MQTT_PORT: "1883"
+  #     MQTT_USER: "gr25"
+  #     MQTT_PASSWORD: "gr25"
+  #     DATABASE_HOST: ${DATABASE_HOST}
+  #     DATABASE_PORT: ${DATABASE_PORT}
+  #     DATABASE_NAME: ${DATABASE_NAME}
+  #     DATABASE_USER: ${DATABASE_USER}
+  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+  #     RINCON_USER: "admin"
+  #     RINCON_PASSWORD: "admin"
+  #     RINCON_ENDPOINT: "http://rincon:10311"
 
-  query:
-    image: gauchoracing/mp_query:latest
-    container_name: query
-    restart: unless-stopped
-    depends_on:
-      - rincon
-    ports:
-      - "7010:7010"
-    environment:
-      ENV: "DEV"
-      PORT: "7010"
-      SERVICE_ENDPOINT: "http://query:7010"
-      SERVICE_HEALTH_CHECK: "http://query:7010/query/ping"
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
-      SENTINEL_URL: ${SENTINEL_URL}
-      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
-      SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+  # query:
+  #   image: gauchoracing/mp_query:latest
+  #   container_name: query
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - rincon
+  #   ports:
+  #     - "7010:7010"
+  #   environment:
+  #     ENV: "DEV"
+  #     PORT: "7010"
+  #     SERVICE_ENDPOINT: "http://query:7010"
+  #     SERVICE_HEALTH_CHECK: "http://query:7010/query/ping"
+  #     DATABASE_HOST: ${DATABASE_HOST}
+  #     DATABASE_PORT: ${DATABASE_PORT}
+  #     DATABASE_NAME: ${DATABASE_NAME}
+  #     DATABASE_USER: ${DATABASE_USER}
+  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+  #     RINCON_USER: "admin"
+  #     RINCON_PASSWORD: "admin"
+  #     RINCON_ENDPOINT: "http://rincon:10311"
+  #     SENTINEL_URL: ${SENTINEL_URL}
+  #     SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
+  #     SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
 
   nanomq:
     image: emqx/nanomq:latest
@@ -146,5 +152,17 @@ services:
     ports:
       - "1883:1883"
 
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
 volumes:
-  s2data:
+  pgdata:
+  vehicle_go_cache:
