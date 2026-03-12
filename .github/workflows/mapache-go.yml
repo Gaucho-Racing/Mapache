@@ -3,8 +3,6 @@ name: mapache-go
 on:
   push:
     branches: [main]
-    paths:
-      - "mapache-go/**"
   pull_request:
     branches: [main]
     paths:

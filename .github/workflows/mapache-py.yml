@@ -3,8 +3,6 @@ name: mapache-py
 on:
   push:
     branches: [main]
-    paths:
-      - "mapache-py/**"
   pull_request:
     branches: [main]
     paths:
