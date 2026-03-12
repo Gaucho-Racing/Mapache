@@ -2,6 +2,7 @@
 
 !example.env
 *.env
+tmp/
 
 # === K8S ===
 k8s/db-config.yaml

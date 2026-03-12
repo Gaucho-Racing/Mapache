@@ -132,6 +132,7 @@ services:
       RINCON_USER: "admin"
       RINCON_PASSWORD: "admin"
       RINCON_ENDPOINT: "http://rincon:10311"
+      SKIP_AUTH_CHECK: "true"
 
   # query:
   #   image: gauchoracing/mp_query:latest
