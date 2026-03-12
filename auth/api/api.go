@@ -49,6 +49,14 @@ func InitializeRoutes(router *gin.Engine) {
 
 func AuthChecker() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if config.SkipAuthCheck {
+			c.Set("Auth-Token", "mock-token")
+			c.Set("Auth-UserID", "mock-user")
+			c.Set("Auth-Audience", "mock-audience")
+			c.Set("Auth-Scope", "openid profile email")
+			c.Next()
+			return
+		}
 		if c.GetHeader("Authorization") != "" {
 			authHeader := c.GetHeader("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {

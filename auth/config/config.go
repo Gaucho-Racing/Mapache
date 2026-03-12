@@ -24,6 +24,8 @@ var Routes = []rincon.Route{
 	},
 }
 
+var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
+
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 

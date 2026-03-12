@@ -25,6 +25,18 @@ type SentinelTokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+func mockUser(id string) model.User {
+	return model.User{
+		ID:        id,
+		Username:  "mock",
+		FirstName: "Mock",
+		LastName:  "User",
+		Email:     "mock@gauchoracing.com",
+		Verified:  true,
+		Roles:     []string{"d_admin"},
+	}
+}
+
 func PingSentinel() bool {
 	resp, err := http.Get(config.Sentinel.Url + "/ping")
 	if err != nil {
@@ -39,6 +51,15 @@ func PingSentinel() bool {
 }
 
 func ExchangeCodeForToken(code string) (SentinelTokenResponse, error) {
+	if config.SkipAuthCheck {
+		return SentinelTokenResponse{
+			AccessToken:  "mock-access-token",
+			RefreshToken: "mock-refresh-token",
+			TokenType:    "Bearer",
+			ExpiresIn:    3600,
+			Scope:        "openid profile email",
+		}, nil
+	}
 	resp, err := http.PostForm(config.Sentinel.Url+"/oauth/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {config.Sentinel.ClientID},
@@ -78,6 +99,9 @@ func ExchangeCodeForToken(code string) (SentinelTokenResponse, error) {
 }
 
 func GetAllUsers() ([]model.User, error) {
+	if config.SkipAuthCheck {
+		return []model.User{mockUser("mock-user")}, nil
+	}
 	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users", nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for users:", err)
@@ -120,6 +144,9 @@ func GetAllUsers() ([]model.User, error) {
 }
 
 func GetUser(id string) (model.User, error) {
+	if config.SkipAuthCheck {
+		return mockUser(id), nil
+	}
 	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users/"+id, nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for user:", err)
@@ -162,6 +189,9 @@ func GetUser(id string) (model.User, error) {
 }
 
 func GetCurrentUser(accessToken string) (model.User, error) {
+	if config.SkipAuthCheck {
+		return mockUser("mock-user"), nil
+	}
 	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users/@me", nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for user:", err)

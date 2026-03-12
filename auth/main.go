@@ -17,8 +17,12 @@ func main() {
 	config.PrintStartupBanner()
 	rincon.Init(&config.Service, &config.Routes)
 	database.Init()
-	service.InitializeKeys()
-	service.PingSentinel()
+	if config.SkipAuthCheck {
+		logger.SugarLogger.Warnln("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
+	} else {
+		service.InitializeKeys()
+		service.PingSentinel()
+	}
 
 	api.Run()
 }
