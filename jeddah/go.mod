@@ -1,6 +1,6 @@
 module jeddah
 
-go 1.23.6
+go 1.26
 
 require (
 	github.com/Gaucho-Racing/Mapache/mapache-go v0.0.0
