@@ -1,3 +1,3 @@
-module github.com/Gaucho-Racing/Mapache/mapache-go
+module github.com/gaucho-racing/mapache/mapache-go
 
 go 1.26

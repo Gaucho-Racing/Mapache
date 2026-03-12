@@ -7,13 +7,13 @@ import (
 )
 
 var Service rincon.Service = rincon.Service{
-	Name:    "Jeddah",
-	Version: "2.2.1",
+	Name:    "Vehicle",
+	Version: "3.0.0",
 }
 
 var Routes = []rincon.Route{
 	{
-		Route:  "/jeddah/ping",
+		Route:  "/vehicle/ping",
 		Method: "*",
 	},
 	{
@@ -50,3 +50,7 @@ var RinconClient *rincon.Client
 var RinconUser = os.Getenv("RINCON_USER")
 var RinconPassword = os.Getenv("RINCON_PASSWORD")
 var RinconEndpoint = os.Getenv("RINCON_ENDPOINT")
+
+func IsProduction() bool {
+	return Env == "PROD"
+}

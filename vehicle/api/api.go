@@ -2,17 +2,26 @@ package api
 
 import (
 	"fmt"
-	"jeddah/config"
-	"jeddah/utils"
 	"net/http"
 	"time"
 
+	"github.com/gaucho-racing/mapache/vehicle/config"
+	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
-	if config.Env == "PROD" {
+func Run() {
+	api := InitializeRouter()
+	InitializeRoutes(api)
+	err := api.Run(":" + config.Port)
+	if err != nil {
+		logger.SugarLogger.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func InitializeRouter() *gin.Engine {
+	if config.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
@@ -51,7 +60,7 @@ func UnauthorizedPanicHandler() gin.HandlerFunc {
 					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "you are not authorized to access this resource"})
 				} else {
 					// Handle other panics
-					utils.SugarLogger.Errorf("Unexpected panic: %v", err)
+					logger.SugarLogger.Errorf("Unexpected panic: %v", err)
 					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.(string)})
 				}
 			}

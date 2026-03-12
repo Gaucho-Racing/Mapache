@@ -1,10 +1,10 @@
 package service
 
 import (
-	"jeddah/database"
+	"github.com/gaucho-racing/mapache/vehicle/database"
 	"strings"
 
-	"github.com/Gaucho-Racing/Mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go"
 )
 
 func GetAllTrips() []mapache.Trip {

@@ -1,33 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jeddah
+  name: vehicle
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jeddah
+      app: vehicle
   template:
     metadata:
       labels:
-        app: jeddah
+        app: vehicle
     spec:
       containers:
-        - name: jeddah
-          image: gauchoracing/mp_jeddah:latest
+        - name: vehicle
+          image: gauchoracing/mp_vehicle:latest
           ports:
             - containerPort: 8080
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /jeddah/ping
+              path: /vehicle/ping
               port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
           livenessProbe:
             httpGet:
-              path: /jeddah/ping
+              path: /vehicle/ping
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -36,9 +36,9 @@ spec:
             - name: PORT
               value: "8080"
             - name: SERVICE_ENDPOINT
-              value: "http://jeddah:8080"
+              value: "http://vehicle:8080"
             - name: SERVICE_HEALTH_CHECK
-              value: "http://jeddah:8080/jeddah/ping"
+              value: "http://vehicle:8080/vehicle/ping"
             - name: RINCON_USER
               value: "admin"
             - name: RINCON_PASSWORD

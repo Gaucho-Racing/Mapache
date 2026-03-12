@@ -40,9 +40,9 @@ jobs:
           npm ci
           npm run build
 
-  jeddah:
+  vehicle:
     runs-on: ubuntu-latest
-    name: jeddah
+    name: vehicle
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -52,9 +52,9 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.22.0"
-      - name: Build Jeddah
+      - name: Build Vehicle
         run: |
-          cd jeddah
+          cd vehicle
           go get .
           go build
 
@@ -117,7 +117,7 @@ jobs:
           poetry build
 
   all:
-    needs: [auth, dashboard, jeddah, gr24, gr25, query]
+    needs: [auth, dashboard, vehicle, gr24, gr25, query]
     runs-on: ubuntu-latest
     name: all
     steps:

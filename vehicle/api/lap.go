@@ -1,10 +1,10 @@
 package api
 
 import (
-	"jeddah/service"
+	"github.com/gaucho-racing/mapache/vehicle/service"
 	"net/http"
 
-	"github.com/Gaucho-Racing/Mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go"
 	"github.com/gin-gonic/gin"
 )
 

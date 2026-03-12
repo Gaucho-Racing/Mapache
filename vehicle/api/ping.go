@@ -1,7 +1,7 @@
 package api
 
 import (
-	"jeddah/config"
+	"github.com/gaucho-racing/mapache/vehicle/config"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
