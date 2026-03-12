@@ -62,8 +62,8 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	uploadKey := message[8:10]
 	data := message[10:]
 
-	if int(binary.BigEndian.Uint16(uploadKey)) == 0 {
-		logger.SugarLogger.Infof("Received invalid upload key: %x, ignoring", uploadKey)
+	if !ValidateUploadKey(vehicleID, int(binary.BigEndian.Uint16(uploadKey))) {
+		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
 		return
 	}
 

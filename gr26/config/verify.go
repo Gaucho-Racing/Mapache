@@ -39,4 +39,8 @@ func Verify() {
 		MQTTPort = "1883"
 		logger.SugarLogger.Infof("MQTT_PORT is not set, defaulting to %s", MQTTPort)
 	}
+	if VehicleUploadKeyCacheTTL == "" {
+		VehicleUploadKeyCacheTTL = "600"
+		logger.SugarLogger.Infof("VEHICLE_UPLOAD_KEY_CACHE_TTL is not set, defaulting to %s", VehicleUploadKeyCacheTTL)
+	}
 }

@@ -17,8 +17,8 @@ func HandlePing(vehicleID string, nodeID string, payload []byte) {
 	logger.SugarLogger.Infof("[MQ] Received ping from gr26/%s/%s", vehicleID, nodeID)
 	ping := binary.BigEndian.Uint64(payload[:8])
 	uploadKey := binary.BigEndian.Uint16(payload[8:10])
-	if uploadKey == 0 {
-		logger.SugarLogger.Infof("Received invalid upload key: %x, ignoring", uploadKey)
+	if !ValidateUploadKey(vehicleID, int(uploadKey)) {
+		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
 		return
 	}
 	go SendPong(vehicleID, nodeID, ping)
