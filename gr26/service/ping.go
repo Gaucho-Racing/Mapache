@@ -57,7 +57,7 @@ func CreatePing(ping mapache.Ping) error {
 	result := database.DB.Create(&ping)
 	if result.Error != nil {
 		if strings.Contains(result.Error.Error(), "Duplicate entry") {
-			println("Duplicate entry")
+			logger.SugarLogger.Infof("Duplicate ping entry")
 			result = database.DB.Where("vehicle_id = ? AND ping = ?", ping.VehicleID, ping.Ping).Updates(&ping)
 		}
 	} else {

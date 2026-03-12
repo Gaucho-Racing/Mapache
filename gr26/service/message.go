@@ -80,16 +80,16 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 
 	signals := messageStruct.ExportSignals()
-	for _, signal := range signals {
-		signal.Name = fmt.Sprintf("%s_%s", nodeID, signal.Name)
-		signal.Timestamp = int(binary.BigEndian.Uint64(timestamp))
-		signal.VehicleID = vehicleID
-		signal.ProducedAt = time.UnixMicro(int64(signal.Timestamp))
-		signal.CreatedAt = time.Now().Truncate(time.Microsecond)
-
-		err := CreateSignal(signal)
-		if err != nil {
-			logger.SugarLogger.Infof("Error creating signal: %s", err)
-		}
+	ts := int(binary.BigEndian.Uint64(timestamp))
+	now := time.Now().Truncate(time.Microsecond)
+	for i := range signals {
+		signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
+		signals[i].Timestamp = ts
+		signals[i].VehicleID = vehicleID
+		signals[i].ProducedAt = time.UnixMicro(int64(ts))
+		signals[i].CreatedAt = now
+	}
+	if err := CreateSignals(signals); err != nil {
+		logger.SugarLogger.Infof("Error creating signals: %s", err)
 	}
 }

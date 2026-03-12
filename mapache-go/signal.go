@@ -24,20 +24,14 @@ const (
 // This can be something like a sensor reading, a boolean flag, or a status code.
 // Timestamp, VehicleID, and Name are together used to uniquely identify a signal row entry.
 type Signal struct {
-	// Timestamp is the Unix microseconds of the signal.
-	Timestamp int `json:"timestamp"`
-	// VehicleID is the unique identifier for the vehicle that the signal is associated with.
-	VehicleID string `json:"vehicle_id"`
-	// Name represents the name of the signal.
-	Name string `json:"name"`
-	// Value is the value of the signal post-scaling.
-	Value float64 `json:"value"`
-	// RawValue is the raw value of the signal before scaling.
-	RawValue int `json:"raw_value"`
-	// ProducedAt is the time at which the signal was produced by the vehicle.
+	ID         string    `json:"id" gorm:"primaryKey"`
+	Timestamp  int       `json:"timestamp" gorm:"uniqueIndex:idx_signal_unique"`
+	VehicleID  string    `json:"vehicle_id" gorm:"uniqueIndex:idx_signal_unique"`
+	Name       string    `json:"name" gorm:"uniqueIndex:idx_signal_unique"`
+	Value      float64   `json:"value"`
+	RawValue   int       `json:"raw_value"`
 	ProducedAt time.Time `json:"produced_at" gorm:"precision:6"`
-	// CreatedAt is the time at which the signal was actually stored in the database.
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
 }
 
 func (Signal) TableName() string {
