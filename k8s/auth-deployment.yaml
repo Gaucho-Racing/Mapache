@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: auth
-          image: gauchoracing/mp_auth:latest
+          image: ghcr.io/gaucho-racing/mapache/auth:latest
           ports:
             - containerPort: 8080
               protocol: TCP

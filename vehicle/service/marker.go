@@ -2,8 +2,8 @@ package service
 
 import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go"
-	ulid "github.com/gaucho-racing/ulid-go"
 	"github.com/gaucho-racing/mapache/vehicle/database"
+	ulid "github.com/gaucho-racing/ulid-go"
 )
 
 func GetAllMarkersForSession(sessionID string) []mapache.Marker {

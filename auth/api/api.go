@@ -1,19 +1,29 @@
 package api
 
 import (
-	"auth/config"
-	"auth/service"
-	"auth/utils"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gaucho-racing/mapache/auth/config"
+	"github.com/gaucho-racing/mapache/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache/auth/service"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
-	if config.Env == "PROD" {
+func Run() {
+	api := InitializeRouter()
+	InitializeRoutes(api)
+	err := api.Run(":" + config.Port)
+	if err != nil {
+		logger.SugarLogger.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func InitializeRouter() *gin.Engine {
+	if config.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
@@ -30,7 +40,7 @@ func SetupRouter() *gin.Engine {
 }
 
 func InitializeRoutes(router *gin.Engine) {
-	router.GET("/auth/ping", Ping)
+	router.GET(fmt.Sprintf("/%s/ping", config.Service.Name), Ping)
 	router.POST("/auth/login", Login)
 	router.GET("/users", GetAllUsers)
 	router.GET("/users/@me", GetCurrentUser)
@@ -39,19 +49,27 @@ func InitializeRoutes(router *gin.Engine) {
 
 func AuthChecker() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if config.SkipAuthCheck {
+			c.Set("Auth-Token", "mock-token")
+			c.Set("Auth-UserID", "mock-user")
+			c.Set("Auth-Audience", "mock-audience")
+			c.Set("Auth-Scope", "openid profile email")
+			c.Next()
+			return
+		}
 		if c.GetHeader("Authorization") != "" {
 			authHeader := c.GetHeader("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				claims, err := service.ValidateJWT(strings.Split(c.GetHeader("Authorization"), "Bearer ")[1])
 				if err != nil {
-					utils.SugarLogger.Errorln("Failed to validate token: " + err.Error())
+					logger.SugarLogger.Errorln("Failed to validate token: " + err.Error())
 					c.AbortWithStatusJSON(401, gin.H{"message": err.Error()})
 				} else {
-					utils.SugarLogger.Infof("Decoded token: %s", claims.Subject)
-					utils.SugarLogger.Infof("↳ Client ID: %s", claims.Audience[0])
-					utils.SugarLogger.Infof("↳ Scope: %s", claims.Scope)
-					utils.SugarLogger.Infof("↳ Issued at: %s", claims.IssuedAt.String())
-					utils.SugarLogger.Infof("↳ Expires at: %s", claims.ExpiresAt.String())
+					logger.SugarLogger.Infof("Decoded token: %s", claims.Subject)
+					logger.SugarLogger.Infof("↳ Client ID: %s", claims.Audience[0])
+					logger.SugarLogger.Infof("↳ Scope: %s", claims.Scope)
+					logger.SugarLogger.Infof("↳ Issued at: %s", claims.IssuedAt.String())
+					logger.SugarLogger.Infof("↳ Expires at: %s", claims.ExpiresAt.String())
 					c.Set("Auth-Token", strings.Split(c.GetHeader("Authorization"), "Bearer ")[1])
 					c.Set("Auth-UserID", claims.Subject)
 					c.Set("Auth-Audience", claims.Audience[0])
@@ -70,8 +88,7 @@ func UnauthorizedPanicHandler() gin.HandlerFunc {
 				if err == "Unauthorized" {
 					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "you are not authorized to access this resource"})
 				} else {
-					// Handle other panics
-					utils.SugarLogger.Errorf("Unexpected panic: %v", err)
+					logger.SugarLogger.Errorf("Unexpected panic: %v", err)
 					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.(string)})
 				}
 			}
@@ -80,14 +97,12 @@ func UnauthorizedPanicHandler() gin.HandlerFunc {
 	}
 }
 
-// Require checks if a condition is true, otherwise aborts the request
 func Require(c *gin.Context, condition bool) {
 	if !condition {
 		panic("Unauthorized")
 	}
 }
 
-// Any checks if any condition is true, otherwise returns false
 func Any(conditions ...bool) bool {
 	for _, condition := range conditions {
 		if condition {
@@ -97,7 +112,6 @@ func Any(conditions ...bool) bool {
 	return false
 }
 
-// All checks if all conditions are true, otherwise returns false
 func All(conditions ...bool) bool {
 	for _, condition := range conditions {
 		if !condition {

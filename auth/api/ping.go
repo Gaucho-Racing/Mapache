@@ -1,9 +1,9 @@
 package api
 
 import (
-	"auth/config"
 	"net/http"
 
+	"github.com/gaucho-racing/mapache/auth/config"
 	"github.com/gin-gonic/gin"
 )
 

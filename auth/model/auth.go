@@ -1,9 +1,9 @@
 package model
 
 import (
-	"auth/config"
 	"fmt"
 
+	"github.com/gaucho-racing/mapache/auth/config"
 	"github.com/golang-jwt/jwt/v4"
 )
 
