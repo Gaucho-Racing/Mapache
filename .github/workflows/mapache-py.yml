@@ -19,33 +19,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - run: pip install ruff
-      - run: ruff format --check src/ tests/
-      - run: ruff check src/ tests/
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install -e ".[dev]"
-      - run: mypy src/
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff format --check src/ tests/
+          ruff check src/ tests/
+
+      - name: Type check
+        run: mypy src/
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-      - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v
+          python-version: |
+            3.10
+            3.11
+            3.12
+            3.13
+
+      - name: Test
+        run: |
+          for ver in 3.10 3.11 3.12 3.13; do
+            echo "::group::Python $ver"
+            python$ver -m pip install -e ".[dev]"
+            python$ver -m pytest tests/ -v
+            echo "::endgroup::"
+          done
