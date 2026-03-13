@@ -13,7 +13,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/pkg/rincon"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 type uploadKeyCacheEntry struct {

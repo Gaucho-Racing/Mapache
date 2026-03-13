@@ -8,7 +8,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )

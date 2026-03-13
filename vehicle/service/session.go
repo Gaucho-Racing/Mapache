@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/database"
 )
 

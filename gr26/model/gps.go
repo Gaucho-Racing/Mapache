@@ -3,7 +3,7 @@ package model
 import (
 	"math"
 
-	mp "github.com/gaucho-racing/mapache/mapache-go"
+	mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 var GPSLatitude = mp.Message{

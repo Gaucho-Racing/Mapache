@@ -10,7 +10,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 func HandlePing(vehicleID string, nodeID string, payload []byte) {

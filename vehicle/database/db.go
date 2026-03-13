@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/config"
 	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
 

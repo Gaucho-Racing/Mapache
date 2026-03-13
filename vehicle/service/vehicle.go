@@ -5,7 +5,7 @@ import (
 
 	"github.com/gaucho-racing/mapache/vehicle/database"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 func GetAllVehicles() []mapache.Vehicle {

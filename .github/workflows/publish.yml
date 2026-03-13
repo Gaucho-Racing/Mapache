@@ -47,4 +47,4 @@ jobs:
           git push origin "$GO_TAG"
 
       - name: Warm Go module proxy
-        run: GOPROXY=proxy.golang.org go list -m "github.com/gaucho-racing/mapache/mapache-go@${GITHUB_REF_NAME}"
+        run: GOPROXY=proxy.golang.org go list -m "github.com/gaucho-racing/mapache/mapache-go/v3@${GITHUB_REF_NAME}"

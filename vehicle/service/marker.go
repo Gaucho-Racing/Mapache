@@ -1,7 +1,7 @@
 package service
 
 import (
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/database"
 	ulid "github.com/gaucho-racing/ulid-go"
 )

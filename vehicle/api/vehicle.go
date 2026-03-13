@@ -4,7 +4,7 @@ import (
 	"github.com/gaucho-racing/mapache/vehicle/service"
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 )
 

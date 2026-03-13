@@ -6,7 +6,7 @@ require (
 	github.com/bk1031/rincon-go/v2 v2.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/fatih/color v1.18.0
-	github.com/gaucho-racing/mapache/mapache-go v0.0.0
+	github.com/gaucho-racing/mapache/mapache-go/v3 v3.0.0
 	github.com/gaucho-racing/ulid-go v1.1.0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
@@ -57,4 +57,4 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 )
 
-replace github.com/gaucho-racing/mapache/mapache-go => ../mapache-go
+replace github.com/gaucho-racing/mapache/mapache-go/v3 => ../mapache-go

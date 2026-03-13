@@ -6,7 +6,7 @@ import (
 
 	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/mapache-go"
+	"github.com/gaucho-racing/mapache/mapache-go/v3"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

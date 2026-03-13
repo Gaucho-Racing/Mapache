@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
 	"github.com/gaucho-racing/mapache/vehicle/service"
 	"github.com/gin-gonic/gin"

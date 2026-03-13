@@ -6,7 +6,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/database"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
 	"gorm.io/gorm/clause"
 )
