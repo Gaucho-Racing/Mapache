@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gr-mapache"
-version = "0.1.0"
+version = "3.0.0"
 description = "Mapache telemetry library for Gaucho Racing"
 license = "MIT"
 requires-python = ">=3.10"
