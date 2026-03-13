@@ -1,0 +1,50 @@
+name: publish
+run-name: Publish ${{ github.ref_name }}
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  mapache-py:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mapache-py
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build
+        run: python -m build
+
+      - name: Publish to PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+  mapache-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Create Go module tag
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          GO_TAG="mapache-go/${VERSION}"
+          git tag "$GO_TAG"
+          git push origin "$GO_TAG"
+
+      - name: Warm Go module proxy
+        run: GOPROXY=proxy.golang.org go list -m "github.com/gaucho-racing/mapache/mapache-go@${GITHUB_REF_NAME}"
