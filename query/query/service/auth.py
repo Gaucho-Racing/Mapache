@@ -1,12 +1,10 @@
-from typing import Optional, Dict, Any
+from typing import Any
 import jwt
 from jwt import PyJWKClient
-from fastapi import HTTPException, status
-from datetime import datetime
 from loguru import logger
 import requests
 
-from query.service.rincon import RinconService
+from query.service.rincon import match_route
 
 class AuthService:
     # Class variables for configuration
@@ -116,9 +114,9 @@ class AuthService:
         Get the user from the token.
         """
         route = "/users/@me"
-        service = RinconService.match_route(route, "GET")
+        service = match_route(route, "GET")
         r = requests.get(
-            f"{service['endpoint']}{route}",
+            f"{service.endpoint}{route}",
             headers={"Authorization": f"Bearer {token}"}
         )
         return r.json()

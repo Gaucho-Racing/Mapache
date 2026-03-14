@@ -15,5 +15,5 @@ fi
 
 set -a
 . .env
-poetry install
-poetry run query
+uv sync
+uv run query
