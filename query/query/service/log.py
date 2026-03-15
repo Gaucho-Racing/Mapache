@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-import uuid
+import ulid
 from query.database.connection import get_db
 from query.model.log import QueryLog
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ def get_log_by_id(log_id: int) -> QueryLog:
         return db.query(QueryLog).filter(QueryLog.id == log_id).first()
 
 def create_log(log: QueryLog) -> QueryLog:
-    log.id = uuid.uuid4()
+    log.id = ulid.make().prefixed("qlog")
     log.created_at = datetime.now(timezone.utc)
     with get_db() as db:
         db.add(log)
