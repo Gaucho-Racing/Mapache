@@ -1,7 +1,7 @@
 .PHONY: install run test lint clean
 
 install:
-	poetry install
+	uv sync
 
 run:
 	chmod +x scripts/run.sh
@@ -12,9 +12,9 @@ test:
 	./scripts/test.sh
 
 lint:
-	poetry run black .
-	poetry run isort .
-	poetry run flake8 .
+	uv run black .
+	uv run isort .
+	uv run flake8 .
 
 clean:
 	rm -rf __pycache__

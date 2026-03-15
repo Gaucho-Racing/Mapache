@@ -1,14 +1,28 @@
-from fastapi import FastAPI  
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import requests
+from loguru import logger
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import ping, query, signal_definition, token
 from query.service.auth import AuthService
-from query.service.rincon import RinconService
-from query.service.trip import get_all_trips, get_trip_by_id
-from query.service.vehicle import get_all_vehicles, get_vehicle_by_id
+from query.service.rincon import init_rincon
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    init_rincon()
+    if Config.SKIP_AUTH_CHECK:
+        logger.warning("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
+    else:
+        AuthService.configure(
+            jwks_url=Config.SENTINEL_JWKS_URL,
+            issuer="https://sso.gauchoracing.com",
+            audience=Config.SENTINEL_CLIENT_ID
+        )
+    yield
 
 def create_app():
     app = FastAPI(
@@ -16,7 +30,8 @@ def create_app():
         description="API Documentation",
         version=Config.VERSION,
         docs_url="/query/docs",
-        redoc_url="/query/redoc"
+        redoc_url="/query/redoc",
+        lifespan=lifespan
     )
 
     app.add_middleware(
@@ -32,7 +47,7 @@ def create_app():
         prefix="/query",
         tags=["Ping"]
     )
-    
+
     app.include_router(
         query.router,
         prefix="/query",
@@ -50,20 +65,12 @@ def create_app():
         prefix="/query",
         tags=["Token"]
     )
-    
+
     return app
 
 def main():
-  init_db()
-  RinconService.register()
-  AuthService.configure(
-    jwks_url=Config.SENTINEL_JWKS_URL,
-    issuer="https://sso.gauchoracing.com",
-    audience=Config.SENTINEL_CLIENT_ID
-  )
-  
-  app = create_app()
-  uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
+    app = create_app()
+    uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
 
 if __name__ == "__main__":
-  main()
+    main()

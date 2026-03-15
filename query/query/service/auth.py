@@ -1,15 +1,13 @@
-from typing import Optional, Dict, Any
+from typing import Any
 import jwt
 from jwt import PyJWKClient
-from fastapi import HTTPException, status
-from datetime import datetime
 from loguru import logger
 import requests
 
-from query.service.rincon import RinconService
+from query.config.config import Config
+from query.service.rincon import match_route
 
 class AuthService:
-    # Class variables for configuration
     jwks_url: str = None
     issuer: str = None
     audience: str = None
@@ -43,19 +41,10 @@ class AuthService:
         logger.info(f"AuthService configured with JWKS URL: {jwks_url}")
 
     @classmethod
-    def verify_token(cls, token: str) -> Dict[str, Any]:
-        """
-        Verify a JWT token using the JWKS endpoint.
-        
-        Args:
-            token: The JWT token to verify
-            
-        Returns:
-            Dict containing the decoded token claims
-            
-        Raises:
-            HTTPException: If token verification fails
-        """
+    def verify_token(cls, token: str) -> dict[str, Any]:
+        if Config.SKIP_AUTH_CHECK:
+            return {"sub": "mock-user"}
+
         if not cls.jwks_client:
             raise Exception("AuthService not configured. Call configure() first.")
 
@@ -112,13 +101,12 @@ class AuthService:
 
     @classmethod
     def get_user_from_token(cls, token: str) -> str:
-        """
-        Get the user from the token.
-        """
+        if Config.SKIP_AUTH_CHECK:
+            return {"id": "mock-user", "email": "mock@gauchoracing.com"}
         route = "/users/@me"
-        service = RinconService.match_route(route, "GET")
+        service = match_route(route, "GET")
         r = requests.get(
-            f"{service['endpoint']}{route}",
+            f"{service.endpoint}{route}",
             headers={"Authorization": f"Bearer {token}"}
         )
         return r.json()
