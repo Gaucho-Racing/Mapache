@@ -331,6 +331,15 @@ wheels = [
 ]
 
 [[package]]
+name = "gr-ulid"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/ea/53d2797cb971b6fed4b3c50802c1c27fde13b6eba4a9bceb916c74ebca7d/gr_ulid-1.1.2.tar.gz", hash = "sha256:802873f0518bd04a99c5df2da7517c60e1664a3d0aa7e2cb3aef4250a33a816d", size = 15612, upload-time = "2026-03-06T04:55:51.649Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/73/3ca978823cb22a9272612cc48ae52d0466afba8c3b0103a90c676d3604ab/gr_ulid-1.1.2-py3-none-any.whl", hash = "sha256:f59b201de9d834e0f5c2690ef3aed04f807611c3cd0172d615c20c296d667a90", size = 12577, upload-time = "2026-03-06T04:55:50.76Z" },
+]
+
+[[package]]
 name = "greenlet"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -837,6 +846,7 @@ source = { editable = "." }
 dependencies = [
     { name = "dotenv" },
     { name = "fastapi" },
+    { name = "gr-ulid" },
     { name = "loguru" },
     { name = "mapache-py" },
     { name = "numpy" },
@@ -860,6 +870,7 @@ dev = [
 requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9,<0.10.0" },
     { name = "fastapi", specifier = ">=0.115.10,<0.116.0" },
+    { name = "gr-ulid", specifier = ">=1.1.2,<2.0.0" },
     { name = "loguru", specifier = ">=0.7.3,<0.8.0" },
     { name = "mapache-py", specifier = ">=3.0.1,<4.0.0" },
     { name = "numpy", specifier = ">=2.2.3,<3.0.0" },

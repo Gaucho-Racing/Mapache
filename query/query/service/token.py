@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-import uuid
+import ulid
 from query.database.connection import get_db
 from query.model.token import QueryToken
 from sqlalchemy.orm import Session
@@ -18,7 +18,7 @@ def get_token_by_id(token_id: int) -> QueryToken:
 
 def create_token(user_id: str, expires_at: datetime) -> QueryToken:
     token = QueryToken(
-        id=uuid.uuid4(),
+        id=ulid.make().prefixed("qtk"),
         user_id=user_id,
         expires_at=expires_at
     )

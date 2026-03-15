@@ -23,6 +23,7 @@ dependencies = [
     "pyjwt[crypto]>=2.11.0,<3.0.0",
     "mapache-py>=3.0.1,<4.0.0",
     "rincon>=1.0.0,<2.0.0",
+    "gr-ulid>=1.1.2,<2.0.0",
 ]
 
 [dependency-groups]
