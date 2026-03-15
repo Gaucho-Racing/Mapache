@@ -162,6 +162,7 @@ services:
       SENTINEL_URL: ${SENTINEL_URL}
       SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+      SKIP_AUTH_CHECK: "true"
 
   nanomq:
     image: emqx/nanomq:latest

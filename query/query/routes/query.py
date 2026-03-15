@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 import numpy as np
 import traceback
 
+from query.config.config import Config
 from query.model.log import QueryLog
 from query.service.auth import AuthService
 from query.service.log import create_log
@@ -32,7 +33,9 @@ async def get_signals(
 ):
     user_id = None
     try:
-        if authorization and "Bearer " in authorization:
+        if Config.SKIP_AUTH_CHECK:
+            user_id = "mock-user"
+        elif authorization and "Bearer " in authorization:
             logger.info(f"Found bearer token: {authorization}")
             auth_token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(auth_token)

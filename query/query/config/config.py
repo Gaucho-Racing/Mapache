@@ -22,6 +22,7 @@ class Config:
     RINCON_ENDPOINT: str = os.getenv('RINCON_ENDPOINT')
 
     # Auth settings
+    SKIP_AUTH_CHECK: bool = os.getenv('SKIP_AUTH_CHECK', 'false').lower() == 'true'
     SENTINEL_URL: str = os.getenv('SENTINEL_URL')
     SENTINEL_JWKS_URL: str = os.getenv('SENTINEL_JWKS_URL')
     SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')

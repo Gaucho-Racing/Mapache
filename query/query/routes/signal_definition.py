@@ -4,11 +4,11 @@ from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
+from query.config.config import Config
 from query.service.auth import AuthService
 import traceback
 
 from query.service.signal_definition import get_all_signal_definitions, get_signal_definition_by_id, get_signal_definitions_by_vehicle_type
-from query.service.token import create_token
 
 router = APIRouter()
 
@@ -18,7 +18,9 @@ async def get_signal_definitions(
     vehicle_type: Annotated[str | None, Query()] = None,
 ):
     try:
-        if "Bearer " in authorization:
+        if Config.SKIP_AUTH_CHECK:
+            user_id = "mock-user"
+        elif authorization and "Bearer " in authorization:
             token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(token)
         else:
@@ -28,9 +30,9 @@ async def get_signal_definitions(
                     "message": "you are not authorized to access this resource",
                 }
             )
-        
+
         logger.info(f"Successfully authenticated user: {user_id}")
-        
+
         if vehicle_type:
             definitions = get_signal_definitions_by_vehicle_type(vehicle_type)
         else:
@@ -55,7 +57,9 @@ async def get_signal_definition(
     authorization: str = Header(None),
 ):
     try:
-        if "Bearer " in authorization:
+        if Config.SKIP_AUTH_CHECK:
+            user_id = "mock-user"
+        elif authorization and "Bearer " in authorization:
             token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(token)
         else:
@@ -65,9 +69,9 @@ async def get_signal_definition(
                     "message": "you are not authorized to access this resource",
                 }
             )
-        
+
         logger.info(f"Successfully authenticated user: {user_id}")
-        
+
         definition = get_signal_definition_by_id(signal_definition_id)
         if definition is None:
             return JSONResponse(

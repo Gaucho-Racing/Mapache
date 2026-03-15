@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
@@ -13,11 +14,14 @@ from query.service.rincon import init_rincon
 async def lifespan(app: FastAPI):
     init_db()
     init_rincon()
-    AuthService.configure(
-        jwks_url=Config.SENTINEL_JWKS_URL,
-        issuer="https://sso.gauchoracing.com",
-        audience=Config.SENTINEL_CLIENT_ID
-    )
+    if Config.SKIP_AUTH_CHECK:
+        logger.warning("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
+    else:
+        AuthService.configure(
+            jwks_url=Config.SENTINEL_JWKS_URL,
+            issuer="https://sso.gauchoracing.com",
+            audience=Config.SENTINEL_CLIENT_ID
+        )
     yield
 
 def create_app():
