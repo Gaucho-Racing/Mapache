@@ -4,7 +4,7 @@ import requests
 import uvicorn
 from query.config.config import Config
 from query.database.connection import init_db
-from query.routes import ping, query, signal_definition, token
+from query.routes import ping, query, signal_definition, token, video
 from query.service.auth import AuthService
 from query.service.rincon import RinconService
 from query.service.trip import get_all_trips, get_trip_by_id
@@ -49,6 +49,12 @@ def create_app():
         token.router,
         prefix="/query",
         tags=["Token"]
+    )
+
+    app.include_router(
+        video.router,
+        prefix="/query",
+        tags=["Video"]
     )
     
     return app
