@@ -22,6 +22,8 @@ var Routes = []rincon.Route{
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
 var VehicleUploadKeyCacheTTL = os.Getenv("VEHICLE_UPLOAD_KEY_CACHE_TTL")
+var EnableSignalDB = os.Getenv("ENABLE_SIGNAL_DB") != "false"
+var EnableSignalWS = os.Getenv("ENABLE_SIGNAL_WS") != "false"
 
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
