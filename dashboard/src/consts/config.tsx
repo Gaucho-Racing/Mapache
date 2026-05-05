@@ -12,6 +12,9 @@ export const SENTINEL_CLIENT_ID =
 export const MAPBOX_ACCESS_TOKEN =
   import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? "";
 
+export const SKIP_AUTH_CHECK =
+  import.meta.env.VITE_SKIP_AUTH_CHECK === "true";
+
 export const SOCIAL_LINKS = {
   github: "https://github.com/gaucho-racing/mapache",
   instagram: "https://instagram.com/gauchoracingucsb",

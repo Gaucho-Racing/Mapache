@@ -1,9 +1,13 @@
-import { BACKEND_URL } from "@/consts/config";
-import { initUser } from "@/models/user";
+import { BACKEND_URL, SKIP_AUTH_CHECK } from "@/consts/config";
+import { initUser, mockUser } from "@/models/user";
 import { getUser, setUser } from "@/lib/store";
 import axios from "axios";
 
 export const checkCredentials = async () => {
+  if (SKIP_AUTH_CHECK) {
+    setUser(mockUser);
+    return 0;
+  }
   const currentUser = getUser();
   if (localStorage.getItem("sentinel_access_token") == null) {
     return 1;
