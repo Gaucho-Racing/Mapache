@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
@@ -28,22 +29,26 @@ func CreateSignal(signal mapache.Signal) error {
 		return fmt.Errorf("signal name cannot be empty")
 	}
 	signal.ID = ulid.Make().Prefixed("sgnl")
-	Hub.Publish(signal)
-	if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
-		logger.SugarLogger.Infow("[DB] New signal created",
-			"timestamp", signal.Timestamp,
-			"vehicle_id", signal.VehicleID,
-			"name", signal.Name,
-		)
-		if result := database.DB.Create(&signal); result.Error != nil {
-			return result.Error
+	if config.EnableSignalWS {
+		Hub.Publish(signal)
+	}
+	if config.EnableSignalDB {
+		if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
+			logger.SugarLogger.Infow("[DB] New signal created",
+				"timestamp", signal.Timestamp,
+				"vehicle_id", signal.VehicleID,
+				"name", signal.Name,
+			)
+			if result := database.DB.Create(&signal); result.Error != nil {
+				return result.Error
+			}
+		} else {
+			logger.SugarLogger.Infow("[DB] Existing signal updated",
+				"timestamp", signal.Timestamp,
+				"vehicle_id", signal.VehicleID,
+				"name", signal.Name,
+			)
 		}
-	} else {
-		logger.SugarLogger.Infow("[DB] Existing signal updated",
-			"timestamp", signal.Timestamp,
-			"vehicle_id", signal.VehicleID,
-			"name", signal.Name,
-		)
 	}
 	return nil
 }
@@ -61,15 +66,19 @@ func CreateSignals(signals []mapache.Signal) error {
 		}
 		signals[i].ID = ulid.Make().Prefixed("sgnl")
 	}
-	for _, signal := range signals {
-		Hub.Publish(signal)
+	if config.EnableSignalWS {
+		for _, signal := range signals {
+			Hub.Publish(signal)
+		}
 	}
-	result := database.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "timestamp"}, {Name: "vehicle_id"}, {Name: "name"}},
-		DoUpdates: clause.AssignmentColumns([]string{"id", "value", "raw_value", "produced_at"}),
-	}).Create(&signals)
-	if result.Error != nil {
-		return result.Error
+	if config.EnableSignalDB {
+		result := database.DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "timestamp"}, {Name: "vehicle_id"}, {Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"id", "value", "raw_value", "produced_at"}),
+		}).Create(&signals)
+		if result.Error != nil {
+			return result.Error
+		}
 	}
 	return nil
 }
