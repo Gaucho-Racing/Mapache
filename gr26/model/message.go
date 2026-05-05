@@ -3,6 +3,11 @@ package model
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 var messageMap = map[int]mp.Message{
+	0x003: ECUStatus1,
+	0x004: ECUStatus2,
+	0x005: ECUStatus3,
+	0x02D: ECUPingingRTT,
+	0x02E: ECUAnalogData,
 	0x02A: TCMResourceUtil,
 	0x030: DGPS_UVW,
 	0x031: GPSLatitude,
