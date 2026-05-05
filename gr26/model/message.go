@@ -3,6 +3,18 @@ package model
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 var messageMap = map[int]mp.Message{
+	// BCU
+	0x007: BCUStatus1,
+	0x008: BCUStatus2,
+	0x009: BCUStatus3,
+	0x00A: BCUPrecharge,
+	0x00B: BCUConfigChargeParameters,
+	0x00C: BCUConfigOperationalParameters,
+	0x00D: BCUCellData1,
+	0x00E: BCUCellData2,
+	0x00F: BCUCellData3,
+	0x010: BCUCellData4,
+	0x011: BCUCellData5,
 	// GR Inverter
 	0x013: InverterStatus1,
 	0x014: InverterStatus2,
