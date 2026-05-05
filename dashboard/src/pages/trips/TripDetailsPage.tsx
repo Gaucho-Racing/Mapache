@@ -524,11 +524,11 @@ function TripDetailsPage() {
           <div className="flex h-full flex-col">
             {showTopBar ? (
               <div className="sticky top-[86px] z-10">
-                <TopToolbar />
+                {TopToolbar()}
               </div>
             ) : (
               <div className="sticky top-[86px] z-10">
-                <TopBarCollapsed />
+                {TopBarCollapsed()}
               </div>
             )}
 
@@ -560,11 +560,11 @@ function TripDetailsPage() {
 
             {showBottomBar ? (
               <div className="sticky bottom-[20px] z-10">
-                <BottomToolbar />
+                {BottomToolbar()}
               </div>
             ) : (
               <div className="sticky bottom-[20px] z-10">
-                <BottomBarCollapsed />
+                {BottomBarCollapsed()}
               </div>
             )}
           </div>
