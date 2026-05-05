@@ -164,6 +164,27 @@ services:
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
       SKIP_AUTH_CHECK: "true"
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile.dev
+    container_name: dashboard
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - vehicle
+      - query
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./dashboard:/app/dashboard
+      - dashboard_node_modules:/app/dashboard/node_modules
+    environment:
+      VITE_BACKEND_URL: "http://localhost:10310"
+      VITE_BACKEND_WS_URL: "ws://localhost:10310"
+      VITE_SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID:-z6V9NREjMFhf}
+      VITE_MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
+
   nanomq:
     image: emqx/nanomq:latest
     restart: unless-stopped
@@ -186,3 +207,4 @@ volumes:
   auth_go_cache:
   vehicle_go_cache:
   gr26_go_cache:
+  dashboard_node_modules:
