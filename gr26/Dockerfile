@@ -24,6 +24,6 @@ WORKDIR /
 COPY --from=builder /gr26 /gr26
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-ENV TZ=America/Los_Angeles
+ENV TZ=UTC
 
 ENTRYPOINT ["/gr26"]
