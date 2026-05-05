@@ -49,3 +49,26 @@ export const initUser: User = {
   updated_at: "",
   created_at: "",
 };
+
+export const mockUser: User = {
+  id: "mock-user",
+  username: "dev",
+  first_name: "Dev",
+  last_name: "User",
+  email: "dev@gauchoracing.com",
+  phone_number: "",
+  gender: "",
+  birthday: "",
+  graduate_level: "",
+  graduation_year: 0,
+  major: "",
+  shirt_size: "",
+  jacket_size: "",
+  sae_registration_number: "",
+  avatar_url: "",
+  verified: true,
+  subteams: [],
+  roles: ["admin"],
+  updated_at: "",
+  created_at: "",
+};

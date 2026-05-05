@@ -184,6 +184,7 @@ services:
       VITE_BACKEND_WS_URL: "ws://localhost:10310"
       VITE_SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID:-z6V9NREjMFhf}
       VITE_MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
+      VITE_SKIP_AUTH_CHECK: "true"
 
   nanomq:
     image: emqx/nanomq:latest
