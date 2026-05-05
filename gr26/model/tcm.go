@@ -2,6 +2,27 @@ package model
 
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
+var TCMStatus = mp.Message{
+	mp.NewField("status_bits", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "status_bits", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("mapache_ping", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "mapache_ping", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("cache_size", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "cache_size", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("_reserved", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+}
+
 var TCMResourceUtil = mp.Message{
 	mp.NewField("cpu0_freq", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
