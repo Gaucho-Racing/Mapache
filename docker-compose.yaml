@@ -134,30 +134,35 @@ services:
       RINCON_ENDPOINT: "http://rincon:10311"
       SKIP_AUTH_CHECK: "true"
 
-  # query:
-  #   image: gauchoracing/mp_query:latest
-  #   container_name: query
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - rincon
-  #   ports:
-  #     - "7010:7010"
-  #   environment:
-  #     ENV: "DEV"
-  #     PORT: "7010"
-  #     SERVICE_ENDPOINT: "http://query:7010"
-  #     SERVICE_HEALTH_CHECK: "http://query:7010/query/ping"
-  #     DATABASE_HOST: ${DATABASE_HOST}
-  #     DATABASE_PORT: ${DATABASE_PORT}
-  #     DATABASE_NAME: ${DATABASE_NAME}
-  #     DATABASE_USER: ${DATABASE_USER}
-  #     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-  #     RINCON_USER: "admin"
-  #     RINCON_PASSWORD: "admin"
-  #     RINCON_ENDPOINT: "http://rincon:10311"
-  #     SENTINEL_URL: ${SENTINEL_URL}
-  #     SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
-  #     SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+  query:
+    build:
+      context: .
+      dockerfile: query/Dockerfile.dev
+    container_name: query
+    restart: unless-stopped
+    depends_on:
+      - rincon
+    ports:
+      - "7010:7010"
+    volumes:
+      - ./query:/app/query
+    environment:
+      ENV: "DEV"
+      PORT: "7010"
+      SERVICE_ENDPOINT: "http://query:7010"
+      SERVICE_HEALTH_CHECK: "http://query:7010/query/ping"
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      RINCON_USER: "admin"
+      RINCON_PASSWORD: "admin"
+      RINCON_ENDPOINT: "http://rincon:10311"
+      SENTINEL_URL: ${SENTINEL_URL}
+      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
+      SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+      SKIP_AUTH_CHECK: "true"
 
   nanomq:
     image: emqx/nanomq:latest

@@ -4,6 +4,7 @@ from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
 import pandas as pd
+from query.config.config import Config
 from query.service.auth import AuthService
 import traceback
 
@@ -16,7 +17,9 @@ async def request_token(
     authorization: str = Header(None),
 ):
     try:
-        if "Bearer " in authorization:
+        if Config.SKIP_AUTH_CHECK:
+            user_id = "mock-user"
+        elif authorization and "Bearer " in authorization:
             token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(token)
         else:

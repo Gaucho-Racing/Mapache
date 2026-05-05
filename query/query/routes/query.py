@@ -3,16 +3,17 @@ from fastapi import APIRouter, Query, Response, Header
 from typing import Annotated
 from loguru import logger
 from fastapi.responses import JSONResponse
-import pandas as pd
-from query.model.log import QueryLog
-from query.service.auth import AuthService
-from query.service.log import create_log
-from query.service.query import query_signals, merge_to_smallest, merge_to_largest
 import numpy as np
 import traceback
 
+from query.config.config import Config
+from query.model.log import QueryLog
+from query.service.auth import AuthService
+from query.service.log import create_log
+from query.service.query import query_signals, merge_signals
 from query.service.token import get_token_by_id, validate_token
 from query.service.trip import get_trip_by_id
+import pandas as pd
 
 router = APIRouter()
 
@@ -32,7 +33,9 @@ async def get_signals(
 ):
     user_id = None
     try:
-        if authorization and "Bearer " in authorization:
+        if Config.SKIP_AUTH_CHECK:
+            user_id = "mock-user"
+        elif authorization and "Bearer " in authorization:
             logger.info(f"Found bearer token: {authorization}")
             auth_token = authorization.split("Bearer ")[1]
             user_id = AuthService.get_user_id_from_token(auth_token)
@@ -54,9 +57,9 @@ async def get_signals(
                     "message": "you are not authorized to access this resource",
                 }
             )
-        
+
         logger.info(f"Successfully authenticated user: {user_id}")
-        
+
         if vehicle_id is None:
             return JSONResponse(
                 status_code=400,
@@ -64,7 +67,7 @@ async def get_signals(
                     "message": "vehicle_id is required",
                 }
             )
-        
+
         if signals is None or len(signals.split(",")) == 0 or any(not s.strip() for s in signals.split(",")):
             return JSONResponse(
                 status_code=400,
@@ -109,30 +112,18 @@ async def get_signals(
                     return JSONResponse(
                         status_code=400,
                         content={
-                            "message": "invalid end timestamp format", 
+                            "message": "invalid end timestamp format",
                         }
                     )
-            
+
         start_time = datetime.now()
         dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
 
-        if merge == 'smallest':
-            merged_df, metadata = merge_to_smallest(*dfs, tolerance=tolerance, fill=fill)
-        elif merge == 'largest':
-            merged_df, metadata = merge_to_largest(*dfs, tolerance=tolerance, fill=fill)
-        else:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "message": "invalid merge strategy", 
-                }
-            )
-        
-        # Convert timestamps to ISO format strings and handle special float values
+        merged_df, metadata = merge_signals(*dfs, strategy=merge, tolerance=tolerance, fill=fill)
+
         df_dict = merged_df.copy()
-        df_dict['produced_at'] = df_dict['produced_at'].dt.tz_localize('UTC').dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        
-        # Replace inf/-inf and NaN values with None
+        df_dict['produced_at'] = df_dict['produced_at'].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
         df_dict = df_dict.replace([np.inf, -np.inf], None)
         df_dict = df_dict.replace({np.nan: None})
 
@@ -170,7 +161,7 @@ async def get_signals(
             parquet_data = df_dict.to_parquet()
             return Response(
                 content=parquet_data,
-                media_type="application/octet-stream", 
+                media_type="application/octet-stream",
                 headers={
                     "Content-Disposition": "attachment; filename=export.parquet"
                 }
