@@ -12,6 +12,7 @@ import {
   ChevronsUpDown,
   Gauge,
   LayoutDashboard,
+  LucideIcon,
   MapPinned,
   MessageSquareText,
   SearchCode,
@@ -38,10 +39,165 @@ interface SidebarProps {
   toggleSidebar: () => void;
 }
 
-const Sidebar = (props: SidebarProps) => {
+// Components are defined at module scope (not inside Sidebar) so their
+// references stay stable across Sidebar re-renders. Defining them inside
+// Sidebar would make React unmount/remount them on every parent render,
+// which resets internal state of children like the Radix dropdown.
+
+function VehicleClassIcon({
+  vehicleClass,
+  iconType,
+}: {
+  vehicleClass: string;
+  iconType: string;
+}) {
+  return (
+    <img
+      src={`/icons/cars/${vehicleClass}-${iconType}.png`}
+      className="h-10 w-10 object-contain"
+    />
+  );
+}
+
+function MapacheHeader({ isSidebarExpanded }: { isSidebarExpanded: boolean }) {
+  return (
+    <div className="flex items-center overflow-hidden p-4">
+      <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
+        <img src="/logo/mapache.png" className="h-10" />
+      </div>
+      <div
+        className={`overflow-hidden whitespace-nowrap pl-4 ${isSidebarExpanded ? "slide-in" : "slide-out"}`}
+      >
+        <h2>Mapache</h2>
+      </div>
+    </div>
+  );
+}
+
+function SidebarItem({
+  icon: Icon,
+  text,
+  link,
+  isSelected,
+  isSidebarExpanded,
+}: {
+  icon: LucideIcon;
+  text: string;
+  link: string;
+  isSelected: boolean;
+  isSidebarExpanded: boolean;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div
+      className={`mx-2 my-2 flex items-center overflow-hidden ${
+        isSelected
+          ? "bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px]"
+          : ""
+      } cursor-pointer rounded-lg`}
+      onClick={(e) => {
+        e.stopPropagation();
+        navigate(link);
+      }}
+    >
+      <div
+        className={`flex w-full items-center overflow-hidden rounded-md ${
+          isSelected ? "bg-card/50" : ""
+        } h-10 p-1 hover:bg-card`}
+      >
+        <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
+          <Icon
+            className={isSelected ? "text-white" : "text-neutral-400"}
+          />
+        </div>
+        <div
+          className={`overflow-hidden whitespace-nowrap font-semibold ${isSelected ? "text-white" : "text-neutral-400"} ${isSidebarExpanded ? "slide-in" : "slide-out"}`}
+        >
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VehicleSwitcher({
+  isSidebarExpanded,
+}: {
+  isSidebarExpanded: boolean;
+}) {
   const navigate = useNavigate();
   const currentVehicle = useVehicle();
   const vehicleList = useVehicleList();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div
+          className="mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex h-12 w-full items-center overflow-hidden rounded-lg bg-card/50 p-1 hover:bg-card">
+            <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
+              <VehicleClassIcon
+                vehicleClass={currentVehicle.type}
+                iconType="pixel"
+              />
+            </div>
+            <div
+              className={`overflow-hidden whitespace-nowrap font-semibold text-white ${isSidebarExpanded ? "slide-in" : "slide-out"}`}
+            >
+              <div className="flex w-full items-center justify-between">
+                <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
+                  <div className="w-full truncate text-sm font-semibold">
+                    {currentVehicle.name}
+                  </div>
+                  <div className="w-full truncate text-xs text-neutral-400">
+                    {currentVehicle.id} • {currentVehicle.type}
+                  </div>
+                </div>
+                <div className="flex flex-shrink-0 items-center justify-center">
+                  <ChevronsUpDown />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        className={`mb-2 w-[256px] ${!isSidebarExpanded ? "ml-2" : ""}`}
+        align="end"
+      >
+        {vehicleList.map((vehicle) => (
+          <DropdownMenuItem
+            key={vehicle.id}
+            className={`m-1 ${vehicle.id === currentVehicle.id ? "bg-neutral-800" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setVehicle(vehicle);
+              navigate(`/dashboard?vid=${vehicle.id}`);
+            }}
+          >
+            <div className="flex h-10 w-full items-center gap-4 rounded-lg p-1">
+              <VehicleClassIcon
+                vehicleClass={vehicle.type}
+                iconType="pixel"
+              />
+              <div className="flex flex-col items-start justify-center">
+                <div className="text-sm font-semibold">{vehicle.name}</div>
+                <div className="text-xs text-neutral-400">
+                  {vehicle.id} • {vehicle.type}
+                </div>
+              </div>
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const Sidebar = (props: SidebarProps) => {
+  const currentVehicle = useVehicle();
 
   useEffect(() => {
     getVehicles();
@@ -67,139 +223,6 @@ const Sidebar = (props: SidebarProps) => {
     } catch (error) {
       notify.error("Failed to fetch vehicles: " + error);
     }
-  };
-
-  const VehicleClassIcon = (props: {
-    vehicleClass: string;
-    iconType: string;
-  }) => {
-    const iconSrc = `/icons/cars/${props.vehicleClass}-${props.iconType}.png`;
-    return <img src={iconSrc} className="h-10 w-10 object-contain" />;
-  };
-
-  const MapacheHeader = (props: { isSidebarExpanded: boolean }) => {
-    return (
-      <div className="flex items-center overflow-hidden p-4">
-        <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
-          <img src="/logo/mapache.png" className="h-10" />
-        </div>
-        <div
-          className={`overflow-hidden whitespace-nowrap pl-4 ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
-        >
-          <h2>Mapache</h2>
-        </div>
-      </div>
-    );
-  };
-
-  const SidebarItem = (props: {
-    icon: any;
-    text: string;
-    link: string;
-    isSelected: boolean;
-    isSidebarExpanded: boolean;
-  }) => {
-    return (
-      <div
-        className={`mx-2 my-2 flex items-center overflow-hidden ${
-          props.isSelected
-            ? "bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px]"
-            : ""
-        } cursor-pointer rounded-lg`}
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate(props.link);
-        }}
-      >
-        <div
-          className={`flex w-full items-center overflow-hidden rounded-md ${
-            props.isSelected ? "bg-card/50" : ""
-          } h-10 p-1 hover:bg-card`}
-        >
-          <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
-            <props.icon
-              className={`${props.isSelected ? "text-white" : "text-neutral-400"}`}
-            />
-          </div>
-          <div
-            className={`overflow-hidden whitespace-nowrap font-semibold ${props.isSelected ? "text-white" : "text-neutral-400"} ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
-          >
-            {props.text}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const VehicleSwitcher = (props: {
-    isSidebarExpanded: boolean;
-    isSelected: boolean;
-  }) => {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div
-            className={`mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex h-12 w-full items-center overflow-hidden rounded-lg bg-card/50 p-1 hover:bg-card">
-              <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
-                <VehicleClassIcon
-                  vehicleClass={currentVehicle.type}
-                  iconType={"pixel"}
-                />
-              </div>
-              <div
-                className={`overflow-hidden whitespace-nowrap font-semibold text-white ${props.isSidebarExpanded ? "slide-in" : "slide-out"}`}
-              >
-                <div className="flex w-full items-center justify-between">
-                  <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
-                    <div className="w-full truncate text-sm font-semibold">
-                      {currentVehicle.name}
-                    </div>
-                    <div className="w-full truncate text-xs text-neutral-400">
-                      {currentVehicle.id} • {currentVehicle.type}
-                    </div>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center justify-center">
-                    <ChevronsUpDown />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          className={`mb-2 w-[256px] ${!props.isSidebarExpanded ? "ml-2" : ""}`}
-          align="end"
-        >
-          {vehicleList.map((vehicle) => (
-            <DropdownMenuItem
-              key={vehicle.id}
-              className={`m-1 ${vehicle.id === currentVehicle.id ? "bg-neutral-800" : ""}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setVehicle(vehicle);
-                navigate(`/dashboard?vid=${vehicle.id}`);
-              }}
-            >
-              <div className="flex h-10 w-full items-center gap-4 rounded-lg p-1">
-                <VehicleClassIcon
-                  vehicleClass={vehicle.type}
-                  iconType={"pixel"}
-                />
-                <div className="flex flex-col items-start justify-center">
-                  <div className="text-sm font-semibold">{vehicle.name}</div>
-                  <div className="text-xs text-neutral-400">
-                    {vehicle.id} • {vehicle.type}
-                  </div>
-                </div>
-              </div>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
   };
 
   return (
@@ -282,10 +305,7 @@ const Sidebar = (props: SidebarProps) => {
               <div className="px-4 py-2">
                 <Separator />
               </div>
-              <VehicleSwitcher
-                isSidebarExpanded={props.isSidebarExpanded}
-                isSelected={true}
-              />
+              <VehicleSwitcher isSidebarExpanded={props.isSidebarExpanded} />
             </div>
           </div>
         </div>
