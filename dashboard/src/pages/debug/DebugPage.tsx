@@ -13,7 +13,16 @@ import { BACKEND_WS_URL } from "@/consts/config";
 import { useVehicle, useVehicleList } from "@/lib/store";
 import { Signal } from "@/models/signal";
 import { formatTimeWithMillis } from "@/lib/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MutableRefObject,
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
@@ -29,14 +38,10 @@ interface SignalState {
 type SortKey = "name" | "value" | "rawValue" | "lastSeen" | "count";
 type SortDir = "asc" | "desc";
 
-// Render gate. Telemetry can fire hundreds of messages/sec; we ingest into a
-// ref and only re-render the table at this cadence to keep React off the
-// hot path.
+// Cap the table re-render rate. Ingest still runs at WS rate into refs;
+// the table only paints this often.
 const FLUSH_INTERVAL_MS = 200;
 
-// Format a raw integer signal value as hex. Negative values are rendered as
-// two's complement at the minimum byte width that fits, so a signed 2-byte
-// field reading -1 shows as 0xFFFF rather than -0x1.
 function rawToHex(n: number): string {
   if (!Number.isFinite(n) || !Number.isInteger(n)) return String(n);
   if (n >= 0) return "0x" + n.toString(16).toUpperCase();
@@ -49,41 +54,27 @@ function rawToHex(n: number): string {
   return n.toString();
 }
 
-export default function DebugPage() {
-  const vehicle = useVehicle();
-  const vehicleList = useVehicleList();
-
-  const vehicleType = useMemo(() => {
-    const v = vehicleList.find((x) => x.id === vehicle.id);
-    return v?.type ?? vehicle.type;
-  }, [vehicle.id, vehicleList, vehicle.type]);
-
-  const socketUrl = useMemo(() => {
-    if (!vehicle.id || !vehicleType) return null;
-    const params = new URLSearchParams({
-      vehicle_id: vehicle.id,
-      signals: "*",
-      rate: "5",
-    });
-    return `${BACKEND_WS_URL}/${vehicleType}/live?${params.toString()}`;
-  }, [vehicle.id, vehicleType]);
-
+// Isolated WS bridge. Lives in its own component so that lastMessage state
+// updates only re-render this null-rendering child — the parent (and Layout
+// tree above it) never re-render at WS rate.
+const WsBridge = memo(function WsBridge({
+  socketUrl,
+  signalsRef,
+  totalRef,
+  onReadyChange,
+}: {
+  socketUrl: string | null;
+  signalsRef: MutableRefObject<Map<string, SignalState>>;
+  totalRef: MutableRefObject<number>;
+  onReadyChange: (state: ReadyState) => void;
+}) {
   const { lastMessage, readyState } = useWebSocket(socketUrl, {
     shouldReconnect: () => true,
   });
 
-  const signalsRef = useRef<Map<string, SignalState>>(new Map());
-  const totalRef = useRef(0);
-  const [tick, setTick] = useState(0);
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
-
   useEffect(() => {
-    signalsRef.current = new Map();
-    totalRef.current = 0;
-    setTick((t) => t + 1);
-  }, [socketUrl]);
+    onReadyChange(readyState);
+  }, [readyState, onReadyChange]);
 
   useEffect(() => {
     if (!lastMessage) return;
@@ -104,19 +95,203 @@ export default function DebugPage() {
       lastSeen: Date.now(),
       count: (existing?.count ?? 0) + 1,
     });
-  }, [lastMessage]);
+  }, [lastMessage, signalsRef, totalRef]);
+
+  return null;
+});
+
+const SignalRowView = memo(
+  function SignalRowView({ s, now }: { s: SignalState; now: number }) {
+    const ageMs = Math.max(0, now - s.lastSeen);
+    const ageColor =
+      ageMs < 500
+        ? "text-green-500"
+        : ageMs < 5000
+          ? "text-yellow-500"
+          : "text-red-500";
+    return (
+      <TableRow>
+        <TableCell className="font-mono text-xs">{s.name}</TableCell>
+        <TableCell className="font-mono">{s.value}</TableCell>
+        <TableCell className="font-mono text-muted-foreground">
+          {s.rawValue}
+        </TableCell>
+        <TableCell className="font-mono text-muted-foreground">
+          {rawToHex(s.rawValue)}
+        </TableCell>
+        <TableCell className="font-mono text-xs text-muted-foreground">
+          {s.producedAtFormatted}
+        </TableCell>
+        <TableCell className={`font-mono text-xs ${ageColor}`}>
+          {ageMs < 1000 ? `${ageMs}ms` : `${(ageMs / 1000).toFixed(1)}s`}
+        </TableCell>
+        <TableCell>
+          <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
+            {s.count}
+          </span>
+        </TableCell>
+      </TableRow>
+    );
+  },
+  // Skip the row when neither the signal nor the wall clock changed enough
+  // to nudge the age column. 100ms is below human perception.
+  (prev, next) =>
+    prev.s === next.s && Math.abs(prev.now - next.now) < 100,
+);
+
+interface DebugTableProps {
+  rows: SignalState[];
+  now: number;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+  emptyMessage: string;
+}
+
+const DebugTable = memo(function DebugTable({
+  rows,
+  now,
+  sortKey,
+  sortDir,
+  onSort,
+  emptyMessage,
+}: DebugTableProps) {
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k)
+      return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? (
+      <ArrowUp className="ml-1 inline h-3 w-3" />
+    ) : (
+      <ArrowDown className="ml-1 inline h-3 w-3" />
+    );
+  };
+
+  const headerCell = (label: string, key: SortKey) => (
+    <TableHead
+      className="cursor-pointer select-none whitespace-nowrap"
+      onClick={() => onSort(key)}
+    >
+      {label}
+      <SortIcon k={key} />
+    </TableHead>
+  );
+
+  return (
+    <Card className="p-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {headerCell("Signal", "name")}
+            {headerCell("Value", "value")}
+            {headerCell("Raw", "rawValue")}
+            {headerCell("Raw (hex)", "rawValue")}
+            {headerCell("Produced At", "lastSeen")}
+            {headerCell("Age", "lastSeen")}
+            {headerCell("Count", "count")}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={7}
+                className="py-8 text-center text-muted-foreground"
+              >
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((s) => <SignalRowView key={s.name} s={s} now={now} />)
+          )}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+});
+
+export default function DebugPage() {
+  const vehicle = useVehicle();
+  const vehicleList = useVehicleList();
+
+  const vehicleType = useMemo(() => {
+    const v = vehicleList.find((x) => x.id === vehicle.id);
+    return v?.type ?? vehicle.type;
+  }, [vehicle.id, vehicleList, vehicle.type]);
+
+  const socketUrl = useMemo(() => {
+    if (!vehicle.id || !vehicleType) return null;
+    const params = new URLSearchParams({
+      vehicle_id: vehicle.id,
+      signals: "*",
+      rate: "5",
+    });
+    return `${BACKEND_WS_URL}/${vehicleType}/live?${params.toString()}`;
+  }, [vehicle.id, vehicleType]);
+
+  const signalsRef = useRef<Map<string, SignalState>>(new Map());
+  const totalRef = useRef(0);
+
+  const [tick, setTick] = useState(0);
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [readyState, setReadyState] = useState<ReadyState>(
+    ReadyState.UNINSTANTIATED,
+  );
 
   useEffect(() => {
-    const id = setInterval(
-      () => setTick((t) => t + 1),
-      FLUSH_INTERVAL_MS,
-    );
-    return () => clearInterval(id);
+    signalsRef.current = new Map();
+    totalRef.current = 0;
+    setTick((t) => t + 1);
+  }, [socketUrl]);
+
+  // Pause the flush when the tab is hidden. No point repainting an unseen
+  // tab; messages still ingest into the ref.
+  useEffect(() => {
+    let id: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (id != null) return;
+      id = setInterval(() => setTick((t) => t + 1), FLUSH_INTERVAL_MS);
+    };
+    const stop = () => {
+      if (id == null) return;
+      clearInterval(id);
+      id = null;
+    };
+    const onVis = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      stop();
+    };
   }, []);
+
+  const onReadyChange = useCallback((state: ReadyState) => {
+    setReadyState(state);
+  }, []);
+
+  const onSort = useCallback(
+    (key: SortKey) => {
+      setSortKey((prevKey) => {
+        if (prevKey === key) {
+          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+          return prevKey;
+        }
+        setSortDir(key === "name" ? "asc" : "desc");
+        return key;
+      });
+    },
+    [],
+  );
 
   const rows = useMemo(() => {
     const list = Array.from(signalsRef.current.values());
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     const filtered = q
       ? list.filter((s) => s.name.toLowerCase().includes(q))
       : list;
@@ -131,7 +306,7 @@ export default function DebugPage() {
     return filtered;
     // tick gates re-renders; signalsRef mutates between ticks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, search, sortKey, sortDir]);
+  }, [tick, deferredSearch, sortKey, sortDir]);
 
   const distinctCount = signalsRef.current.size;
   const totalCount = totalRef.current;
@@ -153,37 +328,19 @@ export default function DebugPage() {
     [ReadyState.UNINSTANTIATED]: "bg-neutral-600",
   }[readyState];
 
-  const onHeaderClick = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
-
-  const SortIcon = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k)
-      return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />;
-    return sortDir === "asc" ? (
-      <ArrowUp className="ml-1 inline h-3 w-3" />
-    ) : (
-      <ArrowDown className="ml-1 inline h-3 w-3" />
-    );
-  };
-
-  const headerCell = (label: string, key: SortKey, className?: string) => (
-    <TableHead
-      className={`cursor-pointer select-none whitespace-nowrap ${className ?? ""}`}
-      onClick={() => onHeaderClick(key)}
-    >
-      {label}
-      <SortIcon k={key} />
-    </TableHead>
-  );
+  const emptyMessage =
+    readyState === ReadyState.OPEN
+      ? "Connected — waiting for signals..."
+      : `Socket ${connectionStatus.toLowerCase()}`;
 
   return (
     <Layout activeTab="debug" headerTitle="Debug">
+      <WsBridge
+        socketUrl={socketUrl}
+        signalsRef={signalsRef}
+        totalRef={totalRef}
+        onReadyChange={onReadyChange}
+      />
       <div className="flex flex-col gap-4">
         <Card className="p-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -218,72 +375,14 @@ export default function DebugPage() {
           </div>
         </Card>
 
-        <Card className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {headerCell("Signal", "name")}
-                {headerCell("Value", "value")}
-                {headerCell("Raw", "rawValue")}
-                {headerCell("Raw (hex)", "rawValue")}
-                {headerCell("Produced At", "lastSeen")}
-                {headerCell("Age", "lastSeen")}
-                {headerCell("Count", "count")}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="py-8 text-center text-muted-foreground"
-                  >
-                    {readyState === ReadyState.OPEN
-                      ? "Connected — waiting for signals..."
-                      : `Socket ${connectionStatus.toLowerCase()}`}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((s) => {
-                  const ageMs = Math.max(0, renderNow - s.lastSeen);
-                  const ageColor =
-                    ageMs < 500
-                      ? "text-green-500"
-                      : ageMs < 5000
-                        ? "text-yellow-500"
-                        : "text-red-500";
-                  return (
-                    <TableRow key={s.name}>
-                      <TableCell className="font-mono text-xs">
-                        {s.name}
-                      </TableCell>
-                      <TableCell className="font-mono">{s.value}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {s.rawValue}
-                      </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {rawToHex(s.rawValue)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {s.producedAtFormatted}
-                      </TableCell>
-                      <TableCell className={`font-mono text-xs ${ageColor}`}>
-                        {ageMs < 1000
-                          ? `${ageMs}ms`
-                          : `${(ageMs / 1000).toFixed(1)}s`}
-                      </TableCell>
-                      <TableCell>
-                        <span className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
-                          {s.count}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+        <DebugTable
+          rows={rows}
+          now={renderNow}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={onSort}
+          emptyMessage={emptyMessage}
+        />
       </div>
     </Layout>
   );
