@@ -11,7 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { BACKEND_WS_URL } from "@/consts/config";
 import { useVehicle, useVehicleList } from "@/lib/store";
-import { useNow, TimeProvider } from "@/context/time-context";
 import { Signal } from "@/models/signal";
 import { formatTimeWithMillis } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,7 +21,7 @@ interface SignalState {
   name: string;
   value: number;
   rawValue: number;
-  producedAt: string;
+  producedAtFormatted: string;
   lastSeen: number;
   count: number;
 }
@@ -30,10 +29,14 @@ interface SignalState {
 type SortKey = "name" | "value" | "rawValue" | "lastSeen" | "count";
 type SortDir = "asc" | "desc";
 
-function DebugContent() {
+// Render gate. Telemetry can fire hundreds of messages/sec; we ingest into a
+// ref and only re-render the table at this cadence to keep React off the
+// hot path.
+const FLUSH_INTERVAL_MS = 200;
+
+export default function DebugPage() {
   const vehicle = useVehicle();
   const vehicleList = useVehicleList();
-  const now = useNow();
 
   const vehicleType = useMemo(() => {
     const v = vehicleList.find((x) => x.id === vehicle.id);
@@ -53,18 +56,17 @@ function DebugContent() {
     shouldReconnect: () => true,
   });
 
-  const [signals, setSignals] = useState<Map<string, SignalState>>(new Map());
+  const signalsRef = useRef<Map<string, SignalState>>(new Map());
+  const totalRef = useRef(0);
+  const [tick, setTick] = useState(0);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const totalCountRef = useRef(0);
-  const [totalCount, setTotalCount] = useState(0);
-
   useEffect(() => {
-    setSignals(new Map());
-    totalCountRef.current = 0;
-    setTotalCount(0);
+    signalsRef.current = new Map();
+    totalRef.current = 0;
+    setTick((t) => t + 1);
   }, [socketUrl]);
 
   useEffect(() => {
@@ -76,39 +78,48 @@ function DebugContent() {
       return;
     }
     if (!parsed.name) return;
-    totalCountRef.current += 1;
-    setTotalCount(totalCountRef.current);
-    setSignals((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(parsed.name);
-      next.set(parsed.name, {
-        name: parsed.name,
-        value: parsed.value,
-        rawValue: parsed.raw_value,
-        producedAt: parsed.produced_at,
-        lastSeen: Date.now(),
-        count: (existing?.count ?? 0) + 1,
-      });
-      return next;
+    totalRef.current += 1;
+    const existing = signalsRef.current.get(parsed.name);
+    signalsRef.current.set(parsed.name, {
+      name: parsed.name,
+      value: parsed.value,
+      rawValue: parsed.raw_value,
+      producedAtFormatted: formatTimeWithMillis(new Date(parsed.produced_at)),
+      lastSeen: Date.now(),
+      count: (existing?.count ?? 0) + 1,
     });
   }, [lastMessage]);
 
+  useEffect(() => {
+    const id = setInterval(
+      () => setTick((t) => t + 1),
+      FLUSH_INTERVAL_MS,
+    );
+    return () => clearInterval(id);
+  }, []);
+
   const rows = useMemo(() => {
-    const list = Array.from(signals.values());
-    const filtered = search
-      ? list.filter((s) =>
-          s.name.toLowerCase().includes(search.toLowerCase()),
-        )
+    const list = Array.from(signalsRef.current.values());
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? list.filter((s) => s.name.toLowerCase().includes(q))
       : list;
     const dir = sortDir === "asc" ? 1 : -1;
-    return filtered.sort((a, b) => {
+    filtered.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number")
         return (av - bv) * dir;
       return String(av).localeCompare(String(bv)) * dir;
     });
-  }, [signals, search, sortKey, sortDir]);
+    return filtered;
+    // tick gates re-renders; signalsRef mutates between ticks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, search, sortKey, sortDir]);
+
+  const distinctCount = signalsRef.current.size;
+  const totalCount = totalRef.current;
+  const renderNow = Date.now();
 
   const connectionStatus = {
     [ReadyState.CONNECTING]: "Connecting",
@@ -145,11 +156,7 @@ function DebugContent() {
     );
   };
 
-  const headerCell = (
-    label: string,
-    key: SortKey,
-    className?: string,
-  ) => (
+  const headerCell = (label: string, key: SortKey, className?: string) => (
     <TableHead
       className={`cursor-pointer select-none whitespace-nowrap ${className ?? ""}`}
       onClick={() => onHeaderClick(key)}
@@ -178,7 +185,7 @@ function DebugContent() {
             <div className="text-sm text-muted-foreground">
               Distinct signals:{" "}
               <span className="font-medium text-foreground">
-                {signals.size}
+                {distinctCount}
               </span>
             </div>
             <div className="text-sm text-muted-foreground">
@@ -221,7 +228,7 @@ function DebugContent() {
                 </TableRow>
               ) : (
                 rows.map((s) => {
-                  const ageMs = Math.max(0, now - s.lastSeen);
+                  const ageMs = Math.max(0, renderNow - s.lastSeen);
                   const stale = ageMs > 2000;
                   return (
                     <TableRow key={s.name}>
@@ -233,7 +240,7 @@ function DebugContent() {
                         {s.rawValue}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {formatTimeWithMillis(new Date(s.producedAt))}
+                        {s.producedAtFormatted}
                       </TableCell>
                       <TableCell
                         className={`font-mono text-xs ${stale ? "text-yellow-500" : "text-muted-foreground"}`}
@@ -256,13 +263,5 @@ function DebugContent() {
         </Card>
       </div>
     </Layout>
-  );
-}
-
-export default function DebugPage() {
-  return (
-    <TimeProvider interval={250}>
-      <DebugContent />
-    </TimeProvider>
   );
 }
