@@ -3,6 +3,8 @@ package model
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 var messageMap = map[int]mp.Message{
+	// Per-node CAN heartbeat
+	0x002: Ping,
 	// ECU
 	0x003: ECUStatus1,
 	0x004: ECUStatus2,
