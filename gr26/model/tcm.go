@@ -2,10 +2,17 @@ package model
 
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
+// TCM Status is a synthetic 8-byte message the relay publishes every 5s
+// summarizing on-vehicle connectivity. status_bits is a flat bitfield per
+// GRCAN.CANdo; we expose each bit as its own boolean signal so consumers
+// can query 'is cloud reachable?' without bit-twiddling.
 var TCMStatus = mp.Message{
 	mp.NewField("status_bits", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "status_bits", Value: float64(f.Value), RawValue: f.Value},
+			bit(f.Value, 0, "connection_ok"),
+			bit(f.Value, 1, "mqtt_ok"),
+			bit(f.Value, 2, "epic_shelter_ok"),
+			bit(f.Value, 3, "camera_ok"),
 		}
 	}),
 	mp.NewField("mapache_ping", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
