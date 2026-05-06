@@ -146,10 +146,23 @@ case "$TARGET" in
         PY_DEPENDENTS=("query")
 
         echo ""
-        echo "=== Release mapache-py ${VERSION} ==="
-        echo "  bump mapache-py/pyproject.toml -> ${SEMVER}"
-        echo "  create GH release ${TAG} (publish.yml uploads to PyPI)"
-        echo "  uv lock --upgrade-package mapache-py in: ${PY_DEPENDENTS[*]}"
+        echo "=== Release Summary ==="
+        echo "  Target:  mapache-py"
+        echo "  Version: ${VERSION}"
+        echo "  Tag:     ${TAG}"
+        echo "  Commit:  $(git rev-parse --short HEAD)"
+        echo "  Branch:  main"
+        echo ""
+        echo "  Files to update:"
+        echo "    mapache-py/pyproject.toml"
+        echo ""
+        echo "  Files updated after PyPI publish:"
+        for svc in "${PY_DEPENDENTS[@]}"; do
+            echo "    ${svc}/uv.lock"
+        done
+        echo ""
+        echo "  Will publish:"
+        echo "    PyPI: mapache-py ${SEMVER}"
         echo ""
         read -rp "Proceed? (y/N) " CONFIRM
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -217,10 +230,21 @@ case "$TARGET" in
         GO_DEPENDENTS=("gr26" "vehicle")
 
         echo ""
-        echo "=== Release mapache-go ${VERSION} ==="
-        echo "  create GH release ${TAG} (this is the Go submodule tag)"
-        echo "  publish.yml warms proxy.golang.org"
-        echo "  go get mapache-go/v3@${VERSION} in: ${GO_DEPENDENTS[*]}"
+        echo "=== Release Summary ==="
+        echo "  Target:  mapache-go"
+        echo "  Version: ${VERSION}"
+        echo "  Tag:     ${TAG}"
+        echo "  Commit:  $(git rev-parse --short HEAD)"
+        echo "  Branch:  main"
+        echo ""
+        echo "  Files updated after Go proxy warms:"
+        for svc in "${GO_DEPENDENTS[@]}"; do
+            echo "    ${svc}/go.mod"
+            echo "    ${svc}/go.sum"
+        done
+        echo ""
+        echo "  Will publish:"
+        echo "    Go module: github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}"
         echo ""
         read -rp "Proceed? (y/N) " CONFIRM
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -268,13 +292,28 @@ case "$TARGET" in
 
         GO_CONFIG_SERVICES=("auth" "gr26" "vehicle")
         PY_SERVICES=("query")
+        ALL_SERVICES=("${GO_CONFIG_SERVICES[@]}" "${PY_SERVICES[@]}")
 
         echo ""
-        echo "=== Release mapache (services) ${VERSION} ==="
-        echo "  bump config.go in: ${GO_CONFIG_SERVICES[*]}"
-        echo "  bump pyproject.toml in: ${PY_SERVICES[*]}"
-        echo "  create GH release ${TAG}"
-        echo "  per-service workflows tag images :${SEMVER}"
+        echo "=== Release Summary ==="
+        echo "  Target:  mapache (services)"
+        echo "  Version: ${VERSION}"
+        echo "  Tag:     ${TAG}"
+        echo "  Commit:  $(git rev-parse --short HEAD)"
+        echo "  Branch:  main"
+        echo ""
+        echo "  Files to update:"
+        for svc in "${GO_CONFIG_SERVICES[@]}"; do
+            echo "    ${svc}/config/config.go"
+        done
+        for svc in "${PY_SERVICES[@]}"; do
+            echo "    ${svc}/pyproject.toml"
+        done
+        echo ""
+        echo "  Docker images that will be tagged:"
+        for svc in "${ALL_SERVICES[@]}"; do
+            echo "    ghcr.io/gaucho-racing/mapache/${svc}:${SEMVER}"
+        done
         echo ""
         read -rp "Proceed? (y/N) " CONFIRM
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
