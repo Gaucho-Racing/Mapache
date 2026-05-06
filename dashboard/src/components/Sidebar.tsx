@@ -1,5 +1,6 @@
 import { Separator } from "./ui/separator";
 import { useNavigate } from "react-router-dom";
+import { memo, useEffect } from "react";
 import {
   useVehicle,
   setVehicle,
@@ -24,7 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useEffect } from "react";
 import { Vehicle } from "@/models/vehicle";
 import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
@@ -314,4 +314,4 @@ const Sidebar = (props: SidebarProps) => {
   );
 };
 
-export default Sidebar;
+export default memo(Sidebar);

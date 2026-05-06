@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -81,4 +82,4 @@ const Header = (props: HeaderProps) => {
   );
 };
 
-export default Header;
+export default memo(Header);

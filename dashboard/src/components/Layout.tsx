@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { checkCredentials } from "@/lib/auth";
@@ -18,131 +18,134 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const SIDEBAR_WIDTH_EXPANDED = 275;
+const SIDEBAR_WIDTH_COLLAPSED = 90;
+const MOBILE_BREAKPOINT = 768;
+
+function LoadingScreen() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <Card className="border-none p-8" style={{ width: 500 }}>
+        <div className="flex flex-col items-center justify-center">
+          <img
+            src="/logo/mapache.png"
+            alt="Mapache"
+            className="mx-auto h-14 animate-scale"
+          />
+          <Loader2 className="mt-8 h-12 w-12 animate-spin text-primary" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 const Layout: React.FC<LayoutProps> = ({
   activeTab,
   headerTitle,
   children,
 }) => {
   const navigate = useNavigate();
-
-  const [loading, setLoading] = React.useState(true);
-
   const isSidebarExpanded = useSidebarExpanded();
   const sidebarWidth = useSidebarWidth();
 
+  const [loading, setLoading] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [scrollY, setScrollY] = useState(0);
 
-  const handleResize = () => {
-    const width = window.innerWidth;
-
-    if (width < 768) {
-      collapseSidebar();
-    } else {
-      expandSidebar();
-    }
-
-    setWindowWidth(width);
-  };
-
-  const scrollHandler = () => {
-    setScrollY(window.scrollY);
-  };
-
-  React.useEffect(() => {
+  useEffect(() => {
+    const init = async () => {
+      const currentRoute = window.location.pathname + window.location.search;
+      const status = await checkCredentials();
+      if (status !== 0) {
+        if (currentRoute === "/") {
+          navigate(`/auth/login`);
+        } else {
+          navigate(`/auth/login?route=${encodeURIComponent(currentRoute)}`);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
     init();
-    window.addEventListener("scroll", scrollHandler);
-    window.addEventListener("resize", handleResize);
+  }, [navigate]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < MOBILE_BREAKPOINT) {
+        setSidebarExpanded(false);
+        setSidebarWidth(SIDEBAR_WIDTH_COLLAPSED);
+      } else {
+        setSidebarExpanded(true);
+        setSidebarWidth(SIDEBAR_WIDTH_EXPANDED);
+      }
+      setWindowWidth(width);
+    };
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener("scroll", scrollHandler);
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
     };
   }, []);
 
-  const init = async () => {
-    const currentRoute = window.location.pathname + window.location.search;
-    const status = await checkCredentials();
-    if (status != 0) {
-      if (currentRoute == "/") {
-        navigate(`/auth/login`);
-      } else {
-        navigate(`/auth/login?route=${encodeURIComponent(currentRoute)}`);
-      }
-    } else {
-      setLoading(false);
-    }
-  };
-
-  const expandSidebar = () => {
-    if (windowWidth < 768) {
+  // Stable callback reference so that React.memo on Sidebar can short-circuit
+  // when nothing else changed. Without useCallback, every parent render
+  // creates a new function, busts memo, and rerenders the entire sidebar
+  // tree (and tears down anything stateful inside, like Radix dropdowns).
+  const toggleSidebar = useCallback(() => {
+    if (window.innerWidth < MOBILE_BREAKPOINT) {
+      setSidebarExpanded(false);
+      setSidebarWidth(SIDEBAR_WIDTH_COLLAPSED);
       return;
     }
-    setSidebarExpanded(true);
-    setSidebarWidth(275);
-  };
-
-  const collapseSidebar = () => {
-    setSidebarExpanded(false);
-    setSidebarWidth(90);
-  };
-
-  const toggleSidebar = () => {
     if (isSidebarExpanded) {
-      collapseSidebar();
+      setSidebarExpanded(false);
+      setSidebarWidth(SIDEBAR_WIDTH_COLLAPSED);
     } else {
-      expandSidebar();
+      setSidebarExpanded(true);
+      setSidebarWidth(SIDEBAR_WIDTH_EXPANDED);
     }
-  };
+  }, [isSidebarExpanded]);
 
-  const LoadingComponent = () => {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Card className="border-none p-8" style={{ width: 500 }}>
-          <div className="flex flex-col items-center justify-center">
-            <img
-              src="/logo/mapache.png"
-              alt="Mapache"
-              className="mx-auto h-14 animate-scale"
-            />
-            <Loader2 className="mt-8 h-12 w-12 animate-spin text-primary" />
-          </div>
-        </Card>
-      </div>
-    );
-  };
+  const headerStyle = useMemo(
+    () => ({
+      left: sidebarWidth,
+      width: windowWidth - sidebarWidth,
+    }),
+    [sidebarWidth, windowWidth],
+  );
+
+  const contentStyle = useMemo(
+    () => ({ marginLeft: sidebarWidth }),
+    [sidebarWidth],
+  );
+
+  if (loading) return <LoadingScreen />;
 
   return (
-    <>
-      {loading ? (
-        <LoadingComponent />
-      ) : (
-        <div className="flex">
-          <Sidebar
-            isSidebarExpanded={isSidebarExpanded}
-            selectedPage={activeTab}
-            sidebarWidth={sidebarWidth}
-            toggleSidebar={toggleSidebar}
-          />
-          <div className="w-full">
-            <Header
-              scroll={scrollY}
-              headerTitle={headerTitle}
-              style={{
-                left: sidebarWidth,
-                width: windowWidth - sidebarWidth,
-              }}
-            />
-            <div
-              className="mt-14 overflow-auto p-8 transition-all duration-200"
-              style={{ marginLeft: sidebarWidth }}
-            >
-              {children}
-            </div>
-          </div>
+    <div className="flex">
+      <Sidebar
+        isSidebarExpanded={isSidebarExpanded}
+        selectedPage={activeTab}
+        sidebarWidth={sidebarWidth}
+        toggleSidebar={toggleSidebar}
+      />
+      <div className="w-full">
+        <Header
+          scroll={scrollY}
+          headerTitle={headerTitle}
+          style={headerStyle}
+        />
+        <div
+          className="mt-14 overflow-auto p-8 transition-all duration-200"
+          style={contentStyle}
+        >
+          {children}
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 };
 
