@@ -249,7 +249,7 @@ export default function DebugPage() {
                   const ageColor =
                     ageMs < 500
                       ? "text-green-500"
-                      : ageMs < 2000
+                      : ageMs < 5000
                         ? "text-yellow-500"
                         : "text-red-500";
                   return (
