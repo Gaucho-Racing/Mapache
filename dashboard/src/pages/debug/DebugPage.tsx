@@ -246,7 +246,12 @@ export default function DebugPage() {
               ) : (
                 rows.map((s) => {
                   const ageMs = Math.max(0, renderNow - s.lastSeen);
-                  const stale = ageMs > 2000;
+                  const ageColor =
+                    ageMs < 500
+                      ? "text-green-500"
+                      : ageMs < 2000
+                        ? "text-yellow-500"
+                        : "text-red-500";
                   return (
                     <TableRow key={s.name}>
                       <TableCell className="font-mono text-xs">
@@ -262,9 +267,7 @@ export default function DebugPage() {
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {s.producedAtFormatted}
                       </TableCell>
-                      <TableCell
-                        className={`font-mono text-xs ${stale ? "text-yellow-500" : "text-muted-foreground"}`}
-                      >
+                      <TableCell className={`font-mono text-xs ${ageColor}`}>
                         {ageMs < 1000
                           ? `${ageMs}ms`
                           : `${(ageMs / 1000).toFixed(1)}s`}
