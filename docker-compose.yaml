@@ -173,7 +173,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Mount the parent dir, not /var/lib/postgresql/data — pg18+ writes to
+      # a version-specific subdir (e.g. /var/lib/postgresql/18/docker).
+      - pgdata:/var/lib/postgresql
 
 volumes:
   pgdata:
