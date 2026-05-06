@@ -1,25 +1,56 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Two-phase release. Phase 1 publishes the libs (mapache-py to PyPI,
-# mapache-go via Go module tag). Phase 2 bumps each service's pin to the
-# new lib version and cuts the services release.
+# Per-target release script.
 #
-# The script orchestrates both phases against a single operator command.
-# Between phases it watches the libs publish workflow so service pins
-# bump against versions that actually exist on the registries.
+#   ./scripts/release.sh -t mapache-py 3.2.0
+#       Cuts mapache-py 3.2.0 (PyPI via publish.yml), then bumps the
+#       lockfile in every dependent Python service and pushes a chore
+#       commit.
+#
+#   ./scripts/release.sh -t mapache-go 3.2.0
+#       Cuts mapache-go 3.2.0 (Go module tag via the GH release),
+#       warms proxy.golang.org via publish.yml, then runs `go get` in
+#       every dependent Go service and pushes a chore commit.
+#
+#   ./scripts/release.sh 3.1.0                  (default -t mapache)
+#       Cuts the services release (auth/gr26/vehicle/query). Bumps each
+#       service's Version constant or pyproject.toml, commits, tags v3.1.0,
+#       and lets the per-service workflows publish images.
+#
+# Each target is independently versioned. Release services without bumping
+# libs (lib pins stay as-is); release a lib without bumping services
+# (latest service version unchanged, only its lockfile/go.mod changes).
 
-for cmd in gh go uv jq; do
-    if ! command -v "$cmd" &>/dev/null; then
-        echo "Error: $cmd is required"
-        exit 1
-    fi
+usage() {
+    cat <<EOF
+Usage: $0 [-t target] <version>
+
+Targets:
+  mapache       services (auth, gr26, vehicle, query) — default
+  mapache-py    Python library; also bumps lockfiles in dependent services
+  mapache-go    Go library; also bumps go.mod in dependent services
+
+Examples:
+  $0 3.1.0                       # release services as v3.1.0
+  $0 -t mapache-py 3.2.0         # release mapache-py 3.2.0
+  $0 -t mapache-go 3.2.0         # release mapache-go 3.2.0
+EOF
+}
+
+TARGET="mapache"
+while getopts ":t:h" opt; do
+    case $opt in
+        t) TARGET="$OPTARG" ;;
+        h) usage; exit 0 ;;
+        *) usage; exit 1 ;;
+    esac
 done
+shift $((OPTIND - 1))
 
 INPUT="${1:-}"
 if [[ -z "$INPUT" ]]; then
-    echo "Usage: $0 <version>"
-    echo "Example: $0 3.1.0"
+    usage
     exit 1
 fi
 INPUT="${INPUT#v}"
@@ -29,8 +60,13 @@ if [[ ! "$INPUT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 SEMVER="$INPUT"
 VERSION="v${INPUT}"
-LIB_TAG="libs/${VERSION}"
-SVC_TAG="${VERSION}"
+
+for cmd in gh git jq; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: $cmd is required"
+        exit 1
+    fi
+done
 
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$BRANCH" != "main" ]]; then
@@ -45,143 +81,214 @@ if [[ "$LOCAL" != "$REMOTE" ]]; then
     echo "Error: local main is not up to date with origin/main"
     echo "  local:  $LOCAL"
     echo "  remote: $REMOTE"
-    echo "Run 'git pull' first."
-    exit 1
-fi
-
-if git tag -l "$LIB_TAG" | grep -q "^${LIB_TAG}$"; then
-    echo "Error: tag $LIB_TAG already exists"
-    exit 1
-fi
-if git tag -l "$SVC_TAG" | grep -q "^${SVC_TAG}$"; then
-    echo "Error: tag $SVC_TAG already exists"
     exit 1
 fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
-GO_SERVICES_WITH_DEP=("gr26" "vehicle")
-GO_CONFIG_SERVICES=("auth" "gr26" "vehicle")
-PY_SERVICES=("query")
-
-PREV_TAG=$(gh release list --limit 20 --json tagName --jq '[.[] | select(.tagName | startswith("libs/") | not) | .tagName] | .[0]' 2>/dev/null || true)
-
-echo ""
-if [[ -n "$PREV_TAG" ]]; then
-    echo "Current release: $PREV_TAG"
-else
-    echo "Current release: (none)"
-fi
-echo ""
-echo "=== Two-phase release: ${VERSION} ==="
-echo ""
-echo "Phase 1 — libs (${LIB_TAG}):"
-echo "  bump mapache-py/pyproject.toml -> ${SEMVER}"
-echo "  publish.yml uploads mapache-py to PyPI and creates mapache-go/${VERSION}"
-echo ""
-echo "Phase 2 — services (${SVC_TAG}):"
-echo "  go get mapache-go@${VERSION} in: ${GO_SERVICES_WITH_DEP[*]}"
-echo "  uv lock --upgrade-package mapache-py in: ${PY_SERVICES[*]}"
-echo "  bump config.go in: ${GO_CONFIG_SERVICES[*]}"
-echo "  bump pyproject.toml in: ${PY_SERVICES[*]}"
-echo "  per-service workflows tag images :${SEMVER}"
-echo ""
-read -rp "Proceed? (y/N) " CONFIRM
-if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-    echo "Aborted."
-    exit 0
-fi
-
-# === Phase 1: libs ===
-echo ""
-echo "=== Phase 1: libs ==="
-sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/mapache-py/pyproject.toml"
-git add mapache-py/pyproject.toml
-git commit -m "release: libs ${VERSION}"
-git push origin main
-
-gh release create "$LIB_TAG" \
-    --target main \
-    --title "libs ${VERSION}" \
-    --generate-notes
-
-# Wait for publish.yml to land. The first poll lets CI register the run;
-# gh run watch then blocks until completion and exits non-zero on failure.
-echo ""
-echo "Waiting for publish.yml to start..."
-RUN_ID=""
-for i in $(seq 1 30); do
-    RUN_ID=$(gh run list --workflow=publish.yml --limit=1 --json databaseId,status --jq '.[0] | select(.status != "completed") | .databaseId' 2>/dev/null || true)
-    if [[ -n "$RUN_ID" ]]; then
-        break
+# Wait for the most recent publish.yml run to finish. Used after creating
+# a libs release; bails non-zero if the run failed.
+wait_for_publish() {
+    echo ""
+    echo "Waiting for publish.yml to start..."
+    local run_id=""
+    for i in $(seq 1 30); do
+        run_id=$(gh run list --workflow=publish.yml --limit=1 --json databaseId,status \
+            --jq '.[0] | select(.status != "completed") | .databaseId' 2>/dev/null || true)
+        if [[ -n "$run_id" ]]; then
+            break
+        fi
+        sleep 2
+    done
+    if [[ -z "$run_id" ]]; then
+        echo "Error: publish.yml run did not appear within 60s"
+        exit 1
     fi
-    sleep 2
-done
-if [[ -z "$RUN_ID" ]]; then
-    echo "Error: publish.yml run did not appear within 60s"
-    echo "Check GitHub Actions, then re-run with --skip-libs once libs are live."
-    exit 1
-fi
-echo "Watching publish.yml run #${RUN_ID}..."
-gh run watch "$RUN_ID" --exit-status
+    echo "Watching publish.yml run #${run_id}..."
+    gh run watch "$run_id" --exit-status
+}
 
-# Pull the mapache-go submodule tag locally; sleep gives PyPI a beat to
-# index the new wheel before uv tries to resolve it.
-git fetch origin --tags --quiet
-echo "Sleeping 15s for PyPI to index the new release..."
-sleep 15
+case "$TARGET" in
+    mapache-py)
+        TAG="mapache-py/${VERSION}"
+        if git tag -l "$TAG" | grep -q "^${TAG}$"; then
+            echo "Error: tag $TAG already exists"
+            exit 1
+        fi
+        if ! command -v uv &>/dev/null; then
+            echo "Error: uv is required"
+            exit 1
+        fi
 
-# === Phase 2: services ===
-echo ""
-echo "=== Phase 2: services ==="
+        PY_DEPENDENTS=("query")
 
-for svc in "${GO_SERVICES_WITH_DEP[@]}"; do
-    echo "  bumping mapache-go in ${svc}..."
-    (cd "${REPO_ROOT}/${svc}" && go get "github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}" && go mod tidy)
-done
+        echo ""
+        echo "=== Release mapache-py ${VERSION} ==="
+        echo "  bump mapache-py/pyproject.toml -> ${SEMVER}"
+        echo "  create GH release ${TAG} (publish.yml uploads to PyPI)"
+        echo "  uv lock --upgrade-package mapache-py in: ${PY_DEPENDENTS[*]}"
+        echo ""
+        read -rp "Proceed? (y/N) " CONFIRM
+        if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+            echo "Aborted."
+            exit 0
+        fi
 
-for svc in "${PY_SERVICES[@]}"; do
-    echo "  bumping mapache-py in ${svc}..."
-    (
-        cd "${REPO_ROOT}/${svc}"
-        for i in 1 2 3; do
-            if uv lock --upgrade-package mapache-py; then
-                break
-            fi
-            echo "    retry $i: PyPI may not have indexed ${SEMVER} yet"
-            sleep 15
+        sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" mapache-py/pyproject.toml
+        git add mapache-py/pyproject.toml
+        git commit -m "release: mapache-py ${VERSION}"
+        git push origin main
+
+        gh release create "$TAG" \
+            --target main \
+            --title "mapache-py ${VERSION}" \
+            --generate-notes
+
+        wait_for_publish
+
+        echo ""
+        echo "Sleeping 15s for PyPI to index ${SEMVER}..."
+        sleep 15
+
+        for svc in "${PY_DEPENDENTS[@]}"; do
+            echo "Bumping mapache-py in ${svc}..."
+            (
+                cd "${REPO_ROOT}/${svc}"
+                for i in 1 2 3; do
+                    if uv lock --upgrade-package mapache-py; then
+                        break
+                    fi
+                    echo "  retry $i: PyPI may not have indexed ${SEMVER} yet"
+                    sleep 15
+                done
+            )
         done
-    )
-done
 
-for svc in "${GO_CONFIG_SERVICES[@]}"; do
-    sed -i '' "s/Version:.*\".*\"/Version:     \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/config/config.go"
-done
+        FILES=()
+        for svc in "${PY_DEPENDENTS[@]}"; do
+            FILES+=("${svc}/uv.lock")
+        done
+        if ! git diff --quiet -- "${FILES[@]}"; then
+            git add "${FILES[@]}"
+            git commit -m "chore: bump mapache-py to ${VERSION} in services"
+            git push origin main
+        else
+            echo "(no lockfile changes — services already on ${VERSION})"
+        fi
 
-for svc in "${PY_SERVICES[@]}"; do
-    sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/pyproject.toml"
-done
+        echo ""
+        echo "Done. mapache-py ${VERSION} released and dependent services bumped."
+        ;;
 
-FILES=()
-for svc in "${GO_CONFIG_SERVICES[@]}"; do
-    FILES+=("${svc}/config/config.go")
-done
-for svc in "${GO_SERVICES_WITH_DEP[@]}"; do
-    FILES+=("${svc}/go.mod" "${svc}/go.sum")
-done
-for svc in "${PY_SERVICES[@]}"; do
-    FILES+=("${svc}/pyproject.toml" "${svc}/uv.lock")
-done
+    mapache-go)
+        TAG="mapache-go/${VERSION}"
+        if git tag -l "$TAG" | grep -q "^${TAG}$"; then
+            echo "Error: tag $TAG already exists"
+            exit 1
+        fi
+        if ! command -v go &>/dev/null; then
+            echo "Error: go is required"
+            exit 1
+        fi
 
-git add "${FILES[@]}"
-git commit -m "release: services ${VERSION}"
-git push origin main
+        GO_DEPENDENTS=("gr26" "vehicle")
 
-gh release create "$SVC_TAG" \
-    --target main \
-    --title "${VERSION}" \
-    --generate-notes
+        echo ""
+        echo "=== Release mapache-go ${VERSION} ==="
+        echo "  create GH release ${TAG} (this is the Go submodule tag)"
+        echo "  publish.yml warms proxy.golang.org"
+        echo "  go get mapache-go/v3@${VERSION} in: ${GO_DEPENDENTS[*]}"
+        echo ""
+        read -rp "Proceed? (y/N) " CONFIRM
+        if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+            echo "Aborted."
+            exit 0
+        fi
 
-echo ""
-echo "Release ${SVC_TAG} created. Per-service workflows will tag images shortly."
+        # mapache-go has no version file to bump — the GitHub release
+        # creates the canonical Go submodule tag directly.
+        gh release create "$TAG" \
+            --target main \
+            --title "mapache-go ${VERSION}" \
+            --generate-notes
+
+        wait_for_publish
+        git fetch origin --tags --quiet
+
+        for svc in "${GO_DEPENDENTS[@]}"; do
+            echo "Bumping mapache-go in ${svc}..."
+            (cd "${REPO_ROOT}/${svc}" && go get "github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}" && go mod tidy)
+        done
+
+        FILES=()
+        for svc in "${GO_DEPENDENTS[@]}"; do
+            FILES+=("${svc}/go.mod" "${svc}/go.sum")
+        done
+        if ! git diff --quiet -- "${FILES[@]}"; then
+            git add "${FILES[@]}"
+            git commit -m "chore: bump mapache-go to ${VERSION} in services"
+            git push origin main
+        else
+            echo "(no go.mod changes — services already on ${VERSION})"
+        fi
+
+        echo ""
+        echo "Done. mapache-go ${VERSION} released and dependent services bumped."
+        ;;
+
+    mapache)
+        TAG="${VERSION}"
+        if git tag -l "$TAG" | grep -q "^${TAG}$"; then
+            echo "Error: tag $TAG already exists"
+            exit 1
+        fi
+
+        GO_CONFIG_SERVICES=("auth" "gr26" "vehicle")
+        PY_SERVICES=("query")
+
+        echo ""
+        echo "=== Release mapache (services) ${VERSION} ==="
+        echo "  bump config.go in: ${GO_CONFIG_SERVICES[*]}"
+        echo "  bump pyproject.toml in: ${PY_SERVICES[*]}"
+        echo "  create GH release ${TAG}"
+        echo "  per-service workflows tag images :${SEMVER}"
+        echo ""
+        read -rp "Proceed? (y/N) " CONFIRM
+        if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+            echo "Aborted."
+            exit 0
+        fi
+
+        for svc in "${GO_CONFIG_SERVICES[@]}"; do
+            sed -i '' "s/Version:.*\".*\"/Version:     \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/config/config.go"
+        done
+        for svc in "${PY_SERVICES[@]}"; do
+            sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/pyproject.toml"
+        done
+
+        FILES=()
+        for svc in "${GO_CONFIG_SERVICES[@]}"; do
+            FILES+=("${svc}/config/config.go")
+        done
+        for svc in "${PY_SERVICES[@]}"; do
+            FILES+=("${svc}/pyproject.toml")
+        done
+        git add "${FILES[@]}"
+        git commit -m "release: mapache ${VERSION}"
+        git push origin main
+
+        gh release create "$TAG" \
+            --target main \
+            --title "${VERSION}" \
+            --generate-notes
+
+        echo ""
+        echo "Done. ${TAG} released. Per-service workflows will tag images shortly."
+        ;;
+
+    *)
+        echo "Error: unknown target '$TARGET'. Valid: mapache, mapache-py, mapache-go"
+        exit 1
+        ;;
+esac
