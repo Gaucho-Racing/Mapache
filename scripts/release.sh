@@ -49,17 +49,6 @@ done
 shift $((OPTIND - 1))
 
 INPUT="${1:-}"
-if [[ -z "$INPUT" ]]; then
-    usage
-    exit 1
-fi
-INPUT="${INPUT#v}"
-if [[ ! "$INPUT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: version must be a valid semver (e.g. 1.5.0)"
-    exit 1
-fi
-SEMVER="$INPUT"
-VERSION="v${INPUT}"
 
 for cmd in gh git jq; do
     if ! command -v "$cmd" &>/dev/null; then
@@ -83,6 +72,39 @@ if [[ "$LOCAL" != "$REMOTE" ]]; then
     echo "  remote: $REMOTE"
     exit 1
 fi
+
+case "$TARGET" in
+    mapache-py) PREV=$(git tag -l 'mapache-py/v*' | sort -V | tail -n1) ;;
+    mapache-go) PREV=$(git tag -l 'mapache-go/v*' | sort -V | tail -n1) ;;
+    mapache)    PREV=$(git tag -l 'v*' | sort -V | tail -n1) ;;
+    *)
+        echo "Error: unknown target '$TARGET'. Valid: mapache, mapache-py, mapache-go"
+        exit 1
+        ;;
+esac
+
+if [[ -z "$INPUT" ]]; then
+    echo ""
+    if [[ -n "$PREV" ]]; then
+        echo "Current ${TARGET} release: ${PREV}"
+    else
+        echo "Current ${TARGET} release: (none)"
+    fi
+    echo ""
+    read -rp "Enter new version: " INPUT
+fi
+
+if [[ -z "$INPUT" ]]; then
+    echo "Error: version cannot be empty"
+    exit 1
+fi
+INPUT="${INPUT#v}"
+if [[ ! "$INPUT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: version must be a valid semver (e.g. 1.5.0)"
+    exit 1
+fi
+SEMVER="$INPUT"
+VERSION="v${INPUT}"
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
@@ -285,10 +307,5 @@ case "$TARGET" in
 
         echo ""
         echo "Done. ${TAG} released. Per-service workflows will tag images shortly."
-        ;;
-
-    *)
-        echo "Error: unknown target '$TARGET'. Valid: mapache, mapache-py, mapache-go"
-        exit 1
         ;;
 esac
