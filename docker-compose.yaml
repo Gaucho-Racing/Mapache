@@ -3,7 +3,6 @@ name: mapache
 services:
   kerbecs:
     image: bk1031/kerbecs:latest
-    container_name: kerbecs
     restart: unless-stopped
     depends_on:
       - rincon
@@ -23,7 +22,6 @@ services:
 
   rincon:
     image: bk1031/rincon:latest
-    container_name: rincon
     restart: unless-stopped
     environment:
       PORT: "10311"
@@ -42,7 +40,6 @@ services:
     build:
       context: .
       dockerfile: auth/Dockerfile.dev
-    container_name: auth
     restart: unless-stopped
     depends_on:
       - rincon
@@ -76,7 +73,6 @@ services:
     build:
       context: .
       dockerfile: vehicle/Dockerfile.dev
-    container_name: vehicle
     restart: unless-stopped
     depends_on:
       - rincon
@@ -104,7 +100,6 @@ services:
     build:
       context: .
       dockerfile: gr26/Dockerfile.dev
-    container_name: gr26
     restart: unless-stopped
     depends_on:
       - rincon
@@ -138,7 +133,6 @@ services:
     build:
       context: .
       dockerfile: query/Dockerfile.dev
-    container_name: query
     restart: unless-stopped
     depends_on:
       - rincon
