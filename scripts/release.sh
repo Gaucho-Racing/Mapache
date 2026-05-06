@@ -52,10 +52,15 @@ if git tag -l "$VERSION" | grep -q "^${VERSION}$"; then
 fi
 
 SEMVER="${VERSION#v}"
-SERVICES=("auth" "gr26" "vehicle")
+GO_SERVICES=("auth" "gr26" "vehicle")
+PY_SERVICES=("query")
+SERVICES=("${GO_SERVICES[@]}" "${PY_SERVICES[@]}")
 CONFIG_FILES=()
-for svc in "${SERVICES[@]}"; do
+for svc in "${GO_SERVICES[@]}"; do
     CONFIG_FILES+=("${svc}/config/config.go")
+done
+for svc in "${PY_SERVICES[@]}"; do
+    CONFIG_FILES+=("${svc}/pyproject.toml")
 done
 
 echo ""
@@ -82,8 +87,11 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
 fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-for f in "${CONFIG_FILES[@]}"; do
-    sed -i '' "s/Version:.*\".*\"/Version:     \"${SEMVER}\"/" "${REPO_ROOT}/${f}"
+for svc in "${GO_SERVICES[@]}"; do
+    sed -i '' "s/Version:.*\".*\"/Version:     \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/config/config.go"
+done
+for svc in "${PY_SERVICES[@]}"; do
+    sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/pyproject.toml"
 done
 sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/mapache-py/pyproject.toml"
 
