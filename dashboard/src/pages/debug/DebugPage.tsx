@@ -63,6 +63,7 @@ export default function DebugPage() {
     const params = new URLSearchParams({
       vehicle_id: vehicle.id,
       signals: "*",
+      rate: "5",
     });
     return `${BACKEND_WS_URL}/${vehicleType}/live?${params.toString()}`;
   }, [vehicle.id, vehicleType]);

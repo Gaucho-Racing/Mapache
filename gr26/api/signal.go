@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
@@ -24,6 +25,13 @@ var upgrader = websocket.Upgrader{
 func GetLatestSignalWebSocket(c *gin.Context) {
 	vehicleID := c.Query("vehicle_id")
 	signals := strings.Split(c.Query("signals"), ",")
+
+	rate := 0
+	if r := c.Query("rate"); r != "" {
+		if v, err := strconv.Atoi(r); err == nil && v > 0 {
+			rate = v
+		}
+	}
 
 	if vehicleID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle_id is required"})
@@ -61,9 +69,40 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 		}
 	}()
 
-	for signal := range client.Send {
-		if err := conn.WriteJSON(signal); err != nil {
-			break
+	if rate <= 0 {
+		for signal := range client.Send {
+			if err := conn.WriteJSON(signal); err != nil {
+				break
+			}
+		}
+		return
+	}
+
+	// Client opted into a max refresh rate: coalesce per signal name and only
+	// emit the latest value per name on each tick.
+	ticker := time.NewTicker(time.Second / time.Duration(rate))
+	defer ticker.Stop()
+	pending := make(map[string]mapache.Signal)
+	for {
+		select {
+		case sig, ok := <-client.Send:
+			if !ok {
+				for _, s := range pending {
+					_ = conn.WriteJSON(s)
+				}
+				return
+			}
+			pending[sig.Name] = sig
+		case <-ticker.C:
+			if len(pending) == 0 {
+				continue
+			}
+			for _, s := range pending {
+				if err := conn.WriteJSON(s); err != nil {
+					return
+				}
+			}
+			pending = make(map[string]mapache.Signal)
 		}
 	}
 }
