@@ -252,8 +252,13 @@ case "$TARGET" in
             exit 0
         fi
 
-        # mapache-go has no version file to bump — the GitHub release
-        # creates the canonical Go submodule tag directly.
+        # mapache-go has no version file to bump, so the release commit is
+        # empty — it just marks the release point in main so the tag (and
+        # the resulting Go submodule tag) lands on a dedicated commit
+        # instead of whatever HEAD happened to be.
+        git commit --allow-empty -m "release: mapache-go ${VERSION}"
+        git push origin main
+
         gh release create "$TAG" \
             --target main \
             --title "mapache-go ${VERSION}" \
