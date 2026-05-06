@@ -17,6 +17,7 @@ import SettingsPage from "@/pages/settings/SettingsPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
+import DebugPage from "@/pages/debug/DebugPage.tsx";
 
 const router = createBrowserRouter([
   {
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
   {
     path: "/vehicles",
     element: <VehiclesPage />,
+  },
+  {
+    path: "/debug",
+    element: <DebugPage />,
   },
 ]);
 

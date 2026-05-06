@@ -7,6 +7,7 @@ import {
   useVehicleList,
 } from "@/lib/store";
 import {
+  Bug,
   CarFront,
   ChevronsUpDown,
   Gauge,
@@ -238,6 +239,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Chat"
             link={`/chat?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "chat"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={Bug}
+            text="Debug"
+            link={`/debug?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "debug"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">

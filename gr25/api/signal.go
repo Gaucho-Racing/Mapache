@@ -41,10 +41,15 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	wildcard := slices.Contains(signals, "*")
 	service.SubscribeSignals(func(signal mapache.Signal) {
-		if signal.VehicleID == vehicleID && slices.Contains(signals, signal.Name) {
-			conn.WriteJSON(signal)
+		if signal.VehicleID != vehicleID {
+			return
 		}
+		if !wildcard && !slices.Contains(signals, signal.Name) {
+			return
+		}
+		conn.WriteJSON(signal)
 	})
 
 	for {

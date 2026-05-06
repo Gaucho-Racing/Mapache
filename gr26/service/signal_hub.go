@@ -12,6 +12,11 @@ type Client struct {
 	Send chan mapache.Signal
 }
 
+// WildcardSignal is the sentinel signal name that subscribes a client to every
+// signal for a vehicle. A client subscribed to "*" receives all signals
+// published for the vehicle in addition to any specific names it subscribed to.
+const WildcardSignal = "*"
+
 type SignalHub struct {
 	mu          sync.RWMutex
 	subscribers map[string]map[string]map[*Client]struct{}
@@ -72,14 +77,23 @@ func (h *SignalHub) Publish(signal mapache.Signal) {
 	if !ok {
 		return
 	}
-	clients, ok := signals[signal.Name]
-	if !ok {
-		return
-	}
-	for client := range clients {
-		select {
-		case client.Send <- signal:
-		default:
+	sent := make(map[*Client]struct{})
+	dispatch := func(clients map[*Client]struct{}) {
+		for client := range clients {
+			if _, dup := sent[client]; dup {
+				continue
+			}
+			sent[client] = struct{}{}
+			select {
+			case client.Send <- signal:
+			default:
+			}
 		}
+	}
+	if clients, ok := signals[signal.Name]; ok {
+		dispatch(clients)
+	}
+	if clients, ok := signals[WildcardSignal]; ok {
+		dispatch(clients)
 	}
 }
