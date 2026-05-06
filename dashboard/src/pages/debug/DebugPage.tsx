@@ -34,6 +34,21 @@ type SortDir = "asc" | "desc";
 // hot path.
 const FLUSH_INTERVAL_MS = 200;
 
+// Format a raw integer signal value as hex. Negative values are rendered as
+// two's complement at the minimum byte width that fits, so a signed 2-byte
+// field reading -1 shows as 0xFFFF rather than -0x1.
+function rawToHex(n: number): string {
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return String(n);
+  if (n >= 0) return "0x" + n.toString(16).toUpperCase();
+  if (n >= -0x80)
+    return "0x" + (n & 0xff).toString(16).toUpperCase().padStart(2, "0");
+  if (n >= -0x8000)
+    return "0x" + (n & 0xffff).toString(16).toUpperCase().padStart(4, "0");
+  if (n >= -0x80000000)
+    return "0x" + (n >>> 0).toString(16).toUpperCase().padStart(8, "0");
+  return n.toString();
+}
+
 export default function DebugPage() {
   const vehicle = useVehicle();
   const vehicleList = useVehicleList();
@@ -209,6 +224,7 @@ export default function DebugPage() {
                 {headerCell("Signal", "name")}
                 {headerCell("Value", "value")}
                 {headerCell("Raw", "rawValue")}
+                {headerCell("Raw (hex)", "rawValue")}
                 {headerCell("Produced At", "lastSeen")}
                 {headerCell("Age", "lastSeen")}
                 {headerCell("Count", "count")}
@@ -218,7 +234,7 @@ export default function DebugPage() {
               {rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-8 text-center text-muted-foreground"
                   >
                     {readyState === ReadyState.OPEN
@@ -238,6 +254,9 @@ export default function DebugPage() {
                       <TableCell className="font-mono">{s.value}</TableCell>
                       <TableCell className="font-mono text-muted-foreground">
                         {s.rawValue}
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {rawToHex(s.rawValue)}
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {s.producedAtFormatted}
