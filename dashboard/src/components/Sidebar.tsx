@@ -201,10 +201,22 @@ function VehicleSwitcher({
 
 const Sidebar = (props: SidebarProps) => {
   const currentVehicle = useVehicle();
+  const vehicleList = useVehicleList();
+  const location = useLocation();
 
   useEffect(() => {
     getVehicles();
   }, []);
+
+  // Sync the active vehicle to the ?vid=... URL param. Runs on first load
+  // (once the list arrives) and on any navigation that changes vid.
+  useEffect(() => {
+    if (vehicleList.length === 0) return;
+    const vid = new URLSearchParams(location.search).get("vid");
+    if (!vid || vid === currentVehicle.id) return;
+    const match = vehicleList.find((v) => v.id === vid);
+    if (match) setVehicle(match);
+  }, [vehicleList, location.search, currentVehicle.id]);
 
   const getVehicles = async () => {
     try {
