@@ -1,5 +1,5 @@
 import { Separator } from "./ui/separator";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { memo, useEffect } from "react";
 import {
   useVehicle,
@@ -126,6 +126,7 @@ function VehicleSwitcher({
   isSidebarExpanded: boolean;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentVehicle = useVehicle();
   const vehicleList = useVehicleList();
 
@@ -174,7 +175,9 @@ function VehicleSwitcher({
             onClick={(e) => {
               e.stopPropagation();
               setVehicle(vehicle);
-              navigate(`/dashboard?vid=${vehicle.id}`);
+              const params = new URLSearchParams(location.search);
+              params.set("vid", vehicle.id);
+              navigate(`${location.pathname}?${params.toString()}`);
             }}
           >
             <div className="flex h-10 w-full items-center gap-4 rounded-lg p-1">
