@@ -178,6 +178,7 @@ function VehiclesPage() {
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="gr26">GR26</SelectItem>
                   <SelectItem value="gr25">GR25</SelectItem>
                   <SelectItem value="gr24">GR24</SelectItem>
                   <SelectItem value="gr23">GR23</SelectItem>
@@ -335,6 +336,7 @@ function VehiclesPage() {
                   <SelectValue placeholder="Select vehicle type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="gr26">GR26</SelectItem>
                   <SelectItem value="gr25">GR25</SelectItem>
                   <SelectItem value="gr24">GR24</SelectItem>
                   <SelectItem value="gr23">GR23</SelectItem>
