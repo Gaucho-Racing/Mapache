@@ -68,21 +68,12 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		return
 	}
 
-	messageStruct := model.GetMessage(canID)
-	if messageStruct == nil {
-		logger.SugarLogger.Infof("Received unknown message id: %d, ignoring", canID)
-		return
-	}
-
-	err := messageStruct.FillFromBytes(data)
-	if err != nil {
-		logger.SugarLogger.Infof("Error deserializing message: %s", err)
-		return
-	}
-
 	ts := int(binary.BigEndian.Uint64(timestamp))
 	producedAt := time.UnixMicro(int64(ts))
 
+	// Persist the raw frame before attempting to decode so unknown can ids
+	// and failed deserializations are still captured for debugging. The
+	// frame just won't have any signals or join rows linked to it.
 	can, err := CreateCAN(model.CAN{
 		VehicleID:  vehicleID,
 		NodeID:     nodeID,
@@ -94,6 +85,17 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	})
 	if err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
+		return
+	}
+
+	messageStruct := model.GetMessage(canID)
+	if messageStruct == nil {
+		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
+		return
+	}
+
+	if err := messageStruct.FillFromBytes(data); err != nil {
+		logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
 		return
 	}
 
