@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/config"
+	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/mapache-go/v3"
 
@@ -30,7 +31,7 @@ func Init() {
 		}
 	} else {
 		logger.SugarLogger.Infoln("Connected to database")
-		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{})
+		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{}, &model.CAN{}, &model.CANSignal{})
 		logger.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}

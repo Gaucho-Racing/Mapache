@@ -62,7 +62,8 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	uploadKey := message[8:10]
 	data := message[10:]
 
-	if !ValidateUploadKey(vehicleID, int(binary.BigEndian.Uint16(uploadKey))) {
+	uploadKeyInt := int(binary.BigEndian.Uint16(uploadKey))
+	if !ValidateUploadKey(vehicleID, uploadKeyInt) {
 		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
 		return
 	}
@@ -79,17 +80,42 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		return
 	}
 
-	signals := messageStruct.ExportSignals()
 	ts := int(binary.BigEndian.Uint64(timestamp))
+	producedAt := time.UnixMicro(int64(ts))
+
+	can, err := CreateCAN(model.CAN{
+		VehicleID:  vehicleID,
+		NodeID:     nodeID,
+		Timestamp:  ts,
+		CANID:      canID,
+		Bytes:      data,
+		UploadKey:  uploadKeyInt,
+		ProducedAt: producedAt,
+	})
+	if err != nil {
+		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
+		return
+	}
+
+	signals := messageStruct.ExportSignals()
 	now := time.Now().Truncate(time.Microsecond)
 	for i := range signals {
 		signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
 		signals[i].Timestamp = ts
 		signals[i].VehicleID = vehicleID
-		signals[i].ProducedAt = time.UnixMicro(int64(ts))
+		signals[i].ProducedAt = producedAt
 		signals[i].CreatedAt = now
 	}
 	if err := CreateSignals(signals); err != nil {
 		logger.SugarLogger.Infof("Error creating signals: %s", err)
+		return
+	}
+
+	signalIDs := make([]string, len(signals))
+	for i, s := range signals {
+		signalIDs[i] = s.ID
+	}
+	if err := CreateCANSignals(can.ID, signalIDs); err != nil {
+		logger.SugarLogger.Infof("Error creating CAN-signal links: %s", err)
 	}
 }

@@ -66,18 +66,22 @@ func CreateSignals(signals []mapache.Signal) error {
 		}
 		signals[i].ID = ulid.Make().Prefixed("sgnl")
 	}
+	if config.EnableSignalDB {
+		// Preserve the existing id on conflict so the join table in
+		// gr26_can_signal stays valid across retransmits. Returning id
+		// rewrites our locally-generated ULID with the actually-stored
+		// one when a row already existed.
+		result := database.DB.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "timestamp"}, {Name: "vehicle_id"}, {Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value", "raw_value", "produced_at"}),
+		}, clause.Returning{Columns: []clause.Column{{Name: "id"}}}).Create(&signals)
+		if result.Error != nil {
+			return result.Error
+		}
+	}
 	if config.EnableSignalWS {
 		for _, signal := range signals {
 			Hub.Publish(signal)
-		}
-	}
-	if config.EnableSignalDB {
-		result := database.DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "timestamp"}, {Name: "vehicle_id"}, {Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"id", "value", "raw_value", "produced_at"}),
-		}).Create(&signals)
-		if result.Error != nil {
-			return result.Error
 		}
 	}
 	return nil
