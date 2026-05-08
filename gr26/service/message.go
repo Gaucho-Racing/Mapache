@@ -85,11 +85,17 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	switch {
 	case messageStruct == nil:
 		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
-		meta = mustJSON(map[string]any{"status": "unknown_can_id"})
+		meta = mustJSON(map[string]any{
+			"status": "unknown_can_id",
+			"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
+		})
 	default:
 		if err := messageStruct.FillFromBytes(data); err != nil {
 			logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
-			meta = mustJSON(map[string]any{"status": "decode_error", "error": err.Error()})
+			meta = mustJSON(map[string]any{
+				"status": "decode_error",
+				"note":   err.Error(),
+			})
 		} else {
 			signals = messageStruct.ExportSignals()
 		}
