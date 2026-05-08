@@ -14,8 +14,9 @@ type CAN struct {
 	CANID      int       `json:"can_id"`
 	Bytes      []byte    `json:"bytes" gorm:"type:bytea"`
 	UploadKey  int       `json:"upload_key"`
-	// Metadata captures any decode anomaly: unknown can id, deserializer
-	// error, etc. Null when the frame decoded cleanly.
+	// Metadata always carries a {"status": ...} field describing the
+	// decode outcome (ok, unknown_can_id, decode_error) and an optional
+	// "note" with the human-readable detail.
 	Metadata   []byte    `json:"metadata,omitempty" gorm:"type:jsonb"`
 	ProducedAt time.Time `json:"produced_at" gorm:"precision:6"`
 	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`

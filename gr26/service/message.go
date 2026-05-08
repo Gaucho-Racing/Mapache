@@ -98,6 +98,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 			})
 		} else {
 			signals = messageStruct.ExportSignals()
+			meta = mustJSON(map[string]any{"status": "ok"})
 		}
 	}
 
