@@ -19,7 +19,7 @@ func CreateCAN(can model.CAN) (model.CAN, error) {
 			{Name: "node_id"},
 			{Name: "timestamp"},
 		},
-		DoUpdates: clause.AssignmentColumns([]string{"can_id", "bytes", "upload_key", "produced_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"can_id", "bytes", "upload_key", "metadata", "produced_at"}),
 	}, clause.Returning{Columns: []clause.Column{{Name: "id"}}}).Create(&can)
 	if result.Error != nil {
 		return model.CAN{}, result.Error
