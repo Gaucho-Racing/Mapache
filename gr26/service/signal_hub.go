@@ -3,13 +3,13 @@ package service
 import (
 	"sync"
 
-	"github.com/gaucho-racing/mapache/gr26/model"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gorilla/websocket"
 )
 
 type Client struct {
 	Conn *websocket.Conn
-	Send chan model.SignalEvent
+	Send chan mapache.Signal
 }
 
 // WildcardSignal is the sentinel signal name that subscribes a client to every
@@ -70,10 +70,10 @@ func (h *SignalHub) Unsubscribe(vehicleID string, signalNames []string, client *
 	}
 }
 
-func (h *SignalHub) Publish(event model.SignalEvent) {
+func (h *SignalHub) Publish(signal mapache.Signal) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	signals, ok := h.subscribers[event.VehicleID]
+	signals, ok := h.subscribers[signal.VehicleID]
 	if !ok {
 		return
 	}
@@ -85,12 +85,12 @@ func (h *SignalHub) Publish(event model.SignalEvent) {
 			}
 			sent[client] = struct{}{}
 			select {
-			case client.Send <- event:
+			case client.Send <- signal:
 			default:
 			}
 		}
 	}
-	if clients, ok := signals[event.Name]; ok {
+	if clients, ok := signals[signal.Name]; ok {
 		dispatch(clients)
 	}
 	if clients, ok := signals[WildcardSignal]; ok {

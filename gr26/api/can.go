@@ -54,11 +54,33 @@ func GetCANMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
 		return
 	}
+	respondWithCAN(c, service.GetCAN, id, "can message not found")
+}
 
-	can, err := service.GetCAN(id)
+// GetCANBySignalID returns the same trace shape as GetCANMessage but
+// looks up the CAN frame by the signal id that came from it. Lets the
+// dashboard go straight from a streamed signal.id (which is just
+// mapache.Signal — no extra wire fields) to its source frame in one
+// call.
+func GetCANBySignalID(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+	respondWithCAN(c, service.GetCANForSignal, id, "no can frame linked to this signal")
+}
+
+func respondWithCAN(
+	c *gin.Context,
+	lookup func(string) (model.CAN, error),
+	id string,
+	notFoundMsg string,
+) {
+	can, err := lookup(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "can message not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": notFoundMsg})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

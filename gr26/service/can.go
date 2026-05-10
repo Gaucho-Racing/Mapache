@@ -20,6 +20,22 @@ func GetCAN(id string) (model.CAN, error) {
 	return can, nil
 }
 
+// GetCANForSignal looks up the CAN frame that produced a given signal,
+// joining via gr26_can_signal. Returns gorm.ErrRecordNotFound if the
+// signal isn't linked to any frame (e.g., signal predates the trace
+// feature or belongs to a different service).
+func GetCANForSignal(signalID string) (model.CAN, error) {
+	var can model.CAN
+	err := database.DB.
+		Joins("JOIN gr26_can_signal ON gr26_can_signal.can_message_id = gr26_can.id").
+		Where("gr26_can_signal.signal_id = ?", signalID).
+		First(&can).Error
+	if err != nil {
+		return model.CAN{}, err
+	}
+	return can, nil
+}
+
 // GetSignalsForCAN returns every signal currently linked to the given
 // CAN message via the gr26_can_signal join table. The query orders by
 // signal name so the response is stable and easy to scan.

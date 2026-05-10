@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
 
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -51,7 +51,7 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 
 	client := &service.Client{
 		Conn: conn,
-		Send: make(chan model.SignalEvent, 64),
+		Send: make(chan mapache.Signal, 64),
 	}
 
 	service.Hub.Subscribe(vehicleID, signals, client)
@@ -82,7 +82,7 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 	// emit the latest value per name on each tick.
 	ticker := time.NewTicker(time.Second / time.Duration(rate))
 	defer ticker.Stop()
-	pending := make(map[string]model.SignalEvent)
+	pending := make(map[string]mapache.Signal)
 	for {
 		select {
 		case sig, ok := <-client.Send:
@@ -102,7 +102,7 @@ func GetLatestSignalWebSocket(c *gin.Context) {
 					return
 				}
 			}
-			pending = make(map[string]model.SignalEvent)
+			pending = make(map[string]mapache.Signal)
 		}
 	}
 }

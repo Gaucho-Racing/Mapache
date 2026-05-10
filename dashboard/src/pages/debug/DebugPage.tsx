@@ -28,15 +28,13 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 interface SignalState {
+  id?: string;
   name: string;
   value: number;
   rawValue: number;
   producedAtFormatted: string;
   lastSeen: number;
   count: number;
-  // Set when gr26 includes can_message_id in the WS payload. Lets the
-  // row click open the trace dialog for the source CAN frame.
-  canMessageId?: string;
 }
 
 type SortKey = "name" | "value" | "rawValue" | "lastSeen" | "count";
@@ -92,13 +90,13 @@ const WsBridge = memo(function WsBridge({
     totalRef.current += 1;
     const existing = signalsRef.current.get(parsed.name);
     signalsRef.current.set(parsed.name, {
+      id: parsed.id,
       name: parsed.name,
       value: parsed.value,
       rawValue: parsed.raw_value,
       producedAtFormatted: formatTimeWithMillis(new Date(parsed.produced_at)),
       lastSeen: Date.now(),
       count: (existing?.count ?? 0) + 1,
-      canMessageId: parsed.can_message_id,
     });
   }, [lastMessage, signalsRef, totalRef]);
 
@@ -122,7 +120,7 @@ const SignalRowView = memo(
         : ageMs < 5000
           ? "text-yellow-500"
           : "text-red-500";
-    const clickable = s.canMessageId != null;
+    const clickable = s.id != null;
     return (
       <TableRow
         className={clickable ? "cursor-pointer" : ""}
@@ -268,13 +266,13 @@ export default function DebugPage() {
     ReadyState.UNINSTANTIATED,
   );
   const [selected, setSelected] = useState<{
-    canMessageId: string;
+    signalId: string;
     signalName: string;
   } | null>(null);
 
   const onSelect = useCallback((s: SignalState) => {
-    if (!s.canMessageId) return;
-    setSelected({ canMessageId: s.canMessageId, signalName: s.name });
+    if (!s.id) return;
+    setSelected({ signalId: s.id, signalName: s.name });
   }, []);
 
   useEffect(() => {
@@ -423,7 +421,8 @@ export default function DebugPage() {
         />
       </div>
       <MessageTraceDialog
-        canMessageId={selected?.canMessageId ?? null}
+        signalId={selected?.signalId ?? null}
+        vehicleType={vehicleType}
         highlightSignal={selected?.signalName}
         onOpenChange={(open) => {
           if (!open) setSelected(null);

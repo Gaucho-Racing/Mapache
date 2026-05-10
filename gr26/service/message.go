@@ -144,10 +144,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 
 	if config.EnableSignalWS {
 		for _, s := range signals {
-			Hub.Publish(model.SignalEvent{
-				Signal:       s,
-				CANMessageID: can.ID,
-			})
+			Hub.Publish(s)
 		}
 	}
 }

@@ -49,7 +49,11 @@ interface CANMessage {
 }
 
 interface Props {
-  canMessageId: string | null;
+  // signalId is the streamed mapache.Signal id; the endpoint joins to
+  // gr26_can_signal to find the originating frame and returns the same
+  // shape as /gr26/messages/:id.
+  signalId: string | null;
+  vehicleType: string;
   highlightSignal?: string;
   onOpenChange: (open: boolean) => void;
 }
@@ -68,7 +72,8 @@ const FIELD_COLORS = [
 ];
 
 export default function MessageTraceDialog({
-  canMessageId,
+  signalId,
+  vehicleType,
   highlightSignal,
   onOpenChange,
 }: Props) {
@@ -77,7 +82,7 @@ export default function MessageTraceDialog({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!canMessageId) {
+    if (!signalId) {
       setData(null);
       setError(null);
       return;
@@ -86,7 +91,7 @@ export default function MessageTraceDialog({
     setLoading(true);
     setError(null);
     axios
-      .get(`${BACKEND_URL}/gr26/messages/${canMessageId}`, {
+      .get(`${BACKEND_URL}/${vehicleType}/signals/${signalId}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
         },
@@ -107,7 +112,7 @@ export default function MessageTraceDialog({
     return () => {
       cancelled = true;
     };
-  }, [canMessageId]);
+  }, [signalId, vehicleType]);
 
   // Map every byte offset to the field that owns it (if any) so the hex
   // grid can color bytes by field with a single lookup.
@@ -125,7 +130,7 @@ export default function MessageTraceDialog({
   const totalBytes = data ? Math.floor(data.bytes.length / 2) : 0;
 
   return (
-    <Dialog open={canMessageId != null} onOpenChange={onOpenChange}>
+    <Dialog open={signalId != null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>CAN frame trace</DialogTitle>
