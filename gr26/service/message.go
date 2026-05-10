@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
@@ -139,6 +140,15 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 	if err := CreateCANSignals(can.ID, signalIDs); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN-signal links: %s", err)
+	}
+
+	if config.EnableSignalWS {
+		for _, s := range signals {
+			Hub.Publish(model.SignalEvent{
+				Signal:       s,
+				CANMessageID: can.ID,
+			})
+		}
 	}
 }
 

@@ -12,6 +12,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// CreateSignal/CreateSignals are pure DB writes. WebSocket publishing
+// lives in HandleMessage now so the published payload can carry the
+// can_message_id alongside the signal.
+
 func GetSignal(timestamp int, vehicleID string, name string) mapache.Signal {
 	var signal mapache.Signal
 	database.DB.Where("timestamp = ?", timestamp).Where("vehicle_id = ?", vehicleID).Where("name = ?", name).First(&signal)
@@ -29,9 +33,6 @@ func CreateSignal(signal mapache.Signal) error {
 		return fmt.Errorf("signal name cannot be empty")
 	}
 	signal.ID = ulid.Make().Prefixed("sgnl")
-	if config.EnableSignalWS {
-		Hub.Publish(signal)
-	}
 	if config.EnableSignalDB {
 		if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
 			logger.SugarLogger.Infow("[DB] New signal created",
@@ -77,11 +78,6 @@ func CreateSignals(signals []mapache.Signal) error {
 		}, clause.Returning{Columns: []clause.Column{{Name: "id"}}}).Create(&signals)
 		if result.Error != nil {
 			return result.Error
-		}
-	}
-	if config.EnableSignalWS {
-		for _, signal := range signals {
-			Hub.Publish(signal)
 		}
 	}
 	return nil

@@ -1,4 +1,5 @@
 export interface Signal {
+  id?: string;
   timestamp: number;
   vehicle_id: string;
   name: string;
@@ -6,6 +7,9 @@ export interface Signal {
   raw_value: number;
   produced_at: string;
   created_at: string;
+  // Set by gr26's WebSocket; lets the dashboard go from a streamed
+  // signal back to the CAN frame it was decoded from.
+  can_message_id?: string;
 }
 
 export const initSignal: Signal = {

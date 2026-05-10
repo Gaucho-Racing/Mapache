@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import MessageTraceDialog from "@/components/debug/MessageTraceDialog";
 import { BACKEND_WS_URL } from "@/consts/config";
 import { useVehicle, useVehicleList } from "@/lib/store";
 import { Signal } from "@/models/signal";
@@ -33,6 +34,9 @@ interface SignalState {
   producedAtFormatted: string;
   lastSeen: number;
   count: number;
+  // Set when gr26 includes can_message_id in the WS payload. Lets the
+  // row click open the trace dialog for the source CAN frame.
+  canMessageId?: string;
 }
 
 type SortKey = "name" | "value" | "rawValue" | "lastSeen" | "count";
@@ -94,6 +98,7 @@ const WsBridge = memo(function WsBridge({
       producedAtFormatted: formatTimeWithMillis(new Date(parsed.produced_at)),
       lastSeen: Date.now(),
       count: (existing?.count ?? 0) + 1,
+      canMessageId: parsed.can_message_id,
     });
   }, [lastMessage, signalsRef, totalRef]);
 
@@ -101,7 +106,15 @@ const WsBridge = memo(function WsBridge({
 });
 
 const SignalRowView = memo(
-  function SignalRowView({ s, now }: { s: SignalState; now: number }) {
+  function SignalRowView({
+    s,
+    now,
+    onSelect,
+  }: {
+    s: SignalState;
+    now: number;
+    onSelect: (s: SignalState) => void;
+  }) {
     const ageMs = Math.max(0, now - s.lastSeen);
     const ageColor =
       ageMs < 500
@@ -109,8 +122,12 @@ const SignalRowView = memo(
         : ageMs < 5000
           ? "text-yellow-500"
           : "text-red-500";
+    const clickable = s.canMessageId != null;
     return (
-      <TableRow>
+      <TableRow
+        className={clickable ? "cursor-pointer" : ""}
+        onClick={clickable ? () => onSelect(s) : undefined}
+      >
         <TableCell className="font-mono text-xs">{s.name}</TableCell>
         <TableCell className="font-mono">{s.value}</TableCell>
         <TableCell className="font-mono text-muted-foreground">
@@ -136,7 +153,9 @@ const SignalRowView = memo(
   // Skip the row when neither the signal nor the wall clock changed enough
   // to nudge the age column. 100ms is below human perception.
   (prev, next) =>
-    prev.s === next.s && Math.abs(prev.now - next.now) < 100,
+    prev.s === next.s &&
+    Math.abs(prev.now - next.now) < 100 &&
+    prev.onSelect === next.onSelect,
 );
 
 interface DebugTableProps {
@@ -145,6 +164,7 @@ interface DebugTableProps {
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
+  onSelect: (s: SignalState) => void;
   emptyMessage: string;
 }
 
@@ -154,6 +174,7 @@ const DebugTable = memo(function DebugTable({
   sortKey,
   sortDir,
   onSort,
+  onSelect,
   emptyMessage,
 }: DebugTableProps) {
   const SortIcon = ({ k }: { k: SortKey }) => {
@@ -201,7 +222,14 @@ const DebugTable = memo(function DebugTable({
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((s) => <SignalRowView key={s.name} s={s} now={now} />)
+            rows.map((s) => (
+              <SignalRowView
+                key={s.name}
+                s={s}
+                now={now}
+                onSelect={onSelect}
+              />
+            ))
           )}
         </TableBody>
       </Table>
@@ -239,6 +267,15 @@ export default function DebugPage() {
   const [readyState, setReadyState] = useState<ReadyState>(
     ReadyState.UNINSTANTIATED,
   );
+  const [selected, setSelected] = useState<{
+    canMessageId: string;
+    signalName: string;
+  } | null>(null);
+
+  const onSelect = useCallback((s: SignalState) => {
+    if (!s.canMessageId) return;
+    setSelected({ canMessageId: s.canMessageId, signalName: s.name });
+  }, []);
 
   useEffect(() => {
     signalsRef.current = new Map();
@@ -381,9 +418,17 @@ export default function DebugPage() {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={onSort}
+          onSelect={onSelect}
           emptyMessage={emptyMessage}
         />
       </div>
+      <MessageTraceDialog
+        canMessageId={selected?.canMessageId ?? null}
+        highlightSignal={selected?.signalName}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </Layout>
   );
 }
