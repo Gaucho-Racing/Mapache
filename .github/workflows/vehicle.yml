@@ -52,8 +52,17 @@ jobs:
           context: vehicle
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/gaucho-racing/mapache/vehicle,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=build-${{ steps.platform.outputs.pair }}
-          cache-to: type=gha,scope=build-${{ steps.platform.outputs.pair }},mode=max
+          # Per-workflow + per-ref cache scopes. Without github.workflow,
+          # auth/gr26/query/vehicle would all race on `build-<pair>` since
+          # they fire on every push. Without github.ref_name, simultaneous
+          # main+tag pushes from a release commit race on the same scope
+          # and can poison each other's layers (TCM-26 hit this on v1.2.x:
+          # :latest ended up with a 0-byte binary). Tag/feature builds
+          # fall back to main's cache to stay warm.
+          cache-from: |
+            type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-${{ github.ref_name }}
+            type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-main
+          cache-to: type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-${{ github.ref_name }},mode=max
 
       - name: Export digest
         run: |
