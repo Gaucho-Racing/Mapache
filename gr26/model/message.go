@@ -10,7 +10,7 @@ var messageMap = map[int]mp.Message{
 	0x004: ECUStatus2,
 	0x005: ECUStatus3,
 	0x02D: ECUPingingRTT,
-	0x02E: ECUAnalogData,
+	0x490: ECUAnalogData,
 	// BCU
 	0x007: BCUStatus1,
 	0x008: BCUStatus2,
