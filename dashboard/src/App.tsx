@@ -8,6 +8,7 @@ import Gr26EcuDebugWidget from "./components/widgets/gr26/live/EcuDebugWidget";
 import Gr26BcuDebugWidget from "./components/widgets/gr26/live/BcuDebugWidget";
 import Gr26DtiDebugWidget from "./components/widgets/gr26/live/DtiDebugWidget";
 import Gr26InverterDebugWidget from "./components/widgets/gr26/live/InverterDebugWidget";
+import Gr26PedalsWidget from "./components/widgets/gr26/live/PedalsWidget";
 import { TimeProvider } from "./context/time-context";
 import { useVehicle } from "./lib/store";
 
@@ -38,6 +39,7 @@ function DashboardContent() {
             />
             <TcmCpuWidget vehicle_id={vehicle.id} showDeltaBanner />
             <TcmCpuGraphWidget vehicle_id={vehicle.id} showDeltaBanner />
+            <Gr26PedalsWidget vehicle_id={vehicle.id} showDeltaBanner />
             <Gr26EcuDebugWidget vehicle_id={vehicle.id} showDeltaBanner />
             <Gr26BcuDebugWidget vehicle_id={vehicle.id} showDeltaBanner />
             <Gr26DtiDebugWidget vehicle_id={vehicle.id} showDeltaBanner />
