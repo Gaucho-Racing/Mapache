@@ -4,9 +4,11 @@ import {
   BatteryFull,
   Bug,
   CirclePlus,
+  Gauge,
   LucideIcon,
   MapIcon,
 } from "lucide-react";
+import Gr26PedalsWidget from "@/components/widgets/gr26/live/PedalsWidget";
 import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
 import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
 import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
@@ -29,6 +31,20 @@ export const getWidgetRegistry = (vehicle_type: string) => {
     return gr24_registry;
   }
   return {};
+};
+
+export const gr26_registry = {
+  Pedal: [
+    {
+      id: "pedals-full",
+      name: "Pedals",
+      description:
+        "Shows both raw and scaled APPS pedal positions from both position sensors.",
+      component: Gr26PedalsWidget,
+      icon: Gauge,
+      preview: "/widgets/gr24/pedals-full.png",
+    },
+  ],
 };
 
 export const gr24_registry = {

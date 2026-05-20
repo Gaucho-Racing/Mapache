@@ -1,6 +1,6 @@
 import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
-import { gr24_registry } from "@/components/widgets/registry";
+import { gr24_registry, gr26_registry } from "@/components/widgets/registry";
 import { useVehicle } from "@/lib/store";
 import { WidgetEntry } from "@/components/widgets/registry";
 
@@ -10,6 +10,9 @@ function WidgetsPage() {
   const getRegistry = () => {
     if (vehicle.type === "gr24") {
       return gr24_registry;
+    }
+    if (vehicle.type === "gr26") {
+      return gr26_registry;
     }
     return {};
   };
