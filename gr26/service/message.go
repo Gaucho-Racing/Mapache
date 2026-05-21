@@ -2,14 +2,18 @@ package service
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 	mq "github.com/eclipse/paho.mqtt.golang"
 )
@@ -62,34 +66,95 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	uploadKey := message[8:10]
 	data := message[10:]
 
-	if !ValidateUploadKey(vehicleID, int(binary.BigEndian.Uint16(uploadKey))) {
+	uploadKeyInt := int(binary.BigEndian.Uint16(uploadKey))
+	if !ValidateUploadKey(vehicleID, uploadKeyInt) {
 		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
 		return
 	}
 
-	messageStruct := model.GetMessage(canID)
-	if messageStruct == nil {
-		logger.SugarLogger.Infof("Received unknown message id: %d, ignoring", canID)
-		return
-	}
-
-	err := messageStruct.FillFromBytes(data)
-	if err != nil {
-		logger.SugarLogger.Infof("Error deserializing message: %s", err)
-		return
-	}
-
-	signals := messageStruct.ExportSignals()
 	ts := int(binary.BigEndian.Uint64(timestamp))
+	producedAt := time.UnixMicro(int64(ts))
+
+	// Attempt to decode first. If anything goes wrong, capture why in
+	// metadata so a "what bytes did we get that we couldn't parse" view
+	// has the answer alongside the raw frame.
+	var (
+		signals []mapache.Signal
+		meta    []byte
+	)
+	messageStruct := model.GetMessage(canID)
+	switch {
+	case messageStruct == nil:
+		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
+		meta = mustJSON(map[string]any{
+			"status": "unknown_can_id",
+			"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
+		})
+	default:
+		if err := messageStruct.FillFromBytes(data); err != nil {
+			logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
+			meta = mustJSON(map[string]any{
+				"status": "decode_error",
+				"note":   err.Error(),
+			})
+		} else {
+			signals = messageStruct.ExportSignals()
+			meta = mustJSON(map[string]any{"status": "ok"})
+		}
+	}
+
+	can, err := CreateCAN(model.CAN{
+		VehicleID:  vehicleID,
+		NodeID:     nodeID,
+		Timestamp:  ts,
+		CANID:      canID,
+		Bytes:      data,
+		UploadKey:  uploadKeyInt,
+		Metadata:   meta,
+		ProducedAt: producedAt,
+	})
+	if err != nil {
+		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
+		return
+	}
+
+	if len(signals) == 0 {
+		return
+	}
 	now := time.Now().Truncate(time.Microsecond)
 	for i := range signals {
 		signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
 		signals[i].Timestamp = ts
 		signals[i].VehicleID = vehicleID
-		signals[i].ProducedAt = time.UnixMicro(int64(ts))
+		signals[i].ProducedAt = producedAt
 		signals[i].CreatedAt = now
 	}
 	if err := CreateSignals(signals); err != nil {
 		logger.SugarLogger.Infof("Error creating signals: %s", err)
+		return
 	}
+
+	signalIDs := make([]string, len(signals))
+	for i, s := range signals {
+		signalIDs[i] = s.ID
+	}
+	if err := CreateCANSignals(can.ID, signalIDs); err != nil {
+		logger.SugarLogger.Infof("Error creating CAN-signal links: %s", err)
+	}
+
+	if config.EnableSignalWS {
+		for _, s := range signals {
+			Hub.Publish(s)
+		}
+	}
+}
+
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		// json.Marshal on a map of strings/strings can't fail in practice;
+		// fall back to a literal so callers always get a valid jsonb value.
+		return []byte(`{"status":"marshal_error"}`)
+	}
+	return b
 }

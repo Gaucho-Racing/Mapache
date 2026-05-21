@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import MessageTraceDialog from "@/components/debug/MessageTraceDialog";
 import { BACKEND_WS_URL } from "@/consts/config";
 import { useVehicle, useVehicleList } from "@/lib/store";
 import { Signal } from "@/models/signal";
@@ -27,6 +28,7 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 interface SignalState {
+  id?: string;
   name: string;
   value: number;
   rawValue: number;
@@ -88,6 +90,7 @@ const WsBridge = memo(function WsBridge({
     totalRef.current += 1;
     const existing = signalsRef.current.get(parsed.name);
     signalsRef.current.set(parsed.name, {
+      id: parsed.id,
       name: parsed.name,
       value: parsed.value,
       rawValue: parsed.raw_value,
@@ -101,7 +104,15 @@ const WsBridge = memo(function WsBridge({
 });
 
 const SignalRowView = memo(
-  function SignalRowView({ s, now }: { s: SignalState; now: number }) {
+  function SignalRowView({
+    s,
+    now,
+    onSelect,
+  }: {
+    s: SignalState;
+    now: number;
+    onSelect: (s: SignalState) => void;
+  }) {
     const ageMs = Math.max(0, now - s.lastSeen);
     const ageColor =
       ageMs < 500
@@ -109,8 +120,12 @@ const SignalRowView = memo(
         : ageMs < 5000
           ? "text-yellow-500"
           : "text-red-500";
+    const clickable = s.id != null;
     return (
-      <TableRow>
+      <TableRow
+        className={clickable ? "cursor-pointer" : ""}
+        onClick={clickable ? () => onSelect(s) : undefined}
+      >
         <TableCell className="font-mono text-xs">{s.name}</TableCell>
         <TableCell className="font-mono">{s.value}</TableCell>
         <TableCell className="font-mono text-muted-foreground">
@@ -136,7 +151,9 @@ const SignalRowView = memo(
   // Skip the row when neither the signal nor the wall clock changed enough
   // to nudge the age column. 100ms is below human perception.
   (prev, next) =>
-    prev.s === next.s && Math.abs(prev.now - next.now) < 100,
+    prev.s === next.s &&
+    Math.abs(prev.now - next.now) < 100 &&
+    prev.onSelect === next.onSelect,
 );
 
 interface DebugTableProps {
@@ -145,6 +162,7 @@ interface DebugTableProps {
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
+  onSelect: (s: SignalState) => void;
   emptyMessage: string;
 }
 
@@ -154,6 +172,7 @@ const DebugTable = memo(function DebugTable({
   sortKey,
   sortDir,
   onSort,
+  onSelect,
   emptyMessage,
 }: DebugTableProps) {
   const SortIcon = ({ k }: { k: SortKey }) => {
@@ -201,7 +220,14 @@ const DebugTable = memo(function DebugTable({
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((s) => <SignalRowView key={s.name} s={s} now={now} />)
+            rows.map((s) => (
+              <SignalRowView
+                key={s.name}
+                s={s}
+                now={now}
+                onSelect={onSelect}
+              />
+            ))
           )}
         </TableBody>
       </Table>
@@ -239,6 +265,15 @@ export default function DebugPage() {
   const [readyState, setReadyState] = useState<ReadyState>(
     ReadyState.UNINSTANTIATED,
   );
+  const [selected, setSelected] = useState<{
+    signalId: string;
+    signalName: string;
+  } | null>(null);
+
+  const onSelect = useCallback((s: SignalState) => {
+    if (!s.id) return;
+    setSelected({ signalId: s.id, signalName: s.name });
+  }, []);
 
   useEffect(() => {
     signalsRef.current = new Map();
@@ -356,13 +391,13 @@ export default function DebugPage() {
               <span className="text-xs">({vehicleType})</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Distinct signals:{" "}
+              Distinct Signals:{" "}
               <span className="font-medium text-foreground">
                 {distinctCount}
               </span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Messages received:{" "}
+              Messages Received:{" "}
               <span className="font-medium text-foreground">{totalCount}</span>
             </div>
             <div className="ml-auto w-full max-w-xs">
@@ -381,9 +416,18 @@ export default function DebugPage() {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={onSort}
+          onSelect={onSelect}
           emptyMessage={emptyMessage}
         />
       </div>
+      <MessageTraceDialog
+        signalId={selected?.signalId ?? null}
+        vehicleType={vehicleType}
+        highlightSignal={selected?.signalName}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </Layout>
   );
 }

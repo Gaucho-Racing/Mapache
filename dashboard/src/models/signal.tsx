@@ -1,4 +1,5 @@
 export interface Signal {
+  id?: string;
   timestamp: number;
   vehicle_id: string;
   name: string;
