@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
 	"github.com/gaucho-racing/mapache/gr26/model"
 
@@ -57,6 +58,9 @@ func GetSignalsForCAN(canMessageID string) ([]mapache.Signal, error) {
 // update the payload columns and leave the id stable.
 func CreateCAN(can model.CAN) (model.CAN, error) {
 	can.ID = ulid.Make().Prefixed("can")
+	if !config.EnableSignalDB {
+		return can, nil
+	}
 	result := database.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "vehicle_id"},
@@ -75,7 +79,7 @@ func CreateCAN(can model.CAN) (model.CAN, error) {
 // from. Conflicts on signal_id update the can_message_id so the link
 // always points at the most recent frame that produced the signal.
 func CreateCANSignals(canMessageID string, signalIDs []string) error {
-	if len(signalIDs) == 0 {
+	if !config.EnableSignalDB || len(signalIDs) == 0 {
 		return nil
 	}
 	rows := make([]model.CANSignal, len(signalIDs))
