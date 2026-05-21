@@ -9,7 +9,6 @@ import { BACKEND_URL } from "@/consts/config";
 import axios from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
-import { formatTimeWithMillis } from "@/lib/utils";
 
 interface CANField {
   name: string;
@@ -61,15 +60,33 @@ interface Props {
 // Tailwind palette cycled per field so adjacent fields are visually
 // distinct. Numerals are arbitrary; just need enough variety.
 const FIELD_COLORS = [
-  "bg-pink-500/30 text-pink-200",
-  "bg-purple-500/30 text-purple-200",
-  "bg-cyan-500/30 text-cyan-200",
-  "bg-amber-500/30 text-amber-200",
-  "bg-emerald-500/30 text-emerald-200",
-  "bg-blue-500/30 text-blue-200",
-  "bg-rose-500/30 text-rose-200",
-  "bg-lime-500/30 text-lime-200",
+  "bg-pink-500 text-white",
+  "bg-purple-500 text-white",
+  "bg-cyan-500 text-black",
+  "bg-amber-400 text-black",
+  "bg-emerald-500 text-black",
+  "bg-blue-500 text-white",
+  "bg-rose-500 text-white",
+  "bg-lime-400 text-black",
 ];
+
+// Full local datetime with millisecond precision: "5/21/2026, 1:20:10.454 AM"
+function formatFullLocal(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString();
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const ms = d.getMilliseconds().toString().padStart(3, "0");
+  return `${date}, ${time.replace(/(\d+:\d+:\d+)/, `$1.${ms}`)}`;
+}
+
+function formatLatency(ms: number): string {
+  if (Math.abs(ms) < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
 
 export default function MessageTraceDialog({
   signalId,
@@ -136,7 +153,7 @@ export default function MessageTraceDialog({
     <Dialog open={signalId != null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>CAN frame trace</DialogTitle>
+          <DialogTitle>CAN Frame Trace</DialogTitle>
         </DialogHeader>
 
         {loading && (
@@ -172,7 +189,15 @@ export default function MessageTraceDialog({
                 <Row label="Bytes" value={`${totalBytes}`} mono />
                 <Row
                   label="Produced at"
-                  value={formatTimeWithMillis(new Date(data.produced_at))}
+                  value={formatFullLocal(data.produced_at)}
+                  mono
+                />
+                <Row
+                  label="Ingest latency"
+                  value={formatLatency(
+                    new Date(data.created_at).getTime() -
+                      new Date(data.produced_at).getTime(),
+                  )}
                   mono
                 />
                 <Row label="Upload key" value={String(data.upload_key)} mono />
@@ -280,10 +305,17 @@ export default function MessageTraceDialog({
                       return (
                         <div
                           key={s.id}
-                          className={`flex items-center justify-between p-3 text-xs ${isHighlight ? "bg-pink-500/10" : ""}`}
+                          className={`flex items-center justify-between gap-4 p-3 text-xs ${isHighlight ? "bg-pink-500/20" : ""}`}
                         >
-                          <span className="font-mono">{s.name}</span>
-                          <span className="font-mono text-muted-foreground">
+                          <div className="flex min-w-0 flex-col">
+                            <span className="font-mono font-medium">
+                              {s.name}
+                            </span>
+                            <span className="truncate font-mono text-[10px] text-muted-foreground">
+                              {s.id}
+                            </span>
+                          </div>
+                          <span className="whitespace-nowrap font-mono text-muted-foreground">
                             {s.value} · raw {s.raw_value}
                           </span>
                         </div>
