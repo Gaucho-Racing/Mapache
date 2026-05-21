@@ -391,13 +391,13 @@ export default function DebugPage() {
               <span className="text-xs">({vehicleType})</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Distinct signals:{" "}
+              Distinct Signals:{" "}
               <span className="font-medium text-foreground">
                 {distinctCount}
               </span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Messages received:{" "}
+              Messages Received:{" "}
               <span className="font-medium text-foreground">{totalCount}</span>
             </div>
             <div className="ml-auto w-full max-w-xs">

@@ -188,19 +188,19 @@ export default function MessageTraceDialog({
                 />
                 <Row label="Bytes" value={`${totalBytes}`} mono />
                 <Row
-                  label="Produced at"
+                  label="Produced At"
                   value={formatFullLocal(data.produced_at)}
                   mono
                 />
                 <Row
-                  label="Ingest latency"
+                  label="Ingest Latency"
                   value={formatLatency(
                     new Date(data.created_at).getTime() -
                       new Date(data.produced_at).getTime(),
                   )}
                   mono
                 />
-                <Row label="Upload key" value={String(data.upload_key)} mono />
+                <Row label="Upload Key" value={String(data.upload_key)} mono />
               </div>
               {data.metadata?.note && (
                 <div className="mt-2 rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">
@@ -291,7 +291,7 @@ export default function MessageTraceDialog({
 
             <div>
               <div className="mb-1 text-xs font-medium text-muted-foreground">
-                Signals from this frame
+                Signals From This Frame
               </div>
               <Card className="overflow-hidden p-0">
                 {data.signals.length === 0 ? (
