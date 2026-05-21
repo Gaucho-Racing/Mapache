@@ -10,4 +10,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    // chokidar's inotify-based watcher misses host edits over Docker's
+    // bind mounts on macOS/Windows; poll instead so HMR picks up file
+    // changes reliably.
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
+  },
 });
