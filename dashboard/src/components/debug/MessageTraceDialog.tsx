@@ -98,7 +98,10 @@ export default function MessageTraceDialog({
       })
       .then((res) => {
         if (cancelled) return;
-        setData(res.data as CANMessage);
+        // kerbecs wraps every service response in
+        // { status, ping, ..., data: <actual payload> }, so the CAN
+        // message lives one level deep.
+        setData(res.data.data as CANMessage);
       })
       .catch((err) => {
         if (cancelled) return;
