@@ -84,55 +84,70 @@ var ECUStatus3 = mp.Message{
 			{Name: "rr_wheel_rpm", Value: float64(f.Value)*0.1 - 3276.8, RawValue: f.Value},
 		}
 	}),
-	mp.NewField("relay_states", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
-		return []mp.Signal{
-			{Name: "relay_states", Value: float64(f.Value), RawValue: f.Value},
-		}
-	}),
 }
 
 var ECUAnalogData = mp.Message{
 	mp.NewField("bspd_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "bspd_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "bspd_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("bse_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "bse_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "bse_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("apps1_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "apps1_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "apps1_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("apps2_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "apps2_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "apps2_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("brakeline_f_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "brakeline_f_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "brakeline_f_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("brakeline_r_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "brakeline_r_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "brakeline_r_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("steering_angle_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "steering_angle_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "steering_angle_signal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("aux_signal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "aux_signal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
+			{Name: "aux_signal", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("acc_pedal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "acc_pedal", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("brake_pedal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "brake_pedal", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 }
+
+var DTIDriveEnable = func() mp.Message {
+	return mp.Message{
+		mp.NewField("drive_enable", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+			return []mp.Signal{
+				{Name: "drive_enable", Value: float64(f.Value), RawValue: f.Value},
+			}
+		}),
+	}
+}()
 
 var ECUPingingRTT = func() mp.Message {
 	nodes := []string{
