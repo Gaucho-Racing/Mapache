@@ -18,7 +18,7 @@ func main() {
 
 	config.Verify()
 	config.PrintStartupBanner()
-	// rincon.Init(&config.Service, &config.Routes)
+	rincon.Init(&config.Service, &config.Routes)
 	database.Init()
 	mqtt.Init()
 	service.SubscribeTopics()
