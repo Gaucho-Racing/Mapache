@@ -11,6 +11,7 @@ var messageMap = map[int]mp.Message{
 	0x005: ECUStatus3,
 	0x02D: ECUPingingRTT,
 	0x02E: ECUAnalogData,
+	0xC16: DTIDriveEnable,
 	// BCU
 	0x007: BCUStatus1,
 	0x008: BCUStatus2,
