@@ -8,7 +8,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
-	// "github.com/gaucho-racing/mapache/gr26/pkg/rincon"
+	"github.com/gaucho-racing/mapache/gr26/pkg/rincon"
 	"github.com/gaucho-racing/mapache/gr26/service"
 )
 
