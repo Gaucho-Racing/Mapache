@@ -32,7 +32,7 @@ export const WidgetPickerDialog = ({
       setAvailableWidgets(registry);
       const initialOpen: Record<string, boolean> = {};
       Object.keys(registry).forEach((key) => {
-        initialOpen[key] = true;
+        initialOpen[key] = false;
       });
       setOpenSections(initialOpen);
     }

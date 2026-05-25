@@ -6,6 +6,7 @@ import {
   Bug,
   CirclePlus,
   Cpu,
+  Crosshair,
   Gauge,
   LucideIcon,
   MapIcon,
@@ -17,6 +18,10 @@ import Gr26EcuDebugWidget from "@/components/widgets/gr26/live/EcuDebugWidget";
 import Gr26BcuDebugWidget from "@/components/widgets/gr26/live/BcuDebugWidget";
 import Gr26DtiDebugWidget from "@/components/widgets/gr26/live/DtiDebugWidget";
 import Gr26InverterDebugWidget from "@/components/widgets/gr26/live/InverterDebugWidget";
+import DgpsDebugWidget from "@/components/widgets/gr26/live/DgpsDebugWidget";
+import DgpsVelocityWidget from "@/components/widgets/gr26/live/DgpsVelocityWidget";
+import DgpsAccelWidget from "@/components/widgets/gr26/live/DgpsAccelWidget";
+import DgpsPositionWidget from "@/components/widgets/gr26/live/DgpsPositionWidget";
 import BmsCellWidget from "@/components/widgets/gr26/live/AcuCellWidget";
 import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
 import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
@@ -173,6 +178,46 @@ export const gr26_registry = {
       icon: Zap,
       span: 12,
       preview: "/widgets/gr26/inverter-debug.png",
+    },
+  ],
+  DGPS: [
+    {
+      id: "dgps-velocity",
+      name: "DGPS Velocity",
+      description:
+        "Line chart of U, V, W velocity components over the last 10 seconds.",
+      component: DgpsVelocityWidget,
+      icon: Gauge,
+      span: 6,
+      preview: "/widgets/gr26/dgps-velocity.png",
+    },
+    {
+      id: "dgps-acceleration",
+      name: "DGPS Acceleration",
+      description:
+        "Visual 2D accelerometer plot for X/Y acceleration with Z readout.",
+      component: DgpsAccelWidget,
+      icon: Activity,
+      span: 4,
+      preview: "/widgets/gr26/dgps-acceleration.png",
+    },
+    {
+      id: "dgps-position",
+      name: "DGPS Position",
+      description: "Mapbox map showing live GPS position with DGPS fix status.",
+      component: DgpsPositionWidget,
+      icon: Crosshair,
+      span: 6,
+      preview: "/widgets/gr26/dgps-position.png",
+    },
+    {
+      id: "dgps-debug",
+      name: "DGPS Debug",
+      description: "Shows all raw data from the DGPS node.",
+      component: DgpsDebugWidget,
+      icon: Bug,
+      span: 12,
+      preview: "/widgets/gr26/dgps-debug.png",
     },
   ],
 };
