@@ -36,7 +36,7 @@ export default function InverterDebugWidget({
       showDeltaBanner={showDeltaBanner}
       alwaysShowData={true}
       width={1000}
-      height={360}
+      height={250}
     >
       {(_, currentSignals) => (
         <div className="h-full w-full p-4">

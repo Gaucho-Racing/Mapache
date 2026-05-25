@@ -11,13 +11,14 @@ import { Toaster } from "./components/ui/sonner.tsx";
 import App from "./App.tsx";
 import LoginPage from "@/pages/auth/LoginPage.tsx";
 import QueryPage from "@/pages/query/QueryPage.tsx";
-import WidgetsPage from "@/pages/widgets/WidgetsPage.tsx";
-import ChatPage from "@/pages/chat/ChatPage.tsx";
+
 import SettingsPage from "@/pages/settings/SettingsPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
 import DebugPage from "@/pages/debug/DebugPage.tsx";
+import { useRoseMode } from "@/lib/store";
+import { useEffect } from "react";
 
 const router = createBrowserRouter([
   {
@@ -33,16 +34,8 @@ const router = createBrowserRouter([
     element: <App />,
   },
   {
-    path: "/widgets",
-    element: <WidgetsPage />,
-  },
-  {
     path: "/query",
     element: <QueryPage />,
-  },
-  {
-    path: "/chat",
-    element: <ChatPage />,
   },
   {
     path: "/settings",
@@ -68,7 +61,16 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
+    <RoseModeBodyClass />
     <RouterProvider router={router} />
     <Toaster />
   </React.StrictMode>,
 );
+
+function RoseModeBodyClass() {
+  const roseMode = useRoseMode();
+  useEffect(() => {
+    document.body.classList.toggle("rose-mode", roseMode);
+  }, [roseMode]);
+  return null;
+}

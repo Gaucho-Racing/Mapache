@@ -93,23 +93,15 @@
 
 @keyframes slideIn {
   from {
-    /* transform: translateX(12px); */
-    /* opacity: 0; */
   }
   to {
-    /* transform: translateX(0); */
-    /* opacity: 1; */
   }
 }
 
 @keyframes slideOut {
   from {
-    /* transform: translateX(0); */
-    /* opacity: 1; */
   }
   to {
-    /* transform: translateX(12px); */
-    /* opacity: 0; */
   }
 }
 
@@ -122,4 +114,106 @@
   transform: translateX(-100%);
   width: 0;
   transition: all 0.3s ease;
+}
+
+/* Dashboard grid: 12-column layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+}
+
+/* Each grid item is positioned via inline gridColumn style.
+   contain: inline-size isolates the widget size from the grid cell,
+   so the grid determines the cell size and the widget fills it. */
+.dashboard-grid-item {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  contain: inline-size;
+}
+
+/* The Card from LiveWidget has an inline width. Override it to match
+   the grid cell so the widget stretches properly. */
+.dashboard-grid-item > *:not(button):not(.bms-widget) {
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* ── Wilted rose background pattern ─────────────────────────────── */
+
+/* Reusable rose background image (no background-color so it can be
+   layered on top of whatever color is underneath). */
+.rose-pattern {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ctext x='40' y='48' text-anchor='middle' font-size='28' transform='rotate(45 40 40)' opacity='0.26' fill='%23e8d5c4'%3E%F0%9F%A5%80%3C/text%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ctext x='40' y='46' text-anchor='middle' font-size='24' opacity='0.2' fill='%23d4b896'%3E%F0%9F%A5%80%3C/text%3E%3C/svg%3E");
+  background-size:
+    80px 80px,
+    80px 80px;
+  background-position:
+    0 0,
+    40px 40px;
+  background-repeat: repeat;
+}
+
+/* Body: rose pattern on top of the standard dark background. */
+.rose-mode {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ctext x='40' y='48' text-anchor='middle' font-size='28' transform='rotate(45 40 40)' opacity='0.26' fill='%23e8d5c4'%3E%F0%9F%A5%80%3C/text%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ctext x='40' y='46' text-anchor='middle' font-size='24' opacity='0.2' fill='%23d4b896'%3E%F0%9F%A5%80%3C/text%3E%3C/svg%3E");
+  background-size:
+    80px 80px,
+    80px 80px;
+  background-position:
+    0 0,
+    40px 40px;
+  background-repeat: repeat;
+}
+
+/*
+ * Two-background approach:
+ *   .bg-rose-clear  → transparent background (rose pattern shows through)
+ *   .bg-rose-solid  → solid dark background (blocks roses, for readability)
+ *
+ * In rose-mode, any element with .bg-rose-clear becomes transparent so
+ * the parent's rose pattern is visible behind it.  Elements that need
+ * to stay readable (cards, buttons, inputs) keep their normal solid
+ * backgrounds — those are the "not clear" elements. */
+
+/* "Clear" utility – makes the background transparent so the rose
+   pattern from an ancestor shines through. */
+.rose-mode .bg-rose-clear {
+  background-color: transparent !important;
+}
+
+/* "Solid" utility – forces a solid dark background that blocks the
+   rose pattern. Use on interactive surfaces that must stay readable.
+   The .dashboard-grid-item version has equal specificity to the automatic
+   transparency rule above, and appears later in the stylesheet so it wins. */
+.rose-mode .dashboard-grid-item .bg-rose-solid,
+.rose-mode .bg-rose-solid {
+  background-color: hsl(var(--background)) !important;
+}
+
+/* ── Automatic rose-mode transparency for key UI layers ──────────── */
+
+/* Keep the nav transparent so roses show behind the sidebar */
+.rose-mode nav.bg-background {
+  background-color: transparent !important;
+}
+
+/* Dialog overlay: 25% opacity so it dims the background slightly
+   without fully hiding the roses behind it */
+.rose-mode [data-radix-dialog-overlay] {
+  background-color: transparent !important;
+}
+
+/* Dialog content area: transparent so the rose pattern appears inside
+   the dialog itself. Inner cards / buttons still have their own solid
+   backgrounds so they stay readable. Drop the shadow too, since it
+   creates a "blur" edge on the patterned background. */
+.rose-mode [data-radix-dialog-content] {
+  background-color: transparent !important;
+  box-shadow: none !important;
 }

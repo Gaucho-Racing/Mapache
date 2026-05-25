@@ -11,11 +11,9 @@ import {
   Bug,
   CarFront,
   ChevronsUpDown,
-  Gauge,
   LayoutDashboard,
   LucideIcon,
   MapPinned,
-  MessageSquareText,
   SearchCode,
   Settings,
 } from "lucide-react";
@@ -106,9 +104,7 @@ function SidebarItem({
         } h-10 p-1 hover:bg-card`}
       >
         <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
-          <Icon
-            className={isSelected ? "text-white" : "text-neutral-400"}
-          />
+          <Icon className={isSelected ? "text-white" : "text-neutral-400"} />
         </div>
         <div
           className={`overflow-hidden whitespace-nowrap font-semibold ${isSelected ? "text-white" : "text-neutral-400"} ${isSidebarExpanded ? "slide-in" : "slide-out"}`}
@@ -181,10 +177,7 @@ function VehicleSwitcher({
             }}
           >
             <div className="flex h-10 w-full items-center gap-4 rounded-lg p-1">
-              <VehicleClassIcon
-                vehicleClass={vehicle.type}
-                iconType="pixel"
-              />
+              <VehicleClassIcon vehicleClass={vehicle.type} iconType="pixel" />
               <div className="flex flex-col items-start justify-center">
                 <div className="text-sm font-semibold">{vehicle.name}</div>
                 <div className="text-xs text-neutral-400">
@@ -259,24 +252,10 @@ const Sidebar = (props: SidebarProps) => {
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={Gauge}
-            text="Widgets"
-            link={`/widgets?vid=${currentVehicle.id}`}
-            isSelected={props.selectedPage === "widgets"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
             icon={SearchCode}
             text="Query"
             link={`/query?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "query"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={MessageSquareText}
-            text="Chat"
-            link={`/chat?vid=${currentVehicle.id}`}
-            isSelected={props.selectedPage === "chat"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
