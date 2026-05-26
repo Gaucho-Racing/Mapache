@@ -81,7 +81,6 @@ function DgpsMap({ lat, lon }: { lat: number; lon: number }) {
 
 export default function DgpsPositionWidget({
   vehicle_id,
-  showDeltaBanner = false,
 }: DgpsPositionWidgetProps) {
   return (
     <LiveWidget

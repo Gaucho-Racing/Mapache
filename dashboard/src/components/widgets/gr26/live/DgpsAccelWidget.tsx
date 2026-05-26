@@ -1,5 +1,4 @@
 import LiveWidget from "@/components/widgets/LiveWidget";
-import { Signal } from "@/models/signal";
 import { useRef } from "react";
 
 interface DgpsAccelWidgetProps {
