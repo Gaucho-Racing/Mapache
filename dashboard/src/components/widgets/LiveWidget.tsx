@@ -17,6 +17,7 @@ interface LiveWidgetProps {
   alwaysShowData?: boolean;
   width?: number;
   height?: number;
+  className?: string;
   children: (
     data: Map<string, Signal[]>,
     currentSignals: Map<string, Signal>,
@@ -33,6 +34,7 @@ export default function LiveWidget({
   alwaysShowData = false,
   width = 350,
   height = 220,
+  className,
   children,
 }: LiveWidgetProps) {
   const [socketUrl, setSocketUrl] = useState(`${BACKEND_WS_URL}/gr25/live`);
@@ -155,7 +157,10 @@ export default function LiveWidget({
   };
 
   return (
-    <Card style={{ width, height }} className="relative flex-shrink-0">
+    <Card
+      style={{ width, height }}
+      className={`relative flex-shrink-0 ${className ?? ""}`}
+    >
       {readyState === ReadyState.CLOSED ? (
         <FailureCard />
       ) : readyState === ReadyState.OPEN ? (

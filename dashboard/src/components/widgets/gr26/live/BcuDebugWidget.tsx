@@ -38,7 +38,7 @@ export default function BcuDebugWidget({
       showDeltaBanner={showDeltaBanner}
       alwaysShowData={true}
       width={1000}
-      height={400}
+      height={260}
     >
       {(_, currentSignals) => (
         <div className="h-full w-full p-4">

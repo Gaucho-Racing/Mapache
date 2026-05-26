@@ -10,19 +10,20 @@ import {
 import { GR_COLORS } from "@/consts/config";
 import { Signal } from "@/models/signal";
 
-interface PedalsWidgetProps {
+interface DgpsVelocityWidgetProps {
   vehicle_id: string;
   showDeltaBanner?: boolean;
 }
 
-const APPS1_COLOR = GR_COLORS.PINK;
-const APPS2_COLOR = GR_COLORS.PURPLE;
+const U_COLOR = GR_COLORS.PINK;
+const V_COLOR = GR_COLORS.PURPLE;
+const W_COLOR = "#22d3ee";
 
-export default function PedalsWidget({
+export default function DgpsVelocityWidget({
   vehicle_id,
   showDeltaBanner = false,
-}: PedalsWidgetProps) {
-  const signals = ["ecu_apps1_signal", "ecu_apps2_signal"];
+}: DgpsVelocityWidgetProps) {
+  const signals = ["dgps_dgps_u", "dgps_dgps_v", "dgps_dgps_w"];
 
   return (
     <LiveWidget
@@ -39,31 +40,29 @@ export default function PedalsWidget({
         const TEN_SECONDS_MS = 10_000;
         const cutoff = now - TEN_SECONDS_MS;
 
-        // Collect all timestamps from both signals, filtered to last 10 seconds
-        const allTimestamps = new Set<number>();
-        const apps1Data = data.get("ecu_apps1_signal") || [];
-        const apps2Data = data.get("ecu_apps2_signal") || [];
+        const uData = data.get("dgps_dgps_u") || [];
+        const vData = data.get("dgps_dgps_v") || [];
+        const wData = data.get("dgps_dgps_w") || [];
 
-        apps1Data.forEach((point) => {
-          const t = new Date(point.produced_at).getTime();
-          if (t >= cutoff) allTimestamps.add(t);
-        });
-        apps2Data.forEach((point) => {
-          const t = new Date(point.produced_at).getTime();
-          if (t >= cutoff) allTimestamps.add(t);
-        });
+        const allTimestamps = new Set<number>();
+        const addTimes = (arr: Signal[]) =>
+          arr.forEach((p) => {
+            const t = new Date(p.produced_at).getTime();
+            if (t >= cutoff) allTimestamps.add(t);
+          });
+        addTimes(uData);
+        addTimes(vData);
+        addTimes(wData);
 
         const sortedTimestamps = Array.from(allTimestamps).sort(
           (a, b) => a - b,
         );
 
-        // Use the most recent timestamp as "now" (0s reference)
         const nowRef =
           sortedTimestamps.length > 0
             ? sortedTimestamps[sortedTimestamps.length - 1]
             : Date.now();
 
-        // Build chart data points with relative time (seconds before now)
         const chartData = sortedTimestamps.map((timestamp) => {
           const dataPoint: Record<string, number | string> = {
             time: (timestamp - nowRef) / 1000,
@@ -78,41 +77,40 @@ export default function PedalsWidget({
                 Math.abs(closestTime - timestamp)
                 ? current
                 : closest;
-            }).raw_value;
+            }).value;
           };
 
-          dataPoint["APPS 1"] = findClosest(apps1Data);
-          dataPoint["APPS 2"] = findClosest(apps2Data);
+          dataPoint["U"] = findClosest(uData);
+          dataPoint["V"] = findClosest(vData);
+          dataPoint["W"] = findClosest(wData);
 
           return dataPoint;
         });
 
+        const allValues = chartData.flatMap((d) => [
+          d.U as number,
+          d.V as number,
+          d.W as number,
+        ]);
+        const maxAbs = Math.max(Math.max(...allValues.map(Math.abs)), 5);
+        const yDomain = [-maxAbs * 1.15, maxAbs * 1.15];
+
         return (
           <div className="h-full w-full p-4">
-            <h1 className="mb-2 text-2xl font-bold">Pedals</h1>
+            <h1 className="mb-2 text-2xl font-bold">DGPS Velocity</h1>
             <div className="h-[calc(100%-3rem)]">
               <ChartContainer
                 className="!aspect-auto h-full w-full"
                 config={{
                   time: { label: "Time" },
-                  "APPS 1": {
-                    color: APPS1_COLOR,
-                    label: "APPS 1",
-                  },
-                  "APPS 2": {
-                    color: APPS2_COLOR,
-                    label: "APPS 2",
-                  },
+                  U: { color: U_COLOR, label: "U" },
+                  V: { color: V_COLOR, label: "V" },
+                  W: { color: W_COLOR, label: "W" },
                 }}
               >
                 <LineChart
                   data={chartData}
-                  margin={{
-                    top: 10,
-                    right: 30,
-                    left: 20,
-                    bottom: 20,
-                  }}
+                  margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
@@ -126,17 +124,16 @@ export default function PedalsWidget({
                     ticks={[-10, -8, -6, -4, -2, 0]}
                   />
                   <YAxis
-                    domain={[0, 4096]}
-                    tickFormatter={(value) => `${value}`}
+                    domain={yDomain}
+                    tickFormatter={(value) => `${value.toFixed(1)}`}
                     width={50}
                   />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
                         labelFormatter={(value: unknown) => {
-                          if (typeof value === "number") {
+                          if (typeof value === "number")
                             return `${value.toFixed(1)}s`;
-                          }
                           return String(value);
                         }}
                       />
@@ -145,9 +142,8 @@ export default function PedalsWidget({
                   <ChartLegend content={<ChartLegendContent />} />
                   <Line
                     type="monotone"
-                    dataKey="APPS 1"
-                    name="APPS 1"
-                    stroke={APPS1_COLOR}
+                    dataKey="U"
+                    stroke={U_COLOR}
                     strokeWidth={2}
                     animateNewValues={false}
                     isAnimationActive={false}
@@ -155,9 +151,17 @@ export default function PedalsWidget({
                   />
                   <Line
                     type="monotone"
-                    dataKey="APPS 2"
-                    name="APPS 2"
-                    stroke={APPS2_COLOR}
+                    dataKey="V"
+                    stroke={V_COLOR}
+                    strokeWidth={2}
+                    animateNewValues={false}
+                    isAnimationActive={false}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="W"
+                    stroke={W_COLOR}
                     strokeWidth={2}
                     animateNewValues={false}
                     isAnimationActive={false}

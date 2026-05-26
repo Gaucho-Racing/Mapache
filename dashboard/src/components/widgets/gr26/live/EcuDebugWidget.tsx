@@ -43,7 +43,7 @@ export default function EcuDebugWidget({
       showDeltaBanner={showDeltaBanner}
       alwaysShowData={true}
       width={1000}
-      height={460}
+      height={300}
     >
       {(_, currentSignals) => (
         <div className="h-full w-full p-4">
