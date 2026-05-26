@@ -8,7 +8,7 @@ import (
 
 var Service rincon.Service = rincon.Service{
 	Name:        "GR26",
-	Version:     "3.0.9",
+	Version:     "3.1.0",
 	Endpoint:    os.Getenv("SERVICE_ENDPOINT"),
 	HealthCheck: os.Getenv("SERVICE_HEALTH_CHECK"),
 }
