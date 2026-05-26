@@ -43,7 +43,7 @@ var GPSAltitude = mp.Message{
 	mp.NewField("gps_status", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
-			Name:     "gps_altitude",
+			Name:     "gps_status",
 			Value:    float64(f.Value),
 			RawValue: f.Value,
 		})
