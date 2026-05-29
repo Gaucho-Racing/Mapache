@@ -16,6 +16,7 @@ import {
   MapPinned,
   SearchCode,
   Settings,
+  Timer,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -273,6 +274,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Trips"
             link={`/trips?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "trips"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={Timer}
+            text="Lapache"
+            link={`/lapache?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "lapache"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem

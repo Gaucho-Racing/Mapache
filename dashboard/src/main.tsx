@@ -17,6 +17,7 @@ import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
 import DebugPage from "@/pages/debug/DebugPage.tsx";
+import LapachePage from "@/pages/lapache/LapachePage.tsx";
 import { useRoseMode } from "@/lib/store";
 import { useEffect } from "react";
 
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
   {
     path: "/debug",
     element: <DebugPage />,
+  },
+  {
+    path: "/lapache",
+    element: <LapachePage />,
   },
 ]);
 
