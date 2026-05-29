@@ -1,4 +1,4 @@
-import { DataCluster, Session } from "@/models/lapache";
+import { DataCluster, Session, hasAnalysis } from "@/models/lapache";
 
 export interface LoadTarget {
   startTime: string;
@@ -72,7 +72,7 @@ export default function SessionSidebar({
             >
               <div className="flex items-center justify-between">
                 <span className="truncate">{s.name || s.id}</span>
-                {s.analysis && <span className="text-xs">✓</span>}
+                {hasAnalysis(s.analysis) && <span className="text-xs">✓</span>}
               </div>
               <div className="text-xs opacity-70">
                 {fmtRange(s.start_time, s.end_time)}

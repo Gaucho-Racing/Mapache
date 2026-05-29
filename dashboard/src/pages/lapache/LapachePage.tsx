@@ -14,6 +14,7 @@ import {
   NormMode,
   Point,
   Session,
+  hasAnalysis,
 } from "@/models/lapache";
 import { SegmentManager } from "@/lib/lapache/segments";
 import { normalizeCoordinates } from "@/lib/lapache/geo";
@@ -107,8 +108,8 @@ function LapachePage() {
     segMgrRef.current = new SegmentManager();
     setActiveSeg(1);
 
-    const analysis = target.session?.analysis ?? null;
-    if (analysis) {
+    const analysis = target.session?.analysis;
+    if (hasAnalysis(analysis)) {
       setLatField(analysis.lat_field || "");
       setLonField(analysis.lon_field || "");
       setNormMode((analysis.norm_mode as NormMode) || NormMode.WGS84);

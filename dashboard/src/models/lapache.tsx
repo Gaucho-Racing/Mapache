@@ -75,5 +75,16 @@ export interface Session {
   description: string;
   start_time: string;
   end_time: string;
-  analysis: AnalysisPayload | null;
+  // The backend defaults this to an empty object ({}) for un-analyzed
+  // sessions, not null. Use hasAnalysis() to tell the two apart.
+  analysis: AnalysisPayload | Record<string, never> | null;
+}
+
+// True only when a session carries a real, populated analysis result.
+// An un-analyzed session comes back as {} (a truthy empty object), so a
+// plain truthiness check is not enough — key off a required field.
+export function hasAnalysis(
+  analysis: Session["analysis"] | undefined,
+): analysis is AnalysisPayload {
+  return !!analysis && !!(analysis as AnalysisPayload).lat_field;
 }
