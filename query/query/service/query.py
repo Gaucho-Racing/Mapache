@@ -1,7 +1,7 @@
 from loguru import logger
 from query.database.connection import get_db
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from query.model.query import Metadata
 
 
@@ -9,7 +9,7 @@ def query_signals(vehicle_id: str, signals: list[str], start: str | None = None,
     if not vehicle_id:
         raise ValueError("Vehicle ID is required")
 
-    params = {"vehicle_id": vehicle_id, "signals": tuple(signals)}
+    params = {"vehicle_id": vehicle_id, "signals": list(signals)}
     query_str = """
     SELECT produced_at, name, value
     FROM signal
@@ -25,8 +25,13 @@ def query_signals(vehicle_id: str, signals: list[str], start: str | None = None,
     query_str += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query_str} | Params: {params}")
 
+    # `expanding=True` makes SQLAlchemy render the IN list as individual
+    # placeholders (... IN (:s_1, :s_2)) on every backend, instead of binding
+    # a single tuple param (which only works by accident on psycopg2).
+    stmt = text(query_str).bindparams(bindparam("signals", expanding=True))
+
     with get_db() as db:
-        result = pd.read_sql(text(query_str).bindparams(**params), db.bind)
+        result = pd.read_sql(stmt.bindparams(**params), db.bind)
 
     result["produced_at"] = pd.to_datetime(result["produced_at"], utc=True)
 
