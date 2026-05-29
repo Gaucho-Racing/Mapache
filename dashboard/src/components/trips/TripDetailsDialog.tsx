@@ -41,7 +41,7 @@ export function TripDetailsDialog({
   const updateTrip = async () => {
     try {
       const response = await axios.post(
-        `${BACKEND_URL}/trips/${trip.id}`,
+        `${BACKEND_URL}/sessions/${trip.id}`,
         editedTrip,
         {
           headers: {

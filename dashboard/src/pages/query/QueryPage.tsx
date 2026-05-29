@@ -215,7 +215,7 @@ function QueryPage() {
   const getAvailableTrips = async () => {
     try {
       const response = await axios.get(
-        `${BACKEND_URL}/trips?vehicle_type=${vehicle.type}`,
+        `${BACKEND_URL}/sessions?vehicle_type=${vehicle.type}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
