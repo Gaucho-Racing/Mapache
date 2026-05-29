@@ -22,7 +22,7 @@ function TripsPage() {
   const getTrips = async () => {
     try {
       const response = await axios.get(
-        `${BACKEND_URL}/trips?vehicle_id=${vehicle.id}`,
+        `${BACKEND_URL}/sessions?vehicle_id=${vehicle.id}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,

@@ -8,7 +8,7 @@ from query.service.rincon import match_route
 
 def get_all_trips() -> list[dict[str, Any]]:
     try:
-        route = "/trips"
+        route = "/sessions"
         service = match_route(route, "GET")
         r = requests.get(f"{service.endpoint}{route}")
         return r.json()
@@ -19,7 +19,7 @@ def get_all_trips() -> list[dict[str, Any]]:
 
 def get_trip_by_id(trip_id: str) -> dict[str, Any]:
     try:
-        route = f"/trips/{trip_id}"
+        route = f"/sessions/{trip_id}"
         service = match_route(route, "GET")
         r = requests.get(f"{service.endpoint}{route}")
         return r.json()
