@@ -10,6 +10,7 @@ from query.config.config import Config
 from query.model.log import QueryLog
 from query.service.auth import AuthService
 from query.service.log import create_log
+from query.service.cluster import get_clusters, get_signal_names
 from query.service.query import query_signals, merge_signals
 from query.service.token import get_token_by_id, validate_token
 from query.service.trip import get_trip_by_id
@@ -190,3 +191,83 @@ async def get_signals(
                 "message": str(e),
             }
         )
+
+
+def _authenticate(authorization: str | None) -> str | None:
+    """Return the authenticated user id, or None if unauthorized."""
+    if Config.SKIP_AUTH_CHECK:
+        return "mock-user"
+    if authorization and "Bearer " in authorization:
+        auth_token = authorization.split("Bearer ")[1]
+        return AuthService.get_user_id_from_token(auth_token)
+    return None
+
+
+@router.get("/signals/names")
+async def get_signal_names_route(
+    authorization: str = Header(None),
+    vehicle_id: Annotated[str | None, Query()] = None,
+    start: Annotated[str | None, Query()] = None,
+    end: Annotated[str | None, Query()] = None,
+):
+    try:
+        user_id = _authenticate(authorization)
+        if user_id is None:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "you are not authorized to access this resource"},
+            )
+
+        if vehicle_id is None:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "vehicle_id is required"},
+            )
+
+        for label, value in (("start", start), ("end", end)):
+            if value is not None:
+                try:
+                    pd.to_datetime(value)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"message": f"invalid {label} timestamp format"},
+                    )
+
+        names = get_signal_names(vehicle_id=vehicle_id, start=start, end=end)
+        return JSONResponse(status_code=200, content={"data": names})
+
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"message": str(e)})
+
+
+@router.get("/clusters")
+async def get_clusters_route(
+    authorization: str = Header(None),
+    vehicle_id: Annotated[str | None, Query()] = None,
+    gap: Annotated[int | None, Query()] = 30,
+):
+    try:
+        user_id = _authenticate(authorization)
+        if user_id is None:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "you are not authorized to access this resource"},
+            )
+
+        if gap is not None and gap <= 0:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "gap must be a positive number of seconds"},
+            )
+
+        clusters = get_clusters(vehicle_id=vehicle_id, gap_seconds=gap or 30)
+        return JSONResponse(
+            status_code=200,
+            content={"data": [c.to_dict() for c in clusters]},
+        )
+
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"message": str(e)})
