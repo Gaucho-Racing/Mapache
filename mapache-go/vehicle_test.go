@@ -1,9 +1,58 @@
 package mapache
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
+
+func TestSession_AnalysisRoundTrip(t *testing.T) {
+	analysis := JSON(`{"lat_field":"gps_lat","lon_field":"gps_lon","norm_mode":"WGS84","laps":[{"lap":1,"total":42.5}]}`)
+	in := Session{
+		ID:        "ssn_123",
+		VehicleID: "gr26",
+		Name:      "Autocross Run 1",
+		Analysis:  analysis,
+	}
+
+	encoded, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatalf("unmarshal to map failed: %v", err)
+	}
+	if _, ok := raw["analysis"]; !ok {
+		t.Fatal("expected 'analysis' key in serialized session")
+	}
+
+	var out Session
+	if err := json.Unmarshal(encoded, &out); err != nil {
+		t.Fatalf("unmarshal to session failed: %v", err)
+	}
+	if string(out.Analysis) != string(analysis) {
+		t.Errorf("analysis round-trip mismatch: got %s, want %s", out.Analysis, analysis)
+	}
+}
+
+func TestSession_AnalysisOmittedWhenNil(t *testing.T) {
+	in := Session{ID: "ssn_456", VehicleID: "gr26"}
+	encoded, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &raw); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	// A nil RawMessage marshals to JSON null; ensure that's what we get
+	// (so an un-analyzed session reports analysis: null, not garbage).
+	if string(raw["analysis"]) != "null" {
+		t.Errorf("expected analysis to be null when unset, got %s", raw["analysis"])
+	}
+}
 
 func TestVehicle_TableName(t *testing.T) {
 	v := Vehicle{}

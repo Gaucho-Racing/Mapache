@@ -26,8 +26,12 @@ type Session struct {
 	Description string    `json:"description"`
 	StartTime   time.Time `json:"start_time" gorm:"precision:6"`
 	EndTime     time.Time `json:"end_time" gorm:"precision:6"`
-	Markers     []Marker  `json:"markers" gorm:"-"`
-	Segments    []Segment `json:"segments" gorm:"-"`
+	// Analysis holds the Lapache lap-analysis result as a JSON blob: chosen
+	// lat/lon signal fields, normalization mode, crop window, geometric S/F and
+	// sector lines, computed laps, and summary. Null until a result is pushed.
+	Analysis JSON      `json:"analysis" gorm:"type:jsonb"`
+	Markers  []Marker  `json:"markers" gorm:"-"`
+	Segments []Segment `json:"segments" gorm:"-"`
 }
 
 func (Session) TableName() string {
