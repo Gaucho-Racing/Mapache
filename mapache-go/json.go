@@ -36,7 +36,7 @@ func (j *JSON) Scan(value any) error {
 
 func (j JSON) MarshalJSON() ([]byte, error) {
 	if len(j) == 0 {
-		return []byte("null"), nil
+		return []byte("{}"), nil
 	}
 	return j, nil
 }

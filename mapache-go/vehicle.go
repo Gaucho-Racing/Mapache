@@ -26,10 +26,8 @@ type Session struct {
 	Description string    `json:"description"`
 	StartTime   time.Time `json:"start_time" gorm:"precision:6"`
 	EndTime     time.Time `json:"end_time" gorm:"precision:6"`
-	// Analysis holds the Lapache lap-analysis result as a JSON blob: chosen
-	// lat/lon signal fields, normalization mode, crop window, geometric S/F and
-	// sector lines, computed laps, and summary. Null until a result is pushed.
-	Analysis JSON      `json:"analysis" gorm:"type:jsonb"`
+	// Analysis holds the Lapache lap-analysis result as a jsonb blob.
+	Analysis JSON      `json:"analysis" gorm:"type:jsonb;default:'{}'"`
 	Markers  []Marker  `json:"markers" gorm:"-"`
 	Segments []Segment `json:"segments" gorm:"-"`
 }

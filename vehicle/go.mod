@@ -2,8 +2,6 @@ module github.com/gaucho-racing/mapache/vehicle
 
 go 1.26
 
-replace github.com/gaucho-racing/mapache/mapache-go/v3 => ../mapache-go
-
 require (
 	github.com/bk1031/rincon-go/v2 v2.0.0
 	github.com/fatih/color v1.18.0

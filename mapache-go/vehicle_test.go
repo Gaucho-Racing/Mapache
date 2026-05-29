@@ -37,7 +37,7 @@ func TestSession_AnalysisRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSession_AnalysisOmittedWhenNil(t *testing.T) {
+func TestSession_AnalysisDefaultsToEmptyObject(t *testing.T) {
 	in := Session{ID: "ssn_456", VehicleID: "gr26"}
 	encoded, err := json.Marshal(in)
 	if err != nil {
@@ -47,10 +47,9 @@ func TestSession_AnalysisOmittedWhenNil(t *testing.T) {
 	if err := json.Unmarshal(encoded, &raw); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
-	// A nil RawMessage marshals to JSON null; ensure that's what we get
-	// (so an un-analyzed session reports analysis: null, not garbage).
-	if string(raw["analysis"]) != "null" {
-		t.Errorf("expected analysis to be null when unset, got %s", raw["analysis"])
+	// An un-analyzed session reports analysis: {} rather than null.
+	if string(raw["analysis"]) != "{}" {
+		t.Errorf("expected analysis to default to {} when unset, got %s", raw["analysis"])
 	}
 }
 
