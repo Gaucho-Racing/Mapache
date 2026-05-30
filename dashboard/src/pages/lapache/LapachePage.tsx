@@ -10,10 +10,12 @@ import {
   AnalysisPayload,
   DataCluster,
   GeoPoint,
+  LapacheMode,
   LapResult,
   NormMode,
   Point,
   Session,
+  SignalSample,
   hasAnalysis,
 } from "@/models/lapache";
 import { SegmentManager } from "@/lib/lapache/segments";
@@ -27,10 +29,14 @@ import {
   fetchSessions,
   fetchSignalData,
   fetchSignalNames,
+  fetchSignalSeries,
   saveSessionAnalysis,
 } from "@/lib/lapache/api";
+import { cn } from "@/lib/utils";
 import TrackCanvas from "./components/TrackCanvas";
 import SignalPicker from "./components/SignalPicker";
+import SignalTimeChart from "./components/SignalTimeChart";
+import CalibrationControls from "./components/CalibrationControls";
 import TimelineCrop from "./components/TimelineCrop";
 import ResultsPanel from "./components/ResultsPanel";
 import SessionSidebar, { LoadTarget } from "./components/SessionSidebar";
@@ -38,6 +44,10 @@ import DateSelector, { dayKey } from "./components/DateSelector";
 
 function LapachePage() {
   const vehicle = useVehicle();
+
+  // "lap" is the GPS track flow; "calibration" plots signals vs time for runs
+  // without usable GPS and only trims a session window.
+  const [mode, setMode] = useState<LapacheMode>("lap");
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clusters, setClusters] = useState<DataCluster[]>([]);
@@ -75,6 +85,11 @@ function LapachePage() {
   const [status, setStatus] = useState("Select a session or data cluster.");
   const [newSessionName, setNewSessionName] = useState("");
 
+  // -- Calibration mode: signals-vs-time -------------------------------------
+  const [calSignals, setCalSignals] = useState<string[]>([]);
+  const [calSamples, setCalSamples] = useState<SignalSample[]>([]);
+  const [calNormalized, setCalNormalized] = useState(false);
+
   // -- Per-vehicle: load sessions + available days, default to latest day -----
   useEffect(() => {
     if (!vehicle.id) return;
@@ -84,6 +99,8 @@ function LapachePage() {
     setRawGeo([]);
     setLapResult(null);
     setClusters([]);
+    setCalSamples([]);
+    setCalSignals([]);
     loadSessions();
     (async () => {
       const dates = await fetchDataDates(vehicle.id).catch(() => []);
@@ -138,6 +155,7 @@ function LapachePage() {
     setAllPoints([]);
     setRawGeo([]);
     setLapResult(null);
+    setCalSamples([]);
     segMgrRef.current = new SegmentManager();
     setActiveSeg(1);
 
@@ -228,6 +246,50 @@ function LapachePage() {
       setCropEndTs(tsMax);
     }
   }, [rawGeo, normMode]);
+
+  // -- Calibration: fetch selected signals over the window -------------------
+  useEffect(() => {
+    if (mode !== "calibration") return;
+    if (calSignals.length === 0 || !windowStart || !windowEnd) {
+      setCalSamples([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setStatus(`Fetching ${calSignals.length} signal(s)…`);
+      try {
+        const samples = await fetchSignalSeries(
+          vehicle.id,
+          calSignals,
+          windowStart,
+          windowEnd,
+        );
+        if (!cancelled) {
+          setCalSamples(samples);
+          setStatus(`${samples.length} samples loaded`);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setStatus("Failed to fetch signal data");
+          notify.error(getAxiosErrorMessage(e));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, calSignals, windowStart, windowEnd, vehicle.id]);
+
+  // -- Calibration: drive timeline extent + default crop from the samples ----
+  useEffect(() => {
+    if (calSamples.length === 0) return;
+    const tsMin = calSamples[0].ts;
+    const tsMax = calSamples[calSamples.length - 1].ts;
+    setExtentStartTs(tsMin);
+    setExtentEndTs(tsMax);
+    setCropStartTs(tsMin);
+    setCropEndTs(tsMax);
+  }, [calSamples]);
 
   // -- Derived: cropped points -----------------------------------------------
   const croppedPoints = useMemo(
@@ -367,6 +429,28 @@ function LapachePage() {
     }
   };
 
+  // Create a plain session over the trimmed crop window (no lap analysis). Used
+  // by calibration mode, where the crop bounds — not the cluster window — define
+  // the session.
+  const handleCreateSessionFromCrop = async (name: string) => {
+    if (!name || !cropStartTs || !cropEndTs) return;
+    const id = `ssn_${Date.now().toString(36)}`;
+    try {
+      const created = await createSession({
+        id,
+        vehicle_id: vehicle.id,
+        name,
+        description: "",
+        start_time: new Date(cropStartTs * 1000).toISOString(),
+        end_time: new Date(cropEndTs * 1000).toISOString(),
+      });
+      setStatus(`Created session ${created.name}`);
+      loadSessions();
+    } catch (e) {
+      notify.error(getAxiosErrorMessage(e));
+    }
+  };
+
   const handleExport = () => {
     if (croppedPoints.length === 0) return;
     const laps = lapResult?.lapNumbers ?? [];
@@ -416,23 +500,58 @@ function LapachePage() {
           </div>
         </Card>
 
-        {/* Track + timeline */}
+        {/* Track / chart + timeline */}
         <div className="flex flex-1 flex-col gap-3">
+          {/* Mode toggle */}
+          <div className="flex gap-1 self-start rounded-md border border-neutral-800 p-1">
+            {(["lap", "calibration"] as LapacheMode[]).map((m) => (
+              <Button
+                key={m}
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "h-7 text-xs capitalize",
+                  mode === m &&
+                    "bg-gradient-to-br from-gr-pink to-gr-purple text-white",
+                )}
+                onClick={() => {
+                  if (m === mode) return;
+                  setMode(m);
+                  setLapResult(null);
+                  if (m === "lap") setCalSamples([]);
+                }}
+              >
+                {m === "lap" ? "Lap (GPS)" : "Calibration"}
+              </Button>
+            ))}
+          </div>
+
           <Card className="flex-1 overflow-hidden p-0">
-            <TrackCanvas
-              points={croppedPoints}
-              segments={segmentsSnapshot}
-              activeSegment={activeSeg}
-              lapNumbers={
-                lapResult && lapResult.lapNumbers.length === croppedPoints.length
-                  ? lapResult.lapNumbers
-                  : undefined
-              }
-              onAddPoint={onAddPoint}
-              onRemovePoint={onRemovePoint}
-            />
+            {mode === "lap" ? (
+              <TrackCanvas
+                points={croppedPoints}
+                segments={segmentsSnapshot}
+                activeSegment={activeSeg}
+                lapNumbers={
+                  lapResult &&
+                  lapResult.lapNumbers.length === croppedPoints.length
+                    ? lapResult.lapNumbers
+                    : undefined
+                }
+                onAddPoint={onAddPoint}
+                onRemovePoint={onRemovePoint}
+              />
+            ) : (
+              <SignalTimeChart
+                samples={calSamples}
+                signals={calSignals}
+                cropStartTs={cropStartTs}
+                cropEndTs={cropEndTs}
+                normalized={calNormalized}
+              />
+            )}
           </Card>
-          {allPoints.length > 0 && (
+          {(mode === "lap" ? allPoints.length > 0 : calSamples.length > 0) && (
             <TimelineCrop
               extentStartTs={extentStartTs}
               extentEndTs={extentEndTs}
@@ -449,6 +568,30 @@ function LapachePage() {
 
         {/* Controls */}
         <Card className="w-80 flex-shrink-0 overflow-auto p-4">
+          {mode === "calibration" ? (
+            <CalibrationControls
+              signalNames={signalNames}
+              selected={calSignals}
+              onToggleSignal={(id) =>
+                setCalSignals((prev) =>
+                  prev.includes(id)
+                    ? prev.filter((s) => s !== id)
+                    : [...prev, id],
+                )
+              }
+              normalized={calNormalized}
+              onNormalizedChange={setCalNormalized}
+              cropLabel={
+                calSamples.length > 0
+                  ? `${new Date(cropStartTs * 1000).toLocaleTimeString()} – ${new Date(
+                      cropEndTs * 1000,
+                    ).toLocaleTimeString()}`
+                  : "Load signals to set a window."
+              }
+              canCreate={calSamples.length > 0}
+              onCreateSession={handleCreateSessionFromCrop}
+            />
+          ) : (
           <div className="flex flex-col gap-4">
             <div>
               <div className="mb-2 text-xs font-semibold uppercase text-neutral-500">
@@ -527,6 +670,7 @@ function LapachePage() {
               </div>
             )}
           </div>
+          )}
         </Card>
       </div>
     </Layout>

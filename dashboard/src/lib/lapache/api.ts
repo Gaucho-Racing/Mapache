@@ -5,7 +5,13 @@
 
 import axios from "axios";
 import { BACKEND_URL } from "@/consts/config";
-import { AnalysisPayload, DataCluster, GeoPoint, Session } from "@/models/lapache";
+import {
+  AnalysisPayload,
+  DataCluster,
+  GeoPoint,
+  Session,
+  SignalSample,
+} from "@/models/lapache";
 
 function authHeaders() {
   return {
@@ -111,6 +117,48 @@ export async function fetchSignalData(
   }
   points.sort((a, b) => a.ts - b.ts);
   return points;
+}
+
+// Fetch an arbitrary set of signals over a time window, merged onto a single
+// timeline, for the calibration (signals-vs-time) view. Returns rows of
+// { ts, <signal>: value, ... } sorted by timestamp. Like fetchSignalData, the
+// query is decimated server-side (max_points) so wide windows stay fast.
+export async function fetchSignalSeries(
+  vehicleId: string,
+  signals: string[],
+  start: string,
+  end: string,
+): Promise<SignalSample[]> {
+  if (signals.length === 0) return [];
+  const params = new URLSearchParams();
+  params.append("signals", signals.join(","));
+  params.append("vehicle_id", vehicleId);
+  params.append("start", stripZ(start));
+  params.append("end", stripZ(end));
+  params.append("merge", "largest");
+  params.append("fill", "forward");
+  params.append("max_points", String(TRACK_MAX_POINTS));
+
+  const res = await axios.get(`${BACKEND_URL}/query/signals?${params}`, {
+    headers: authHeaders(),
+  });
+  const records: Record<string, unknown>[] = res.data?.data?.data ?? [];
+
+  const samples: SignalSample[] = [];
+  for (const rec of records) {
+    const producedAt = rec["produced_at"];
+    if (producedAt == null) continue;
+    const sample: SignalSample = {
+      ts: new Date(String(producedAt)).getTime() / 1000,
+    };
+    for (const sig of signals) {
+      const v = rec[sig];
+      if (v != null) sample[sig] = Number(v);
+    }
+    samples.push(sample);
+  }
+  samples.sort((a, b) => a.ts - b.ts);
+  return samples;
 }
 
 export async function fetchSessions(vehicleId: string): Promise<Session[]> {

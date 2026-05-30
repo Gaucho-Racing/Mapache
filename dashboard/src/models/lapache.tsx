@@ -20,6 +20,18 @@ export interface Point {
   ts: number; // epoch seconds
 }
 
+// Lapache has two modes: "lap" sessions data off a GPS track and detects laps;
+// "calibration" plots arbitrary signals against time (for runs without usable
+// GPS) and only trims a session window.
+export type LapacheMode = "lap" | "calibration";
+
+// One row of the calibration time series: a timestamp plus one numeric value
+// per selected signal (signal id -> value).
+export interface SignalSample {
+  ts: number; // epoch seconds
+  [signal: string]: number;
+}
+
 export interface SignalConfig {
   latField: string;
   lonField: string;
