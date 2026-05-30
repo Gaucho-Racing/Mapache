@@ -8,8 +8,10 @@ single anchor signal per vehicle, which keeps the query cheap on the large
 signal table.
 """
 
+import time
 from dataclasses import dataclass
 from datetime import datetime
+from threading import Lock
 from typing import Any
 
 from loguru import logger
@@ -18,6 +20,15 @@ from sqlalchemy import text
 from query.database.connection import get_db
 
 DEFAULT_GAP_SECONDS = 30
+
+# The anchor signal for a vehicle is derived from a full per-vehicle aggregate
+# (GROUP BY name ORDER BY COUNT(*)), which has to read every row for the
+# vehicle. It is effectively static, yet it was being recomputed on every
+# /clusters and /clusters/dates request. Cache it per vehicle with a short TTL
+# so new ingest is still picked up eventually without paying the scan each call.
+_ANCHOR_TTL_SECONDS = 300
+_anchor_cache: dict[str, tuple[float, str | None]] = {}
+_anchor_lock = Lock()
 
 
 @dataclass
@@ -97,7 +108,17 @@ def _anchor_signal(vehicle_id: str) -> str | None:
     first name instead would often land on a sparse, low-rate signal (e.g.
     gr26's first name has 24 rows total), which collapses every bucket — and
     therefore every cluster — to a single zero-width point.
+
+    Cached per vehicle (see `_anchor_cache`): the underlying aggregate scans the
+    whole vehicle partition, so recomputing it on every request was a dominant
+    cost on the clusters/dates endpoints.
     """
+    now = time.monotonic()
+    with _anchor_lock:
+        cached = _anchor_cache.get(vehicle_id)
+        if cached is not None and now - cached[0] < _ANCHOR_TTL_SECONDS:
+            return cached[1]
+
     with get_db() as db:
         row = db.execute(
             text(
@@ -105,7 +126,11 @@ def _anchor_signal(vehicle_id: str) -> str | None:
                 "GROUP BY name ORDER BY COUNT(*) DESC LIMIT 1"
             ).bindparams(vehicle_id=vehicle_id)
         ).fetchone()
-    return row[0] if row else None
+    anchor = row[0] if row else None
+
+    with _anchor_lock:
+        _anchor_cache[vehicle_id] = (now, anchor)
+    return anchor
 
 
 def _bucket_rows(

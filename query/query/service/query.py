@@ -5,15 +5,52 @@ from sqlalchemy import bindparam, text
 from query.model.query import Metadata
 
 
-def query_signals(vehicle_id: str, signals: list[str], start: str | None = None, end: str | None = None) -> list[pd.DataFrame]:
+def _bucket_seconds(start: str | None, end: str | None, max_points: int) -> float | None:
+    """Bucket width (seconds) that yields at most ~`max_points` per signal over
+    [start, end], or None if the window is unknown/degenerate (no decimation).
+    """
+    if start is None or end is None or max_points <= 0:
+        return None
+    try:
+        span = (pd.to_datetime(end) - pd.to_datetime(start)).total_seconds()
+    except (ValueError, TypeError):
+        return None
+    if span <= 0:
+        return None
+    return span / max_points
+
+
+def query_signals(
+    vehicle_id: str,
+    signals: list[str],
+    start: str | None = None,
+    end: str | None = None,
+    max_points: int | None = None,
+) -> list[pd.DataFrame]:
     if not vehicle_id:
         raise ValueError("Vehicle ID is required")
 
     params = {"vehicle_id": vehicle_id, "signals": list(signals)}
-    query_str = """
-    SELECT produced_at, name, value
-    FROM signal
-    WHERE name IN :signals AND vehicle_id = :vehicle_id"""
+
+    # When `max_points` is set and the window is known, decimate in SQL: bucket
+    # each signal's rows by time and keep one representative per bucket. This
+    # caps the rows transferred + pivoted + serialized at ~max_points per signal
+    # (the map doesn't need every sample), which is the main fix for the
+    # raw-data timeout on wide windows. Without it the query is full-resolution.
+    bucket = _bucket_seconds(start, end, max_points) if max_points else None
+
+    if bucket is not None:
+        params["bucket"] = bucket
+        query_str = """
+        SELECT DISTINCT ON (name, FLOOR(EXTRACT(EPOCH FROM produced_at) / :bucket))
+            produced_at, name, value
+        FROM signal
+        WHERE name IN :signals AND vehicle_id = :vehicle_id"""
+    else:
+        query_str = """
+        SELECT produced_at, name, value
+        FROM signal
+        WHERE name IN :signals AND vehicle_id = :vehicle_id"""
 
     if start is not None:
         query_str += " AND produced_at > :start"
@@ -22,7 +59,15 @@ def query_signals(vehicle_id: str, signals: list[str], start: str | None = None,
         query_str += " AND produced_at < :end"
         params["end"] = end
 
-    query_str += " ORDER BY produced_at ASC"
+    if bucket is not None:
+        # DISTINCT ON requires the bucket key to lead ORDER BY; produced_at next
+        # makes "one representative per bucket" deterministic (the earliest).
+        query_str += (
+            " ORDER BY name, FLOOR(EXTRACT(EPOCH FROM produced_at) / :bucket),"
+            " produced_at ASC"
+        )
+    else:
+        query_str += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query_str} | Params: {params}")
 
     # `expanding=True` makes SQLAlchemy render the IN list as individual

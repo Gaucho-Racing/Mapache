@@ -68,8 +68,14 @@ export async function fetchSignalNames(
   return res.data?.data?.data ?? [];
 }
 
+// Target number of samples per signal for the track map. The canvas can't show
+// more than a few thousand distinct points, so we let the backend decimate the
+// query down to this many per signal instead of transferring every raw sample.
+const TRACK_MAX_POINTS = 5000;
+
 // Fetch lat/lon pairs for a vehicle over a time window, merged onto a single
-// timeline. Returns points sorted by timestamp.
+// timeline. Returns points sorted by timestamp. The query is decimated
+// server-side (see `max_points`) to keep wide windows from timing out.
 export async function fetchSignalData(
   vehicleId: string,
   latField: string,
@@ -84,6 +90,7 @@ export async function fetchSignalData(
   params.append("end", stripZ(end));
   params.append("merge", "largest");
   params.append("fill", "forward");
+  params.append("max_points", String(TRACK_MAX_POINTS));
 
   const res = await axios.get(`${BACKEND_URL}/query/signals?${params}`, {
     headers: authHeaders(),

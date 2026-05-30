@@ -31,6 +31,7 @@ async def get_signals(
     merge: Annotated[str | None, Query(enum=['smallest', 'largest'])] = 'smallest',
     fill: Annotated[str | None, Query(enum=['none', 'forward', 'backward', 'linear', 'time'])] = 'none',
     tolerance: Annotated[int | None, Query()] = 50,
+    max_points: Annotated[int | None, Query()] = None,
     export: Annotated[str | None, Query(enum=['csv', 'json', 'parquet'])] = 'json'
 ):
     user_id = None
@@ -119,7 +120,7 @@ async def get_signals(
                     )
 
         start_time = datetime.now()
-        dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end)
+        dfs = query_signals(vehicle_id=vehicle_id, signals=signals.split(","), start=start, end=end, max_points=max_points)
 
         merged_df, metadata = merge_signals(*dfs, strategy=merge, tolerance=tolerance, fill=fill)
 
@@ -136,7 +137,7 @@ async def get_signals(
 
         create_log(QueryLog(
             user_id=user_id,
-            parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
+            parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, max_points={max_points}, export={export}",
             latency=metadata.query_latency,
             status_code=200,
             error_message="",
@@ -181,7 +182,7 @@ async def get_signals(
         if user_id is not None:
             create_log(QueryLog(
                 user_id=user_id,
-                parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, export={export}",
+                parameters=f"vehicle_id={vehicle_id}, signals={signals}, start={start}, end={end}, merge={merge}, fill={fill}, tolerance={tolerance}, max_points={max_points}, export={export}",
                 latency=0,
                 status_code=500,
                 error_message=str(e),
