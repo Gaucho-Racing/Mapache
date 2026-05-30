@@ -144,8 +144,10 @@ async def get_signals(
             return JSONResponse(
                 status_code=200,
                 content={
-                    "data": df_dict.to_dict(orient="records"),
-                    "metadata": metadata.to_dict()
+                    "data": {
+                        "data": df_dict.to_dict(orient="records"),
+                        "metadata": metadata.to_dict()
+                    }
                 }
             )
         elif export == 'csv':
