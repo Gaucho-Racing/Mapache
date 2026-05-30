@@ -1,0 +1,170 @@
+VERSION ""
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: ACU CCU Charger Charging_SDC Debugger EM IMD
+
+BO_ 2550588916 ACU_Charger_Control_to_Charger: 5 ACU
+ SG_ Set_Voltage : 0|16@1+ (1,0) [0|0] ""  Charger
+ SG_ Set_Current : 16|1@1+ (1,0) [0|0] ""  Charger
+ SG_ Chg_Enable : 17|1@1+ (1,0) [0|0] ""  Charger
+
+BO_ 2150631170 ACU_ACU_Status_1_to_CCU: 8 ACU
+ SG_ Accumulator_Voltage : 0|16@1+ (0.01,0) [0|655.35] "Volts"  CCU
+ SG_ TS_Voltage : 16|16@1+ (0.01,0) [0|655.35] "Volts"  CCU
+ SG_ Accumulator_Current : 32|16@1- (0.01,0) [-327.68|327.67] "Amps"  CCU
+ SG_ Accumulator_SOC : 48|8@1+ (0.3921568627,0) [0|100] "%"  CCU
+ SG_ GLV_SOC : 56|8@1+ (0.3921568627,0) [0|100] "%"  CCU
+
+BO_ 2150631426 ACU_ACU_Status_2_to_CCU: 7 ACU
+ SG_ _20v_Voltage : 0|8@1+ (1,0) [0|0] ""  CCU
+ SG_ _12v_Voltage : 8|8@1+ (1,0) [0|0] ""  CCU
+ SG_ SDC_Voltage : 16|8@1+ (1,0) [0|0] ""  CCU
+ SG_ Min_Cell_Voltage : 24|8@1+ (1,0) [0|0] ""  CCU
+ SG_ Max_Cell_Temp : 32|8@1+ (1,0) [0|0] ""  CCU
+ SG_ status_flags : 40|1@1+ (1,0) [0|0] ""  CCU
+ SG_ precharge_latch_flags : 48|1@1+ (1,0) [0|0] ""  CCU
+
+BO_ 2150631682 ACU_ACU_Status_3_to_CCU: 8 ACU
+ SG_ HV_Input_Voltage : 0|16@1+ (0.01,0) [0|655.35] "Volts"  CCU
+ SG_ HV_Output_Voltage : 16|16@1+ (0.01,0) [0|655.35] "Volts"  CCU
+ SG_ HV_Input_Current : 32|16@1+ (0.001,0) [0|65.535] "Amps"  CCU
+ SG_ HV_Output_Current : 48|16@1+ (0.001,0) [0|65.535] "Amps"  CCU
+
+BO_ 2566869221 Charger_Data_to_ACU: 8 Charger
+ SG_ Output_Voltage : 0|16@1+ (1,0) [0|0] ""  ACU
+ SG_ Output_Current : 16|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Hardware_Failure : 17|1@1+ (1,0) [0|0] ""  ACU
+ SG_ OverTemp : 18|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Input_Voltage_Error : 19|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Connection_Error : 20|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Communication_State : 21|1@1+ (1,0) [0|0] ""  ACU
+
+BO_ 2148532748 Debugger_Ping_to_Charging_SDC: 4 Debugger
+ SG_ Timestamp : 0|32@1+ (1,0) [0|4294967296] "ms"  Charging_SDC
+
+BO_ 269 EM_EM_Meas_to_ACU: 8 EM
+ SG_ Current : 0|32@1+ (1,0) [0|0] ""  ACU
+ SG_ Voltage : 32|32@1+ (1,0) [0|0] ""  ACU
+
+BO_ 781 EM_EM_Team_Data_1_to_ACU: 8 EM
+ SG_ Team_Signal_1 : 0|32@1+ (1,0) [0|0] ""  ACU
+ SG_ Team_Signal_2 : 32|32@1+ (1,0) [0|0] ""  ACU
+
+BO_ 782 EM_EM_Team_Data_2_to_ACU: 8 EM
+ SG_ Team_Signal_3 : 0|32@1+ (1,0) [0|0] ""  ACU
+ SG_ Team_Signal_4 : 32|32@1+ (1,0) [0|0] ""  ACU
+
+BO_ 1037 EM_EM_Status_to_ACU: 8 EM
+ SG_ Violation : 0|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Logging : 1|4@1+ (1,0) [0|0] ""  ACU
+ SG_ Energy : 8|4@1+ (1,0) [0|0] ""  ACU
+
+BO_ 1549 EM_EM_Temp_to_ACU: 8 EM
+ SG_ Mux_Signal : 0|1@1+ (1,0) [0|0] ""  ACU
+ SG_ Num_Sensors : 3|4@1+ (1,0) [0|0] ""  ACU
+ SG_ Min_Temp : 8|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Max_Temp : 16|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Temp_5n : 24|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Temp_5n1 : 32|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Temp_5n2 : 40|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Temp_5n3 : 48|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Temp_5n4 : 56|8@1+ (1,0) [0|0] ""  ACU
+
+BO_ 2566849012 IMD_IMD_general_to_ACU: 8 IMD
+ SG_ R_Iso_Corrected : 0|16@1+ (1,0) [0|0] ""  ACU
+ SG_ R_Iso_Status : 16|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Iso_Meas_Count : 24|8@1+ (1,0) [0|0] ""  ACU
+ SG_ Status : 32|16@1+ (1,0) [0|0] ""  ACU
+ SG_ Activity : 48|8@1+ (1,0) [0|0] ""  ACU
+
+BO_ 2149583363 CCU_ACU_Precharge_to_ACU: 1 CCU
+ SG_ Set_TS_Active : 0|1@1+ (1,0) [0|0] "Bool"  ACU
+
+BO_ 2149580803 CCU_Debug_2_0_to_ACU: 8 CCU
+ SG_ Debug : 0|64@1- (1,0) [0|0] ""  ACU
+
+CM_ SG_ 2550588916 Chg_Enable "1: Start Charging 0: Stop Charging";
+CM_ SG_ 2150631170 Accumulator_Voltage "All cell voltages added up";
+CM_ SG_ 2150631170 TS_Voltage "Output terminal voltage of accumulator";
+CM_ SG_ 2150631170 Accumulator_Current "Current output of accumulator";
+CM_ SG_ 2150631170 Accumulator_SOC "Accumulator state of Chg (Based on lowest cell)";
+CM_ SG_ 2150631170 GLV_SOC "GLV state of Chg";
+CM_ SG_ 2150631426 _20v_Voltage "20v GLV voltage data type: u8 units: Volts scaled min: 0 scaled max: 25.5 map equation: \"0.1x\"";
+CM_ SG_ 2150631426 _12v_Voltage "12v supply voltage data type: u8 units: Volts scaled min: 0 scaled max: 25.5 map equation: \"0.1x\"";
+CM_ SG_ 2150631426 SDC_Voltage "Voltage before ACU Latch data type: u8 units: Volts scaled min: 0 scaled max: 25.5 map equation: \"0.1x\"";
+CM_ SG_ 2150631426 Min_Cell_Voltage "Lowest cell voltage in accumulator data type: u8 units: Volts scaled min: 2 scaled max: 4.55 map equation: \"0.01x+2\"";
+CM_ SG_ 2150631426 Max_Cell_Temp "Hottest cell in accumulator data type: u8 units: Celsius scaled min: 0 scaled max: 63.75 map equation: \"0.25x\"";
+CM_ SG_ 2150631426 status_flags "[Byte 5 / Bits 40-47] 40: Over Temp (>60C) 41: Over Voltage (>4.2V/cell) 42: Under Volt (<2.5V/cell) 43: Over Current (Discharge) 44: Under Current (Chg) 45: 20V GLV Warning 46: 12V Supply Warning 47: SDC Warning";
+CM_ SG_ 2150631426 precharge_latch_flags "[Byte 6 / Bits 48-55] 55: Precharge Timeout 54: IR- / Precharge State (0:Open, 1:Closed) 53: IR+ State (0:Open, 1:Closed) 52: Software Latch (0:Open, 1:Closed) 48-51: Reserved";
+CM_ SG_ 2150631682 HV_Input_Voltage "600v input voltage";
+CM_ SG_ 2150631682 HV_Output_Voltage "20v output voltage";
+CM_ SG_ 2150631682 HV_Input_Current "600v input current";
+CM_ SG_ 2150631682 HV_Output_Current "20v output current";
+CM_ SG_ 2566869221 Hardware_Failure "Bit 0: Hardware Failure: 0-Normal, 1-Error";
+CM_ SG_ 2566869221 OverTemp "Bit 1: OverTemp: 0-Normal, 1-Error";
+CM_ SG_ 2566869221 Input_Voltage_Error "Bit 2: Input Voltage: 0-Normal, 1-Wrong input voltage";
+CM_ SG_ 2566869221 Connection_Error "Bit 3: Starting State: 0-Correct, 1-Wrong polarity or NC";
+CM_ SG_ 2566869221 Communication_State "Bit 4: Communication State: 0-Normal, 1-Timeout";
+CM_ SG_ 2148532748 Timestamp "Time in millis";
+CM_ SG_ 269 Current "TS Current";
+CM_ SG_ 269 Voltage "TS Voltage";
+CM_ SG_ 781 Team_Signal_1 "Frick if I know";
+CM_ SG_ 781 Team_Signal_2 "Frick if I know";
+CM_ SG_ 782 Team_Signal_3 "Frick if I know";
+CM_ SG_ 782 Team_Signal_4 "Frick if I know";
+CM_ SG_ 1037 Violation "Violation occured?";
+CM_ SG_ 1037 Logging "Logging enabled?";
+CM_ SG_ 1037 Energy "Energy used in Wh";
+CM_ SG_ 1549 Mux_Signal "n = [0-6]";
+CM_ SG_ 1549 Num_Sensors "Number of sensors up to 32";
+CM_ SG_ 1549 Min_Temp "Min temp of all sensors";
+CM_ SG_ 1549 Max_Temp "Max temp of all sensors";
+CM_ SG_ 1549 Temp_5n "[0,5,10,15,20,25,30] based on n above";
+CM_ SG_ 2566849012 Status "Bit 0: true = Device error active Bit 1: true = HV_pos connection failure Bit 2: true = HV_neg connection failure Bit 3: true = Earth connection failure Bit 4: true = Iso Alarm (iso value below threshold error) Bit 5: true = Iso Warning (iso value below threshold warning) Bit 6: true = Iso Outdated (value \"Time elapsed since lst Meas\" > = \"Meas timeout\") Bit 7: true = Unbalance Alarm (unbalance value below threshold) Bit 8: true = Undervoltage Alarm Bit 9: true = Unsafe to Start Bit 10: true = Earthlift open";
+CM_ SG_ 2149583363 Set_TS_Active "0: shutdown, 1: go TS Active/Precharge";
+CM_ SG_ 2149580803 Debug "Essentially a print statement up to 8 bytes long that whichever targeted can parse";
+BA_DEF_  "BusType" STRING ;
+BA_DEF_ BO_  "VFrameFormat" ENUM  "StandardCAN","ExtendedCAN","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","StandardCAN_FD","ExtendedCAN_FD";
+BA_DEF_DEF_  "BusType" "CAN";
+BA_DEF_DEF_  "VFrameFormat" "StandardCAN";
+BA_ "VFrameFormat" BO_ 2550588916 1;
+BA_ "VFrameFormat" BO_ 2150631170 1;
+BA_ "VFrameFormat" BO_ 2150631426 1;
+BA_ "VFrameFormat" BO_ 2150631682 1;
+BA_ "VFrameFormat" BO_ 2566869221 1;
+BA_ "VFrameFormat" BO_ 2148532748 1;
+BA_ "VFrameFormat" BO_ 2566849012 1;
+BA_ "VFrameFormat" BO_ 2149583363 1;
+BA_ "VFrameFormat" BO_ 2149580803 1;
+
