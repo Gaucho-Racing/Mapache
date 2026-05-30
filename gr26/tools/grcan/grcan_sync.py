@@ -439,6 +439,9 @@ GO_NEWFIELD_RE = re.compile(
     r"mp\.(Signed|Unsigned)\s*,\s*mp\.(LittleEndian|BigEndian)\s*,"
 )
 GO_SIGNAL_NAME_RE = re.compile(r'Name:\s*"([^"]+)"')
+# Signals emitted via the dash `bit(v, n, "name")` helper rather than a
+# Signal{Name: ...} literal.
+GO_BIT_HELPER_RE = re.compile(r'\bbit\([^,]+,[^,]+,\s*"([^"]+)"\s*\)')
 GO_MAP_ENTRY_RE = re.compile(r"0x([0-9A-Fa-f]+)\s*:\s*(\w+)\s*,")
 
 
@@ -485,7 +488,8 @@ def parse_go_models(model_dir: str) -> dict:
             for j, fm in enumerate(literal):
                 seg_end = literal[j + 1].start() if j + 1 < len(literal) else len(body)
                 seg = body[fm.end():seg_end]
-                signals = GO_SIGNAL_NAME_RE.findall(seg)
+                signals = (GO_SIGNAL_NAME_RE.findall(seg)
+                           + GO_BIT_HELPER_RE.findall(seg))
                 fields.append({
                     "name": fm.group(1),
                     "byteLen": int(fm.group(2)),
@@ -560,9 +564,16 @@ def compare_fields(go_fields: list, exp_fields: list):
                 f"field #{i} '{g['name']}': signedness "
                 f"Go={'signed' if g['signed'] else 'unsigned'} "
                 f"firmware={'signed' if e['signed'] else 'unsigned'}")
-        if len(g["signals"]) != len(e["signals"]):
+        if len(g["signals"]) < len(e["signals"]):
+            # Model exposes fewer signals than firmware -> missing detail.
             structural.append(f"field #{i} '{g['name']}': signal count "
                               f"Go={len(g['signals'])} firmware={len(e['signals'])}")
+        elif len(g["signals"]) > len(e["signals"]):
+            # Model is more granular than the DBC (e.g. dash explodes a byte
+            # into per-bit signals) - intentional enrichment, not drift.
+            naming.append(f"field #{i} '{g['name']}': Go exposes "
+                          f"{len(g['signals'])} signals vs firmware "
+                          f"{len(e['signals'])} (model more granular)")
         if e["signals"] and set(g["signals"]) != set(e["signals"]):
             naming.append(f"field #{i}: signal names Go={g['signals']} "
                           f"firmware={e['signals']}")
