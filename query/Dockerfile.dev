@@ -4,4 +4,8 @@ RUN pip install uv
 
 WORKDIR /app/query
 
-CMD ["uv", "run", "uvicorn", "query.main:create_app", "--host", "0.0.0.0", "--port", "7010", "--reload"]
+# Only watch the application package. The bind-mounted /app/query also holds
+# .venv, scripts/, tests/ and .pytest_cache; watching those makes `uv run`
+# touching the venv trigger an endless reload loop, taking the service down and
+# dropping it from Rincon's registry (gateway then 404s /query/* routes).
+CMD ["uv", "run", "uvicorn", "query.main:create_app", "--host", "0.0.0.0", "--port", "7010", "--reload", "--reload-dir", "/app/query/query"]
