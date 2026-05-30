@@ -90,11 +90,20 @@ def _distinct_vehicle_ids() -> list[str]:
 
 
 def _anchor_signal(vehicle_id: str) -> str | None:
-    """Pick a stable anchor signal (alphabetically first) to bucket on."""
+    """Pick the highest-frequency signal to bucket on.
+
+    The anchor stands in for "the vehicle was producing data at time T", so it
+    must be a signal that is present continuously. Picking the alphabetically
+    first name instead would often land on a sparse, low-rate signal (e.g.
+    gr26's first name has 24 rows total), which collapses every bucket — and
+    therefore every cluster — to a single zero-width point.
+    """
     with get_db() as db:
         row = db.execute(
-            text("SELECT MIN(name) AS n FROM signal WHERE vehicle_id = :vehicle_id")
-            .bindparams(vehicle_id=vehicle_id)
+            text(
+                "SELECT name FROM signal WHERE vehicle_id = :vehicle_id "
+                "GROUP BY name ORDER BY COUNT(*) DESC LIMIT 1"
+            ).bindparams(vehicle_id=vehicle_id)
         ).fetchone()
     return row[0] if row else None
 
