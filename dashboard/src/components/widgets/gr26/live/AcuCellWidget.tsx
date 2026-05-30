@@ -39,8 +39,8 @@ function ModuleCells({ vehicle_id, moduleIndex }: ModuleCellsProps) {
   const signals = useMemo(() => {
     const s: string[] = [];
     for (let i = 0; i < PAIRS_PER_MODULE; i++) {
-      s.push(`bms_cell${pairOffset + i}_voltage`);
-      s.push(`bms_cell${pairOffset + i}_temp`);
+      s.push(`bcu_cell_${pairOffset + i}_voltage`);
+      s.push(`bcu_cell_${pairOffset + i}_temp`);
     }
     return s;
   }, [pairOffset]);
@@ -67,9 +67,10 @@ function ModuleCells({ vehicle_id, moduleIndex }: ModuleCellsProps) {
             {Array.from({ length: PAIRS_PER_MODULE }, (_, pairIdx) => {
               const pairGlobal = pairOffset + pairIdx;
               const v =
-                currentSignals.get(`bms_cell${pairGlobal}_voltage`)?.value ?? 0;
+                currentSignals.get(`bcu_cell_${pairGlobal}_voltage`)?.value ??
+                0;
               const t =
-                currentSignals.get(`bms_cell${pairGlobal}_temp`)?.value ?? 0;
+                currentSignals.get(`bcu_cell_${pairGlobal}_temp`)?.value ?? 0;
               const num0 = pairGlobal * 2;
               const num1 = num0 + 1;
 

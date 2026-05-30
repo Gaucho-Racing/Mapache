@@ -5,7 +5,7 @@ import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 var DTIData1 = mp.Message{
 	mp.NewField("erpm", 4, mp.Signed, mp.BigEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "erpm", Value: float64(f.Value), RawValue: f.Value},
+			{Name: "erpm", Value: (float64(f.Value) / 10), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("duty_cycle", 2, mp.Signed, mp.BigEndian, func(f mp.Field) []mp.Signal {
