@@ -23,6 +23,7 @@ import { Vec2 } from "@/lib/lapache/intersect";
 import {
   createSession,
   fetchClusters,
+  fetchDataDates,
   fetchSessions,
   fetchSignalData,
   fetchSignalNames,
@@ -33,6 +34,7 @@ import SignalPicker from "./components/SignalPicker";
 import TimelineCrop from "./components/TimelineCrop";
 import ResultsPanel from "./components/ResultsPanel";
 import SessionSidebar, { LoadTarget } from "./components/SessionSidebar";
+import DateSelector, { dayKey } from "./components/DateSelector";
 
 function LapachePage() {
   const vehicle = useVehicle();
@@ -40,6 +42,11 @@ function LapachePage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clusters, setClusters] = useState<DataCluster[]>([]);
   const [loadingClusters, setLoadingClusters] = useState(false);
+
+  // Day currently in view. The date selector limits what we query: clusters are
+  // fetched one day at a time, and sessions are filtered to their start day.
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
 
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -68,7 +75,7 @@ function LapachePage() {
   const [status, setStatus] = useState("Select a session or data cluster.");
   const [newSessionName, setNewSessionName] = useState("");
 
-  // -- Sidebar data (per vehicle) --------------------------------------------
+  // -- Per-vehicle: load sessions + available days, default to latest day -----
   useEffect(() => {
     if (!vehicle.id) return;
     setSelectedLabel(null);
@@ -76,23 +83,49 @@ function LapachePage() {
     setAllPoints([]);
     setRawGeo([]);
     setLapResult(null);
-    loadSidebar();
+    setClusters([]);
+    loadSessions();
+    (async () => {
+      const dates = await fetchDataDates(vehicle.id).catch(() => []);
+      setAvailableDates(dates);
+      // Default to the most recent day with data (dates are ascending).
+      if (dates.length > 0) {
+        const [y, m, d] = dates[dates.length - 1].split("-").map(Number);
+        setSelectedDate(new Date(y, m - 1, d));
+      } else {
+        setSelectedDate(new Date());
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicle.id]);
 
-  const loadSidebar = async () => {
+  // -- Clusters for the selected day -----------------------------------------
+  useEffect(() => {
+    if (!vehicle.id) return;
+    let cancelled = false;
     setLoadingClusters(true);
+    (async () => {
+      try {
+        const c = await fetchClusters(vehicle.id, dayKey(selectedDate));
+        if (!cancelled) setClusters(c);
+      } catch (e) {
+        if (!cancelled) notify.error(getAxiosErrorMessage(e));
+      } finally {
+        if (!cancelled) setLoadingClusters(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicle.id, selectedDate]);
+
+  const loadSessions = async () => {
     try {
-      const [s, c] = await Promise.all([
-        fetchSessions(vehicle.id).catch(() => []),
-        fetchClusters(vehicle.id).catch(() => []),
-      ]);
+      const s = await fetchSessions(vehicle.id).catch(() => []);
       setSessions(s);
-      setClusters(c);
     } catch (e) {
       notify.error(getAxiosErrorMessage(e));
-    } finally {
-      setLoadingClusters(false);
     }
   };
 
@@ -306,7 +339,7 @@ function LapachePage() {
       const updated = await saveSessionAnalysis(selectedSession, buildPayload());
       setSelectedSession(updated);
       setStatus(`Saved analysis for ${updated.name}`);
-      loadSidebar();
+      loadSessions();
     } catch (e) {
       notify.error(getAxiosErrorMessage(e));
     }
@@ -328,7 +361,7 @@ function LapachePage() {
       setSelectedLabel(`ssn:${created.id}`);
       setNewSessionName("");
       setStatus(`Created session ${created.name}`);
-      loadSidebar();
+      loadSessions();
     } catch (e) {
       notify.error(getAxiosErrorMessage(e));
     }
@@ -365,14 +398,22 @@ function LapachePage() {
     <Layout activeTab="lapache" headerTitle="Lapache">
       <div className="flex h-[calc(100vh-7rem)] gap-4">
         {/* Sessions / clusters sidebar */}
-        <Card className="w-64 flex-shrink-0 p-3">
-          <SessionSidebar
-            sessions={sessions}
-            clusters={clusters}
-            selectedLabel={selectedLabel}
-            loading={loadingClusters}
-            onSelect={handleSelect}
+        <Card className="flex w-64 flex-shrink-0 flex-col gap-3 p-3">
+          <DateSelector
+            value={selectedDate}
+            availableDates={availableDates}
+            onChange={setSelectedDate}
           />
+          <div className="min-h-0 flex-1">
+            <SessionSidebar
+              sessions={sessions}
+              clusters={clusters}
+              selectedLabel={selectedLabel}
+              selectedDate={selectedDate}
+              loading={loadingClusters}
+              onSelect={handleSelect}
+            />
+          </div>
         </Card>
 
         {/* Track + timeline */}

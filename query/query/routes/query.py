@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import APIRouter, Query, Response, Header
 from typing import Annotated
 from loguru import logger
@@ -10,7 +11,7 @@ from query.config.config import Config
 from query.model.log import QueryLog
 from query.service.auth import AuthService
 from query.service.log import create_log
-from query.service.cluster import get_clusters, get_signal_names
+from query.service.cluster import get_clusters, get_data_dates, get_signal_names
 from query.service.query import query_signals, merge_signals
 from query.service.token import get_token_by_id, validate_token
 from query.service.trip import get_trip_by_id
@@ -247,6 +248,8 @@ async def get_clusters_route(
     authorization: str = Header(None),
     vehicle_id: Annotated[str | None, Query()] = None,
     gap: Annotated[int | None, Query()] = 30,
+    date: Annotated[str | None, Query()] = None,
+    tz: Annotated[str, Query()] = "UTC",
 ):
     try:
         user_id = _authenticate(authorization)
@@ -262,11 +265,64 @@ async def get_clusters_route(
                 content={"message": "gap must be a positive number of seconds"},
             )
 
-        clusters = get_clusters(vehicle_id=vehicle_id, gap_seconds=gap or 30)
+        # Scope the scan to a single calendar day in the caller's timezone. The
+        # day boundaries are the local midnights of `date`, converted to instants
+        # so they line up with the timestamptz `produced_at` column.
+        start = end = None
+        if date is not None:
+            try:
+                tzinfo = ZoneInfo(tz)
+                day = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=tzinfo)
+            except (ValueError, ZoneInfoNotFoundError):
+                return JSONResponse(
+                    status_code=400,
+                    content={"message": "invalid date or timezone"},
+                )
+            start = day
+            end = day + timedelta(days=1)
+
+        clusters = get_clusters(
+            vehicle_id=vehicle_id, gap_seconds=gap or 30, start=start, end=end
+        )
         return JSONResponse(
             status_code=200,
             content={"data": [c.to_dict() for c in clusters]},
         )
+
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return JSONResponse(status_code=500, content={"message": str(e)})
+
+
+@router.get("/clusters/dates")
+async def get_cluster_dates_route(
+    authorization: str = Header(None),
+    vehicle_id: Annotated[str | None, Query()] = None,
+    tz: Annotated[str, Query()] = "UTC",
+):
+    try:
+        user_id = _authenticate(authorization)
+        if user_id is None:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "you are not authorized to access this resource"},
+            )
+
+        if vehicle_id is None:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "vehicle_id is required"},
+            )
+
+        try:
+            ZoneInfo(tz)
+        except ZoneInfoNotFoundError:
+            return JSONResponse(
+                status_code=400, content={"message": "invalid timezone"}
+            )
+
+        dates = get_data_dates(vehicle_id=vehicle_id, tz=tz)
+        return JSONResponse(status_code=200, content={"data": dates})
 
     except Exception as e:
         logger.error(traceback.format_exc())

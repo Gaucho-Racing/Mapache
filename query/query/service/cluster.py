@@ -108,26 +108,48 @@ def _anchor_signal(vehicle_id: str) -> str | None:
     return row[0] if row else None
 
 
-def _bucket_rows(vehicle_id: str, anchor: str) -> list[tuple[datetime, datetime]]:
-    """Minute-bucketed (min, max) produced_at for the anchor signal, ordered."""
+def _bucket_rows(
+    vehicle_id: str,
+    anchor: str,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> list[tuple[datetime, datetime]]:
+    """Minute-bucketed (min, max) produced_at for the anchor signal, ordered.
+
+    When `start`/`end` are given the scan is restricted to that window, which is
+    what keeps the per-day query cheap: only that day's anchor rows are bucketed.
+    """
+    params: dict[str, Any] = {"vehicle_id": vehicle_id, "anchor": anchor}
     query_str = """
     SELECT MIN(produced_at) AS pa_min, MAX(produced_at) AS pa_max
     FROM signal
     WHERE vehicle_id = :vehicle_id AND name = :anchor
+    """
+    if start is not None:
+        query_str += " AND produced_at >= :start"
+        params["start"] = start
+    if end is not None:
+        query_str += " AND produced_at < :end"
+        params["end"] = end
+    query_str += """
     GROUP BY FLOOR(EXTRACT(EPOCH FROM produced_at) / 60)
     ORDER BY pa_min ASC
     """
     with get_db() as db:
-        rows = db.execute(
-            text(query_str).bindparams(vehicle_id=vehicle_id, anchor=anchor)
-        ).fetchall()
+        rows = db.execute(text(query_str).bindparams(**params)).fetchall()
     return [(row[0], row[1]) for row in rows]
 
 
 def get_clusters(
-    vehicle_id: str | None = None, gap_seconds: int = DEFAULT_GAP_SECONDS
+    vehicle_id: str | None = None,
+    gap_seconds: int = DEFAULT_GAP_SECONDS,
+    start: datetime | None = None,
+    end: datetime | None = None,
 ) -> list[Cluster]:
-    """Build contiguous data clusters for one vehicle, or all vehicles."""
+    """Build contiguous data clusters for one vehicle, or all vehicles.
+
+    `start`/`end` restrict the scan to a time window (e.g. a single day).
+    """
     vehicle_ids = [vehicle_id] if vehicle_id else _distinct_vehicle_ids()
 
     all_clusters: list[Cluster] = []
@@ -135,8 +157,37 @@ def get_clusters(
         anchor = _anchor_signal(vid)
         if not anchor:
             continue
-        buckets = _bucket_rows(vid, anchor)
+        buckets = _bucket_rows(vid, anchor, start, end)
         all_clusters.extend(merge_buckets(vid, buckets, gap_seconds))
 
     all_clusters.sort(key=lambda c: c.start_time)
     return all_clusters
+
+
+def get_data_dates(vehicle_id: str, tz: str = "UTC") -> list[str]:
+    """Return the distinct calendar dates (YYYY-MM-DD) that have data for a
+    vehicle, expressed in timezone `tz`.
+
+    `produced_at` is a timestamptz, so `AT TIME ZONE :tz` converts each instant
+    to wall-clock time in the caller's zone before truncating to a date. This
+    backs the date selector: it picks the default (most recent) day and marks
+    which days are selectable, without scanning per day.
+    """
+    if not vehicle_id:
+        raise ValueError("Vehicle ID is required")
+
+    anchor = _anchor_signal(vehicle_id)
+    if not anchor:
+        return []
+
+    query_str = """
+    SELECT DISTINCT (produced_at AT TIME ZONE :tz)::date AS d
+    FROM signal
+    WHERE vehicle_id = :vehicle_id AND name = :anchor
+    ORDER BY d ASC
+    """
+    with get_db() as db:
+        rows = db.execute(
+            text(query_str).bindparams(vehicle_id=vehicle_id, anchor=anchor, tz=tz)
+        ).fetchall()
+    return [row[0].isoformat() for row in rows]

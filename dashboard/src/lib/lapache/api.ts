@@ -18,12 +18,37 @@ function stripZ(ts: string): string {
   return ts.endsWith("Z") ? ts.slice(0, -1) : ts;
 }
 
+// The browser's IANA timezone, so the backend buckets data into the same
+// calendar days the user sees (produced_at is a timestamptz).
+function browserTz(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+// Fetch contiguous data clusters for a vehicle. When `date` (YYYY-MM-DD) is
+// given, the backend scopes the scan to that single local day, which is the
+// main lever for keeping the raw-data query fast.
 export async function fetchClusters(
   vehicleId: string,
+  date?: string,
   gap = 30,
 ): Promise<DataCluster[]> {
   const params = new URLSearchParams({ vehicle_id: vehicleId, gap: String(gap) });
+  if (date) {
+    params.append("date", date);
+    params.append("tz", browserTz());
+  }
   const res = await axios.get(`${BACKEND_URL}/query/clusters?${params}`, {
+    headers: authHeaders(),
+  });
+  return res.data?.data?.data ?? [];
+}
+
+// Distinct calendar days (YYYY-MM-DD, ascending) that have data for a vehicle,
+// in the browser's timezone. Backs the date selector's default day and the
+// "days with data" hints in the calendar.
+export async function fetchDataDates(vehicleId: string): Promise<string[]> {
+  const params = new URLSearchParams({ vehicle_id: vehicleId, tz: browserTz() });
+  const res = await axios.get(`${BACKEND_URL}/query/clusters/dates?${params}`, {
     headers: authHeaders(),
   });
   return res.data?.data?.data ?? [];

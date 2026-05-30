@@ -1,4 +1,5 @@
 import { DataCluster, Session, hasAnalysis } from "@/models/lapache";
+import { dayKey } from "./DateSelector";
 
 export interface LoadTarget {
   startTime: string;
@@ -11,6 +12,9 @@ interface SessionSidebarProps {
   sessions: Session[];
   clusters: DataCluster[];
   selectedLabel: string | null;
+  // The day currently in view. Sessions are shown under the day they *start*
+  // on; clusters arrive already scoped to this day from the backend.
+  selectedDate: Date;
   loading: boolean;
   onSelect: (target: LoadTarget) => void;
 }
@@ -21,23 +25,19 @@ function fmtRange(start: string, end: string): string {
   return `${s.toLocaleTimeString()} — ${e.toLocaleTimeString()}`;
 }
 
-function dateKey(iso: string): string {
-  return new Date(iso).toLocaleDateString();
-}
-
 export default function SessionSidebar({
   sessions,
   clusters,
   selectedLabel,
+  selectedDate,
   loading,
   onSelect,
 }: SessionSidebarProps) {
-  // Group clusters by date for the raw-data browser.
-  const byDate: Record<string, DataCluster[]> = {};
-  for (const c of clusters) {
-    const k = dateKey(c.start_time);
-    (byDate[k] ??= []).push(c);
-  }
+  const key = dayKey(selectedDate);
+  // A session spanning two days belongs to the day it started on.
+  const daySessions = sessions.filter(
+    (s) => dayKey(new Date(s.start_time)) === key,
+  );
 
   const rowClass = (label: string) =>
     `cursor-pointer rounded px-2 py-1.5 text-sm transition-colors ${
@@ -52,10 +52,10 @@ export default function SessionSidebar({
         <div className="mb-1 text-xs font-semibold uppercase text-neutral-500">
           Sessions
         </div>
-        {sessions.length === 0 && (
+        {daySessions.length === 0 && (
           <div className="px-2 py-1 text-xs text-neutral-600">None</div>
         )}
-        {sessions.map((s) => {
+        {daySessions.map((s) => {
           const label = `ssn:${s.id}`;
           return (
             <div
@@ -89,33 +89,28 @@ export default function SessionSidebar({
         </div>
         {clusters.length === 0 && !loading && (
           <div className="px-2 py-1 text-xs text-neutral-600">
-            No data clusters
+            No data on this day
           </div>
         )}
-        {Object.entries(byDate).map(([date, list]) => (
-          <div key={date} className="mb-2">
-            <div className="px-2 py-1 text-xs text-neutral-400">{date}</div>
-            {list.map((c, i) => {
-              const label = `cluster:${c.start_time}`;
-              return (
-                <div
-                  key={i}
-                  className={rowClass(label)}
-                  onClick={() =>
-                    onSelect({
-                      startTime: c.start_time,
-                      endTime: c.end_time,
-                      label,
-                      session: null,
-                    })
-                  }
-                >
-                  {fmtRange(c.start_time, c.end_time)}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        {clusters.map((c, i) => {
+          const label = `cluster:${c.start_time}`;
+          return (
+            <div
+              key={i}
+              className={rowClass(label)}
+              onClick={() =>
+                onSelect({
+                  startTime: c.start_time,
+                  endTime: c.end_time,
+                  label,
+                  session: null,
+                })
+              }
+            >
+              {fmtRange(c.start_time, c.end_time)}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
