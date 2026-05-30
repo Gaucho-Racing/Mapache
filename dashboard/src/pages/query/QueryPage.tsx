@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { cn, formatTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { SignalCard } from "@/components/query/SignalCard";
+import { SignalTree } from "@/components/signals/SignalTree";
 import Fuse from "fuse.js";
 import { TripCard } from "@/components/query/TripCard";
 import { JsonView, allExpanded } from "react-json-view-lite";
@@ -129,10 +129,6 @@ function QueryPage() {
     "json",
   );
   const [openSignalPopover, setOpenSignalPopover] = useState(false);
-  const [signalSearchQuery, setSignalSearchQuery] = useState<string>("");
-  const [filteredSignals, setFilteredSignals] = useState<SignalDefinition[]>(
-    [],
-  );
 
   const [openTripPopover, setOpenTripPopover] = useState(false);
   const [tripSearchQuery, setTripSearchQuery] = useState<string>("");
@@ -144,15 +140,6 @@ function QueryPage() {
   const [selectedView, setSelectedView] = useState<"graph" | "table" | "json">(
     "graph",
   );
-
-  const fuseSignals = useMemo(() => {
-    return new Fuse(availableSignals, {
-      keys: ["name", "id"],
-      threshold: 0.3,
-      includeScore: true,
-      shouldSort: true,
-    });
-  }, [availableSignals]);
 
   const fuseTrips = useMemo(() => {
     return new Fuse(availableTrips, {
@@ -167,16 +154,6 @@ function QueryPage() {
     getAvailableSignals();
     getAvailableTrips();
   }, [vehicle]);
-
-  useEffect(() => {
-    if (signalSearchQuery.trim() === "") {
-      setFilteredSignals(availableSignals);
-      return;
-    }
-
-    const results = fuseSignals.search(signalSearchQuery);
-    setFilteredSignals(results.map((result) => result.item));
-  }, [signalSearchQuery, fuseSignals, availableSignals]);
 
   useEffect(() => {
     if (tripSearchQuery.trim() === "") {
@@ -446,42 +423,17 @@ function QueryPage() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="min-w-[300px] p-0">
-                    <div className="flex flex-col gap-1">
-                      <div className="sticky top-0 bg-background p-2">
-                        <Input
-                          className="bg-transparent"
-                          placeholder="Search signals..."
-                          value={signalSearchQuery}
-                          onChange={(e) => setSignalSearchQuery(e.target.value)}
-                        />
-                      </div>
-                      {filteredSignals.length === 0 ? (
-                        <div className="p-2 pb-4 text-center text-sm text-muted-foreground">
-                          No signals found
-                        </div>
-                      ) : (
-                        <div className="max-h-[400px] overflow-y-auto p-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                          {filteredSignals.map((signal) => (
-                            <div
-                              key={signal.id}
-                              onClick={() => {
-                                setSelectedSignals((prev) =>
-                                  prev.includes(signal.id)
-                                    ? prev.filter((id) => id !== signal.id)
-                                    : [...prev, signal.id],
-                                );
-                              }}
-                            >
-                              <SignalCard
-                                key={signal.id}
-                                signal={signal}
-                                selected={selectedSignals.includes(signal.id)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <SignalTree
+                      signals={availableSignals}
+                      isSelected={(id) => selectedSignals.includes(id)}
+                      onSelect={(id) =>
+                        setSelectedSignals((prev) =>
+                          prev.includes(id)
+                            ? prev.filter((s) => s !== id)
+                            : [...prev, id],
+                        )
+                      }
+                    />
                   </PopoverContent>
                 </Popover>
                 <div className="mt-2 flex flex-wrap gap-2">
