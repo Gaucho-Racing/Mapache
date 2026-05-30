@@ -2,6 +2,12 @@ package model
 
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
+// TODO(grcan-sync): the firmware DBC describes all DTI_Data frames as
+// LittleEndian with most fields unsigned and scale 1, whereas these models use
+// BigEndian + signed + scaling. The DTI is a third-party inverter, so the
+// hand-tuned values here are probably the correct ones and the DBC may be a
+// placeholder - do NOT conform to the DBC without confirming against the DTI
+// datasheet / a live frame capture. (Affects DTIData1-5.)
 var DTIData1 = mp.Message{
 	mp.NewField("erpm", 4, mp.Signed, mp.BigEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
@@ -70,6 +76,11 @@ var DTIData4 = mp.Message{
 	}),
 }
 
+// TODO(grcan-sync): beyond the endianness note above, the DBC defines a richer
+// DTI_Data_5 layout than this model: digital_io as 8 discrete digital_input/
+// output bits, limit_flags as 8 named limit bits (1 byte, not 2), three
+// rpm/power limit values where this model has reserved bytes, and a trailing
+// can_version byte. Reconcile against the DTI datasheet before expanding.
 var DTIData5 = mp.Message{
 	mp.NewField("throttle", 1, mp.Unsigned, mp.BigEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{

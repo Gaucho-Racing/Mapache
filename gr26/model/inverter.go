@@ -38,6 +38,10 @@ var InverterStatus2 = mp.Message{
 	}),
 }
 
+// TODO(grcan-sync): firmware DBC INV_Status_3 places fault_bits at byte 1
+// (right after motor_temp) with byte 2 unused; this model has _padding at
+// byte 1 and fault_bits at byte 2. Confirm the correct byte with firmware
+// before reordering - it changes how live frames decode.
 var InverterStatus3 = mp.Message{
 	mp.NewField("motor_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{

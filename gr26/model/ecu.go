@@ -84,6 +84,14 @@ var ECUStatus3 = mp.Message{
 			{Name: "rr_wheel_rpm", Value: float64(f.Value)*0.1 - 3276.8, RawValue: f.Value},
 		}
 	}),
+	// Added by grcan sync: firmware ECU_Status_3 (dlc 5) carries Relay_States
+	// at byte 4. We expose the whole byte; the DBC documents bit 0 only.
+	// TODO(grcan-sync): confirm the full relay bit layout with firmware.
+	mp.NewField("relay_states", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "relay_states", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
 }
 
 var ECUAnalogData = mp.Message{

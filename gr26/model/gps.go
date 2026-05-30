@@ -30,6 +30,10 @@ var GPSLongitude = mp.Message{
 	}),
 }
 
+// TODO(grcan-sync): firmware DBC GPS_ALT is a single 8-byte ALT value (likely
+// float64), no status field. This model decodes a 4-byte float32 altitude plus
+// a 4-byte gps_status. Confirm whether the dash/GPS firmware actually packs a
+// status word here before conforming to the DBC's 8-byte layout.
 var GPSAltitude = mp.Message{
 	mp.NewField("gps_altitude", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
