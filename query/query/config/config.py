@@ -1,5 +1,7 @@
 import os
 
+from sqlalchemy import URL
+
 class Config:
     """Configuration settings for the application"""
     
@@ -28,6 +30,17 @@ class Config:
     SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')
 
     @staticmethod
-    def get_database_url() -> str:
-        return f"postgresql+psycopg2://{Config.DATABASE_USER}:{Config.DATABASE_PASSWORD}@{Config.DATABASE_HOST}:{Config.DATABASE_PORT}/{Config.DATABASE_NAME}"
+    def get_database_url() -> URL:
+        # Build via URL.create rather than an f-string so credentials with
+        # special characters (e.g. '@', '%', or non-ASCII bytes in the
+        # password) are escaped instead of corrupting the DSN — an unescaped
+        # '@' in the password otherwise bleeds into the host portion.
+        return URL.create(
+            "postgresql+psycopg2",
+            username=Config.DATABASE_USER,
+            password=Config.DATABASE_PASSWORD,
+            host=Config.DATABASE_HOST,
+            port=Config.DATABASE_PORT,
+            database=Config.DATABASE_NAME,
+        )
 
