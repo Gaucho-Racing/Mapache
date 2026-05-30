@@ -191,7 +191,7 @@ function QueryPage() {
   const getAvailableSignals = async () => {
     try {
       const response = await axios.get(
-        `${BACKEND_URL}/query/definitions?vehicle_type=${vehicle.type}&vehicle_id=${vehicle.id}`,
+        `${BACKEND_URL}/query/definitions?vehicle_type=${vehicle.type}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,

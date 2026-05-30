@@ -9,7 +9,6 @@ from query.service.auth import AuthService
 import traceback
 
 from query.service.signal_definition import get_all_signal_definitions, get_signal_definition_by_id, get_signal_definitions_by_vehicle_type
-from query.service.cluster import get_signal_names
 
 router = APIRouter()
 
@@ -17,7 +16,6 @@ router = APIRouter()
 async def get_signal_definitions(
     authorization: str = Header(None),
     vehicle_type: Annotated[str | None, Query()] = None,
-    vehicle_id: Annotated[str | None, Query()] = None,
 ):
     try:
         if Config.SKIP_AUTH_CHECK:
@@ -40,23 +38,6 @@ async def get_signal_definitions(
         else:
             definitions = get_all_signal_definitions()
         content = [definition.to_dict() for definition in definitions]
-
-        # The signal_definition catalog is a curated, optional table that is
-        # empty for many deployments. When it has no entries, fall back to the
-        # distinct signal names actually present for the selected vehicle so the
-        # signal picker is still usable. The query uses each definition's `id`
-        # as the signal key, which in the `signal` table is the `name`.
-        if not content and vehicle_id:
-            names = get_signal_names(vehicle_id=vehicle_id)
-            content = [
-                {
-                    "id": name,
-                    "vehicle_type": vehicle_type or "",
-                    "name": name,
-                    "description": "",
-                }
-                for name in names
-            ]
 
         return JSONResponse(status_code=200, content=content)
 
