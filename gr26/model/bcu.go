@@ -129,9 +129,9 @@ var BCUConfigOperationalParameters = mp.Message{
 	}),
 }
 
-func cellDataMessage(startCell int) mp.Message {
+func cellDataMessage(startCell int, cellAmount int) mp.Message {
 	msg := mp.Message{}
-	for i := 0; i < 32; i++ {
+	for i := 0; i < cellAmount; i++ {
 		cell := startCell + i
 		voltageName := fmt.Sprintf("cell_%d_voltage", cell)
 		tempName := fmt.Sprintf("cell_%d_temp", cell)
@@ -149,8 +149,8 @@ func cellDataMessage(startCell int) mp.Message {
 	return msg
 }
 
-var BCUCellData1 = cellDataMessage(0)
-var BCUCellData2 = cellDataMessage(32)
-var BCUCellData3 = cellDataMessage(64)
-var BCUCellData4 = cellDataMessage(96)
-var BCUCellData5 = cellDataMessage(128)
+var BCUCellData1 = cellDataMessage(0, 32)
+var BCUCellData2 = cellDataMessage(32, 32)
+var BCUCellData3 = cellDataMessage(64, 32)
+var BCUCellData4 = cellDataMessage(96, 32)
+var BCUCellData5 = cellDataMessage(128, 12)
