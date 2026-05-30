@@ -4,6 +4,11 @@
 *.env
 tmp/
 
+# Local docker compose overrides (e.g. pointing a service at a remote DB
+# for testing). Kept out of git so they don't affect others' local stacks.
+docker-compose.override.yml
+docker-compose.override.yaml
+
 # === K8S ===
 k8s/db-config.yaml
 k8s/sentinel-config.yaml
