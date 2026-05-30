@@ -39,7 +39,7 @@ async def get_signal_definitions(
             definitions = get_all_signal_definitions()
         return JSONResponse(
             status_code=200,
-            content={"data": [definition.to_dict() for definition in definitions]}
+            content=[definition.to_dict() for definition in definitions]
         )
     
     except Exception as e:
@@ -82,7 +82,7 @@ async def get_signal_definition(
             )
         return JSONResponse(
             status_code=200,
-            content={"data": definition.to_dict()}
+            content=definition.to_dict()
         )
     
     except Exception as e:
