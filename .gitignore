@@ -4,6 +4,13 @@
 *.env
 tmp/
 
+# === PYTHON ===
+# Virtualenvs and bytecode caches (e.g. gr26/tools/.venv, query/.venv).
+# These are generated locally and must never be tracked.
+.venv/
+__pycache__/
+*.py[cod]
+
 # Local docker compose overrides (e.g. pointing a service at a remote DB
 # for testing). Kept out of git so they don't affect others' local stacks.
 docker-compose.override.yml
