@@ -105,13 +105,19 @@ export async function fetchSignalData(
 
   const points: GeoPoint[] = [];
   for (const rec of records) {
-    const lat = rec[latField];
-    const lon = rec[lonField];
     const producedAt = rec["produced_at"];
-    if (lat == null || lon == null || producedAt == null) continue;
+    if (producedAt == null) continue;
+    const lat = Number(rec[latField]);
+    const lon = Number(rec[lonField]);
+    // Drop non-numeric readings and the 0,0 "null island" fix the receiver
+    // emits before it locks. Unlike the calibration time series (which already
+    // skips these), the track autoscales to its bounding box, so a single bad
+    // outlier collapses the real path and leaves stray lines shooting to it.
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    if (lat === 0 && lon === 0) continue;
     points.push({
-      lat: Number(lat),
-      lon: Number(lon),
+      lat,
+      lon,
       ts: new Date(String(producedAt)).getTime() / 1000,
     });
   }
