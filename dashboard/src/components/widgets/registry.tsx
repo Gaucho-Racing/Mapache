@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import Gr26PedalsWidget from "@/components/widgets/gr26/live/PedalsWidget";
+import Gr26PedalBarWidget from "@/components/widgets/gr26/live/PedalBarWidget";
 import Gr26EcuDebugWidget from "@/components/widgets/gr26/live/EcuDebugWidget";
 import Gr26BcuDebugWidget from "@/components/widgets/gr26/live/BcuDebugWidget";
 import Gr26DtiDebugWidget from "@/components/widgets/gr26/live/DtiDebugWidget";
@@ -124,6 +125,16 @@ export const gr26_registry = {
       icon: Gauge,
       span: 6,
       preview: "/widgets/gr26/pedals-full.png",
+    },
+    {
+      id: "pedal-bar",
+      name: "Pedal Bar",
+      description:
+        "Shows the accelerator pedal position as a 0–100% progress bar.",
+      component: Gr26PedalBarWidget,
+      icon: Gauge,
+      span: 6,
+      preview: "/widgets/gr26/pedal-bar.png",
     },
   ],
   ECU: [

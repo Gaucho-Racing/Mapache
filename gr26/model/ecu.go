@@ -129,12 +129,12 @@ var ECUAnalogData = mp.Message{
 	}),
 	mp.NewField("acc_pedal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "acc_pedal", Value: float64(f.Value), RawValue: f.Value},
+			{Name: "acc_pedal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
 		}
 	}),
 	mp.NewField("brake_pedal", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "brake_pedal", Value: float64(f.Value), RawValue: f.Value},
+			{Name: "brake_pedal", Value: float64(f.Value) / 655.35, RawValue: f.Value},
 		}
 	}),
 }
