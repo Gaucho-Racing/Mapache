@@ -20,8 +20,7 @@ func main() {
 	config.PrintStartupBanner()
 	rincon.Init(&config.Service, &config.Routes)
 	database.Init()
-	mqtt.Init()
-	service.SubscribeTopics()
+	mqtt.Init(service.SubscribeTopics)
 
 	api.Run()
 }
