@@ -10,6 +10,7 @@ import {
   Gauge,
   LucideIcon,
   MapIcon,
+  Route,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import DgpsDebugWidget from "@/components/widgets/gr26/live/DgpsDebugWidget";
 import DgpsVelocityWidget from "@/components/widgets/gr26/live/DgpsVelocityWidget";
 import DgpsAccelWidget from "@/components/widgets/gr26/live/DgpsAccelWidget";
 import DgpsPositionWidget from "@/components/widgets/gr26/live/DgpsPositionWidget";
+import Gr26DistanceWidget from "@/components/widgets/gr26/live/DistanceWidget";
 import BmsCellWidget from "@/components/widgets/gr26/live/AcuCellWidget";
 import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
 import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
@@ -229,6 +231,16 @@ export const gr26_registry = {
       icon: Bug,
       span: 12,
       preview: "/widgets/gr26/dgps-debug.png",
+    },
+    {
+      id: "distance",
+      name: "Distance Travelled",
+      description:
+        "Accumulates total distance driven from GPS position, with a reset button.",
+      component: Gr26DistanceWidget,
+      icon: Route,
+      span: 4,
+      preview: "/widgets/gr26/distance.png",
     },
   ],
 };
