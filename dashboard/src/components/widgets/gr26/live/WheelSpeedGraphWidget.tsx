@@ -140,8 +140,10 @@ export default function WheelSpeedGraphWidget({
                           }
                           return String(value);
                         }}
-                        formatter={(value: number, name: string) => {
-                          return [`${value.toFixed(2)}`, name];
+                        formatter={(value, name) => {
+                          const num =
+                            typeof value === "number" ? value : Number(value);
+                          return [`${num.toFixed(2)}`, name];
                         }}
                       />
                     }
