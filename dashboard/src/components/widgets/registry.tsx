@@ -26,6 +26,8 @@ import DgpsAccelWidget from "@/components/widgets/gr26/live/DgpsAccelWidget";
 import DgpsPositionWidget from "@/components/widgets/gr26/live/DgpsPositionWidget";
 import Gr26DistanceWidget from "@/components/widgets/gr26/live/DistanceWidget";
 import BmsCellWidget from "@/components/widgets/gr26/live/AcuCellWidget";
+import WheelSpeedWidget from "@/components/widgets/gr26/live/WheelSpeedWidget";
+import WheelSpeedGraphWidget from "@/components/widgets/gr26/live/WheelSpeedGraphWidget";
 import MobileDebugWidget from "@/components/widgets/gr24/MobileDebugWidget";
 import AcuDebugWidget from "@/components/widgets/gr24/AcuDebugWidget";
 import PedalsDebugWidget from "@/components/widgets/gr24/PedalsDebugWidget";
@@ -180,6 +182,25 @@ export const gr26_registry = {
       icon: Bug,
       span: 12,
       preview: "/widgets/gr26/dti-debug.png",
+    },
+    {
+      id: "wheel-speed",
+      name: "Wheel Speed",
+      description: "Estimated wheel speed computed from dti_erpm.",
+      component: WheelSpeedWidget,
+      icon: Gauge,
+      span: 3,
+      preview: "/widgets/gr26/wheel-speed.png",
+    },
+    {
+      id: "wheel-speed-graph",
+      name: "Wheel Speed Graph",
+      description:
+        "Line chart of estimated wheel speed over the last 10 seconds, computed from dti_erpm.",
+      component: WheelSpeedGraphWidget,
+      icon: TrendingUp,
+      span: 6,
+      preview: "/widgets/gr26/wheel-speed-graph.png",
     },
   ],
   Inverter: [
