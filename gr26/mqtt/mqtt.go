@@ -14,7 +14,7 @@ var Client mq.Client
 
 const (
 	connectTimeout       = 15 * time.Second
-	connectRetryInterval = 15 * time.Second
+	connectRetryInterval = 5 * time.Second
 )
 
 func Init(onConnect func()) {
