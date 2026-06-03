@@ -4,8 +4,9 @@ import "time"
 
 // CAN is a stored record of a single decoded CAN frame received from a
 // gr26 vehicle. The composite (vehicle_id, node_id, timestamp) tuple
-// uniquely identifies a frame; ulid is the surrogate key used by the
-// gr26_can_signal join table.
+// uniquely identifies a frame. The signal table joins back to this row
+// via that same tuple (node_id is recovered from the signal name's
+// prefix) — no separate link table required.
 type CAN struct {
 	ID         string    `json:"id" gorm:"primaryKey"`
 	VehicleID  string    `json:"vehicle_id" gorm:"uniqueIndex:idx_gr26_can_unique"`
@@ -24,18 +25,4 @@ type CAN struct {
 
 func (CAN) TableName() string {
 	return "gr26_can"
-}
-
-// CANSignal joins each persisted signal back to the CAN frame it was
-// decoded from. SignalID is the primary key because the relationship is
-// one-to-many (one frame, many signals; each signal traces to exactly
-// one frame).
-type CANSignal struct {
-	SignalID     string    `json:"signal_id" gorm:"primaryKey"`
-	CANMessageID string    `json:"can_message_id" gorm:"index"`
-	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
-}
-
-func (CANSignal) TableName() string {
-	return "gr26_can_signal"
 }

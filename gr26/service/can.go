@@ -21,15 +21,20 @@ func GetCAN(id string) (model.CAN, error) {
 	return can, nil
 }
 
-// GetCANForSignal looks up the CAN frame that produced a given signal,
-// joining via gr26_can_signal. Returns gorm.ErrRecordNotFound if the
-// signal isn't linked to any frame (e.g., signal predates the trace
-// feature or belongs to a different service).
+// GetCANForSignal looks up the CAN frame that produced a given signal by
+// joining on the natural keys (vehicle_id, timestamp, node_id) — node_id
+// is recovered from the signal name's prefix, since CreateSignals stamps
+// each signal with the node it was decoded from as `<node>_<short>`.
+// Returns gorm.ErrRecordNotFound if no frame matches (e.g., the source
+// frame was never persisted, or the signal name doesn't follow the
+// node-prefix convention).
 func GetCANForSignal(signalID string) (model.CAN, error) {
 	var can model.CAN
 	err := database.DB.
-		Joins("JOIN gr26_can_signal ON gr26_can_signal.can_message_id = gr26_can.id").
-		Where("gr26_can_signal.signal_id = ?", signalID).
+		Joins("JOIN signal ON gr26_can.vehicle_id = signal.vehicle_id"+
+			" AND gr26_can.timestamp = signal.timestamp"+
+			" AND gr26_can.node_id = split_part(signal.name, '_', 1)").
+		Where("signal.id = ?", signalID).
 		First(&can).Error
 	if err != nil {
 		return model.CAN{}, err
@@ -37,14 +42,16 @@ func GetCANForSignal(signalID string) (model.CAN, error) {
 	return can, nil
 }
 
-// GetSignalsForCAN returns every signal currently linked to the given
-// CAN message via the gr26_can_signal join table. The query orders by
-// signal name so the response is stable and easy to scan.
+// GetSignalsForCAN returns every signal that was decoded from the given
+// CAN frame, joining on the natural keys (vehicle_id, timestamp, node_id).
+// Ordered by signal name so the response is stable and easy to scan.
 func GetSignalsForCAN(canMessageID string) ([]mapache.Signal, error) {
 	var signals []mapache.Signal
 	err := database.DB.
-		Joins("JOIN gr26_can_signal ON gr26_can_signal.signal_id = signal.id").
-		Where("gr26_can_signal.can_message_id = ?", canMessageID).
+		Joins("JOIN gr26_can ON signal.vehicle_id = gr26_can.vehicle_id"+
+			" AND signal.timestamp = gr26_can.timestamp"+
+			" AND gr26_can.node_id = split_part(signal.name, '_', 1)").
+		Where("gr26_can.id = ?", canMessageID).
 		Order("signal.name ASC").
 		Find(&signals).Error
 	if err != nil {
@@ -73,25 +80,4 @@ func CreateCAN(can model.CAN) (model.CAN, error) {
 		return model.CAN{}, result.Error
 	}
 	return can, nil
-}
-
-// CreateCANSignals links each signal id to the CAN frame it was decoded
-// from. Conflicts on signal_id update the can_message_id so the link
-// always points at the most recent frame that produced the signal.
-func CreateCANSignals(canMessageID string, signalIDs []string) error {
-	if !config.EnableSignalDB || len(signalIDs) == 0 {
-		return nil
-	}
-	rows := make([]model.CANSignal, len(signalIDs))
-	for i, sid := range signalIDs {
-		rows[i] = model.CANSignal{
-			SignalID:     sid,
-			CANMessageID: canMessageID,
-		}
-	}
-	result := database.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "signal_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"can_message_id"}),
-	}).Create(&rows)
-	return result.Error
 }
