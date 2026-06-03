@@ -52,13 +52,17 @@ var TCMShelterHeartbeat = mp.Message{
 	}),
 }
 
-// TCMShelterBatchDone is emitted by shelter immediately after each
-// successful Parquet upload to S3. Surfaces what just landed in cold
-// storage — pairs with TCMShelterBatchPerf for the matching upload.
+// TCMShelterBatch is a 16-byte CAN-FD frame emitted by shelter after each
+// successful Parquet upload — combines what landed (rows, compressed size)
+// with how it went (claim/upload timing, compression ratio, trigger).
 //
 //   rows              u32 LE  row count in the uploaded batch
 //   compressed_bytes  u32 LE  size of the parquet file on S3 (after zstd)
-var TCMShelterBatchDone = mp.Message{
+//   upload_ms         u16 LE  parquet write + S3 multipart upload duration
+//   claim_ms          u16 LE  postgres claim CTE duration
+//   ratio_x100        u16 LE  compression ratio × 100 (e.g. 724 → 7.24x)
+//   trigger           u8      0=size 1=age 2=startup
+var TCMShelterBatch = mp.Message{
 	mp.NewField("rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
 			{Name: "shelter_batch_rows", Value: float64(f.Value), RawValue: f.Value},
@@ -69,17 +73,6 @@ var TCMShelterBatchDone = mp.Message{
 			{Name: "shelter_batch_compressed_bytes", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
-}
-
-// TCMShelterBatchPerf — emitted alongside batch_done after each successful
-// upload. Carries the timing + compression view for the same batch so the
-// dash can correlate the two by timestamp.
-//
-//   upload_ms   u16 LE  parquet write + S3 multipart upload duration
-//   claim_ms    u16 LE  postgres UPDATE...RETURNING duration
-//   ratio_x100  u16 LE  compression ratio × 100 (e.g. 724 → 7.24x)
-//   trigger     u8      0=size 1=age 2=startup
-var TCMShelterBatchPerf = mp.Message{
 	mp.NewField("upload_ms", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
 			{Name: "shelter_batch_upload_ms", Value: float64(f.Value), RawValue: f.Value},
