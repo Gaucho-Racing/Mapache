@@ -5,7 +5,6 @@ import (
 	"github.com/gaucho-racing/mapache/vehicle/config"
 	"github.com/gaucho-racing/mapache/vehicle/database"
 	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/rincon"
 )
 
 func main() {
@@ -14,7 +13,6 @@ func main() {
 
 	config.Verify()
 	config.PrintStartupBanner()
-	rincon.Init(&config.Service, &config.Routes)
 	database.Init()
 
 	api.Run()

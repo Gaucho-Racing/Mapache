@@ -8,12 +8,12 @@ from query.config.config import Config
 from query.database.connection import init_db
 from query.routes import ping, query, signal_definition, token
 from query.service.auth import AuthService
-from query.service.rincon import init_rincon
+from query.service.kerbecs import init as init_kerbecs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    init_rincon()
+    init_kerbecs(Config.KERBECS_ENDPOINT, Config.KERBECS_USER, Config.KERBECS_PASSWORD)
     if Config.SKIP_AUTH_CHECK:
         logger.warning("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
     else:

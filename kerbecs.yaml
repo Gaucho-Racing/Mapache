@@ -1,0 +1,148 @@
+gateway:
+  name: mapache-gateway
+  version: 3.3.0
+  env: ${ENV:DEV}
+  limits:
+    max_request_bytes: 100MB
+    max_response_bytes: 100MB
+  timeouts:
+    dial: 5s
+    headers: 30s
+    idle: 90s
+    overall: 0
+
+listeners:
+  gateway:
+    port: ${PORT:10310}
+    cors:
+      enabled: true
+      allowed_origins: ["*"]
+      allow_credentials: false
+  admin:
+    port: ${ADMIN_PORT:10300}
+    auth:
+      type: basic
+      username: ${KERBECS_USER:admin}
+      password: ${KERBECS_PASSWORD:admin}
+
+providers:
+  static:
+    watch: false
+
+upstreams:
+  auth:
+    name: mapache-auth
+    version: 3.3.0
+    instances:
+      - http://auth:7002
+
+  vehicle:
+    name: mapache-vehicle
+    version: 3.3.0
+    instances:
+      - http://vehicle:7003
+
+  gr26:
+    name: mapache-gr26
+    version: 3.3.0
+    instances:
+      - http://gr26:7005
+
+  query:
+    name: mapache-query
+    version: 3.3.0
+    instances:
+      - http://query:7010
+
+  dashboard:
+    name: mapache-dashboard
+    version: 3.3.0
+    instances:
+      - http://dashboard:5173
+
+routes:
+  - name: auth
+    match:
+      path: /api/auth/*
+    upstream: auth
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: users
+    match:
+      path: /api/users/*
+    upstream: auth
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: vehicle-ping
+    match:
+      path: /api/vehicle/ping
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: vehicles
+    match:
+      path: /api/vehicles
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: vehicles-id
+    match:
+      path: /api/vehicles/*
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: sessions
+    match:
+      path: /api/sessions
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: sessions-id
+    match:
+      path: /api/sessions/*
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: gr26-live
+    match:
+      path: /api/gr26/live
+    upstream: gr26
+    rewrite:
+      strip_prefix: /api
+    envelope: passthrough
+
+  - name: gr26
+    match:
+      path: /api/gr26/*
+    upstream: gr26
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: query
+    match:
+      path: /api/query/*
+    upstream: query
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: dashboard
+    match:
+      path: /*
+    upstream: dashboard
+    envelope: passthrough

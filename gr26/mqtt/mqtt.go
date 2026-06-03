@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/config"
@@ -18,6 +19,10 @@ const (
 )
 
 func Init(onConnect func()) {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = fmt.Sprintf("pid%d", os.Getpid())
+	}
 	opts := mq.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", config.MQTTHost, config.MQTTPort))
 	opts.SetUsername(config.MQTTUser)
@@ -28,7 +33,7 @@ func Init(onConnect func()) {
 	opts.SetConnectTimeout(connectTimeout)
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(connectRetryInterval)
-	opts.SetClientID(fmt.Sprintf("%s-%d", config.Service.Name, config.Service.ID))
+	opts.SetClientID(fmt.Sprintf("%s-%s", config.Service.Name, host))
 	opts.SetOnConnectHandler(func(c mq.Client) {
 		logger.SugarLogger.Infoln("[MQ] Connected to MQTT broker")
 		if onConnect != nil {

@@ -3,7 +3,6 @@ module github.com/gaucho-racing/mapache/gr26
 go 1.26
 
 require (
-	github.com/bk1031/rincon-go/v2 v2.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/fatih/color v1.18.0
 	github.com/gaucho-racing/mapache/mapache-go/v3 v3.3.0

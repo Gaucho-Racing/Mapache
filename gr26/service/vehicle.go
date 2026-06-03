@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/config"
+	"github.com/gaucho-racing/mapache/gr26/pkg/kerbecs"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/gr26/pkg/rincon"
 
 	"github.com/gaucho-racing/mapache/mapache-go/v3"
 )
@@ -39,19 +39,15 @@ func ValidateUploadKey(vehicleID string, key int) bool {
 		}
 	}
 
-	if rincon.RinconClient == nil {
-		logger.SugarLogger.Warnf("Rincon client is nil, cannot validate upload key for vehicle %s", vehicleID)
-		return false
-	}
-
 	hitTTL, err := strconv.Atoi(config.VehicleUploadKeyCacheTTL)
 	if err != nil {
 		hitTTL = 600
 	}
 
-	svc, err := rincon.RinconClient.MatchRoute(fmt.Sprintf("/vehicles/%s", vehicleID), "GET")
+	path := fmt.Sprintf("/api/vehicles/%s", vehicleID)
+	upstreamURL, err := kerbecs.Resolve("GET", path)
 	if err != nil {
-		logger.SugarLogger.Warnf("Failed to resolve vehicle service via Rincon: %v", err)
+		logger.SugarLogger.Warnf("Failed to resolve vehicle route via kerbecs: %v", err)
 		uploadKeyCache.Store(vehicleID, uploadKeyCacheEntry{
 			Found:     false,
 			ExpiresAt: time.Now().Add(time.Minute),
@@ -59,7 +55,7 @@ func ValidateUploadKey(vehicleID string, key int) bool {
 		return false
 	}
 
-	resp, err := http.Get(fmt.Sprintf("%s/vehicles/%s", svc.Endpoint, vehicleID))
+	resp, err := http.Get(upstreamURL)
 	if err != nil {
 		logger.SugarLogger.Warnf("Failed to fetch vehicle %s: %v", vehicleID, err)
 		uploadKeyCache.Store(vehicleID, uploadKeyCacheEntry{
