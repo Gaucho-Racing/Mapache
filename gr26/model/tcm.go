@@ -52,6 +52,59 @@ var TCMShelterHeartbeat = mp.Message{
 	}),
 }
 
+// TCMShelterBatchDone is emitted by shelter immediately after each
+// successful Parquet upload to S3. Surfaces what just landed in cold
+// storage — pairs with TCMShelterBatchPerf for the matching upload.
+//
+//   rows              u32 LE  row count in the uploaded batch
+//   compressed_bytes  u32 LE  size of the parquet file on S3 (after zstd)
+var TCMShelterBatchDone = mp.Message{
+	mp.NewField("rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_rows", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("compressed_bytes", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_compressed_bytes", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+}
+
+// TCMShelterBatchPerf — emitted alongside batch_done after each successful
+// upload. Carries the timing + compression view for the same batch so the
+// dash can correlate the two by timestamp.
+//
+//   upload_ms   u16 LE  parquet write + S3 multipart upload duration
+//   claim_ms    u16 LE  postgres UPDATE...RETURNING duration
+//   ratio_x100  u16 LE  compression ratio × 100 (e.g. 724 → 7.24x)
+//   trigger     u8      0=size 1=age 2=startup
+var TCMShelterBatchPerf = mp.Message{
+	mp.NewField("upload_ms", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_upload_ms", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("claim_ms", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_claim_ms", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("ratio_x100", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_ratio", Value: float64(f.Value) / 100.0, RawValue: f.Value},
+		}
+	}),
+	mp.NewField("trigger", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_trigger", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("_reserved", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+}
+
 var TCMResourceUtil = mp.Message{
 	mp.NewField("cpu0_freq", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}
