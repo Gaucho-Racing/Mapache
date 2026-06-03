@@ -4,12 +4,10 @@ from sqlalchemy import URL
 
 class Config:
     """Configuration settings for the application"""
-    
+
     # Server settings
-    VERSION: str = "1.3.1"
+    VERSION: str = "3.3.0"
     PORT: int = int(os.getenv('PORT', 7000))
-    SERVICE_ENDPOINT: str = os.getenv('SERVICE_ENDPOINT')
-    SERVICE_HEALTH_CHECK: str = os.getenv('SERVICE_HEALTH_CHECK')
 
     # Database settings
     DATABASE_HOST: str = os.getenv('DATABASE_HOST')
@@ -18,10 +16,10 @@ class Config:
     DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD')
     DATABASE_NAME: str = os.getenv('DATABASE_NAME')
 
-    # Rincon settings
-    RINCON_USER: str = os.getenv('RINCON_USER')
-    RINCON_PASSWORD: str = os.getenv('RINCON_PASSWORD')
-    RINCON_ENDPOINT: str = os.getenv('RINCON_ENDPOINT')
+    # Kerbecs admin endpoint — used to resolve service-to-service routes.
+    KERBECS_ENDPOINT: str = os.getenv('KERBECS_ENDPOINT')
+    KERBECS_USER: str = os.getenv('KERBECS_USER')
+    KERBECS_PASSWORD: str = os.getenv('KERBECS_PASSWORD')
 
     # Auth settings
     SKIP_AUTH_CHECK: bool = os.getenv('SKIP_AUTH_CHECK', 'false').lower() == 'true'

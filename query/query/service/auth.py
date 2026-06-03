@@ -5,7 +5,7 @@ from loguru import logger
 import requests
 
 from query.config.config import Config
-from query.service.rincon import match_route
+from query.service.kerbecs import resolve
 
 class AuthService:
     jwks_url: str = None
@@ -103,10 +103,9 @@ class AuthService:
     def get_user_from_token(cls, token: str) -> str:
         if Config.SKIP_AUTH_CHECK:
             return {"id": "mock-user", "email": "mock@gauchoracing.com"}
-        route = "/users/@me"
-        service = match_route(route, "GET")
+        url = resolve("GET", "/users/@me")
         r = requests.get(
-            f"{service.endpoint}{route}",
+            url,
             headers={"Authorization": f"Bearer {token}"}
         )
         return r.json()

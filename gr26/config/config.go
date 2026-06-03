@@ -1,23 +1,27 @@
 package config
 
 import (
+	"fmt"
 	"os"
-
-	"github.com/bk1031/rincon-go/v2"
+	"strings"
 )
 
-var Service rincon.Service = rincon.Service{
-	Name:        "GR26",
-	Version:     "3.2.0",
-	Endpoint:    os.Getenv("SERVICE_ENDPOINT"),
-	HealthCheck: os.Getenv("SERVICE_HEALTH_CHECK"),
+type ServiceInfo struct {
+	Name    string
+	Version string
 }
 
-var Routes = []rincon.Route{
-	{
-		Route:  "/gr26/**",
-		Method: "*",
-	},
+func (s ServiceInfo) FormattedNameWithVersion() string {
+	return fmt.Sprintf("%s v%s", s.Name, s.Version)
+}
+
+func (s ServiceInfo) PathPrefix() string {
+	return strings.ToLower(s.Name)
+}
+
+var Service = ServiceInfo{
+	Name:    "GR26",
+	Version: "3.3.0",
 }
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
@@ -33,6 +37,10 @@ var DatabasePort = os.Getenv("DATABASE_PORT")
 var DatabaseUser = os.Getenv("DATABASE_USER")
 var DatabasePassword = os.Getenv("DATABASE_PASSWORD")
 var DatabaseName = os.Getenv("DATABASE_NAME")
+
+var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
+var KerbecsUser = os.Getenv("KERBECS_USER")
+var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 
 var MQTTHost = os.Getenv("MQTT_HOST")
 var MQTTPort = os.Getenv("MQTT_PORT")

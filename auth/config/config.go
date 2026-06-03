@@ -1,27 +1,27 @@
 package config
 
 import (
+	"fmt"
 	"os"
-
-	"github.com/bk1031/rincon-go/v2"
+	"strings"
 )
 
-var Service rincon.Service = rincon.Service{
-	Name:        "Auth",
-	Version:     "3.2.0",
-	Endpoint:    os.Getenv("SERVICE_ENDPOINT"),
-	HealthCheck: os.Getenv("SERVICE_HEALTH_CHECK"),
+type ServiceInfo struct {
+	Name    string
+	Version string
 }
 
-var Routes = []rincon.Route{
-	{
-		Route:  "/auth/**",
-		Method: "*",
-	},
-	{
-		Route:  "/users/**",
-		Method: "*",
-	},
+func (s ServiceInfo) FormattedNameWithVersion() string {
+	return fmt.Sprintf("%s v%s", s.Name, s.Version)
+}
+
+func (s ServiceInfo) PathPrefix() string {
+	return strings.ToLower(s.Name)
+}
+
+var Service = ServiceInfo{
+	Name:    "Auth",
+	Version: "3.3.0",
 }
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
@@ -35,9 +35,9 @@ var DatabaseUser = os.Getenv("DATABASE_USER")
 var DatabasePassword = os.Getenv("DATABASE_PASSWORD")
 var DatabaseName = os.Getenv("DATABASE_NAME")
 
-var RinconUser = os.Getenv("RINCON_USER")
-var RinconPassword = os.Getenv("RINCON_PASSWORD")
-var RinconEndpoint = os.Getenv("RINCON_ENDPOINT")
+var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
+var KerbecsUser = os.Getenv("KERBECS_USER")
+var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 
 var Sentinel = struct {
 	Url          string

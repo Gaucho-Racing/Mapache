@@ -3,7 +3,6 @@ module github.com/gaucho-racing/mapache/vehicle
 go 1.26
 
 require (
-	github.com/bk1031/rincon-go/v2 v2.0.0
 	github.com/fatih/color v1.18.0
 	github.com/gaucho-racing/mapache/mapache-go/v3 v3.3.0
 	github.com/gaucho-racing/ulid-go v1.1.0

@@ -2,47 +2,32 @@ name: mapache
 
 services:
   kerbecs:
+    container_name: mapache-kerbecs
     image: bk1031/kerbecs:latest
     restart: unless-stopped
-    depends_on:
-      - rincon
-    environment:
-      PORT: "10310"
-      ADMIN_PORT: "10300"
-      KERBECS_USER: "admin"
-      KERBECS_PASSWORD: "admin"
-      KERBECS_ENDPOINT: "http://kerbecs:10300"
-      KERBECS_HEALTH_CHECK: "http://kerbecs:10300/admin-gw/ping"
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
     ports:
       - "10310:10310"
       - "10300:10300"
-
-  rincon:
-    image: bk1031/rincon:latest
-    restart: unless-stopped
+    volumes:
+      - ./kerbecs.yaml:/etc/kerbecs/kerbecs.yaml:ro
     environment:
-      PORT: "10311"
-      AUTH_USER: "admin"
-      AUTH_PASSWORD: "admin"
-      SELF_ENDPOINT: "http://rincon:10311"
-      SELF_HEALTH_CHECK: "http://rincon:10311/rincon/ping"
-      STORAGE_MODE: "local"
-      OVERWRITE_ROUTES: "true"
-      HEARTBEAT_TYPE: "server"
-      HEARTBEAT_INTERVAL: "10"
-    ports:
-      - "10311:10311"
+      ENV: "DEV"
+      KERBECS_CONFIG: /etc/kerbecs/kerbecs.yaml
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
+    depends_on:
+      - auth
+      - vehicle
+      - gr26
+      - query
+      - dashboard
 
   auth:
+    container_name: mapache-auth
     build:
       context: .
       dockerfile: auth/Dockerfile.dev
     restart: unless-stopped
-    depends_on:
-      - rincon
     ports:
       - "7002:7002"
     volumes:
@@ -51,16 +36,14 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7002"
-      SERVICE_ENDPOINT: "http://auth:7002"
-      SERVICE_HEALTH_CHECK: "http://auth:7002/auth/ping"
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
       SENTINEL_URL: ${SENTINEL_URL}
       SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
@@ -70,12 +53,11 @@ services:
       SKIP_AUTH_CHECK: "true"
 
   vehicle:
+    container_name: mapache-vehicle
     build:
       context: .
       dockerfile: vehicle/Dockerfile.dev
     restart: unless-stopped
-    depends_on:
-      - rincon
     ports:
       - "7003:7003"
     volumes:
@@ -85,24 +67,22 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7003"
-      SERVICE_ENDPOINT: "http://vehicle:7003"
-      SERVICE_HEALTH_CHECK: "http://vehicle:7003/vehicle/ping"
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
 
   gr26:
+    container_name: mapache-gr26
     build:
       context: .
       dockerfile: gr26/Dockerfile.dev
     restart: unless-stopped
     depends_on:
-      - rincon
       - nanomq
     ports:
       - "7005:7005"
@@ -113,8 +93,6 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7005"
-      SERVICE_ENDPOINT: "http://gr26:7005"
-      SERVICE_HEALTH_CHECK: "http://gr26:7005/gr26/ping"
       MQTT_HOST: "nanomq"
       MQTT_PORT: "1883"
       MQTT_USER: "gr26"
@@ -124,18 +102,17 @@ services:
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
       SKIP_AUTH_CHECK: "true"
 
   query:
+    container_name: mapache-query
     build:
       context: .
       dockerfile: query/Dockerfile.dev
     restart: unless-stopped
-    depends_on:
-      - rincon
     ports:
       - "7010:7010"
     volumes:
@@ -143,30 +120,25 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7010"
-      SERVICE_ENDPOINT: "http://query:7010"
-      SERVICE_HEALTH_CHECK: "http://query:7010/query/ping"
       DATABASE_HOST: ${DATABASE_HOST}
       DATABASE_PORT: ${DATABASE_PORT}
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      RINCON_USER: "admin"
-      RINCON_PASSWORD: "admin"
-      RINCON_ENDPOINT: "http://rincon:10311"
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
       SENTINEL_URL: ${SENTINEL_URL}
       SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
       SKIP_AUTH_CHECK: "true"
 
   dashboard:
+    container_name: mapache-dashboard
     build:
       context: .
       dockerfile: dashboard/Dockerfile.dev
     restart: unless-stopped
-    depends_on:
-      - auth
-      - vehicle
-      - query
     ports:
       - "5173:5173"
     volumes:
@@ -180,12 +152,14 @@ services:
       VITE_SKIP_AUTH_CHECK: "true"
 
   nanomq:
+    container_name: mapache-nanomq
     image: emqx/nanomq:latest
     restart: unless-stopped
     ports:
       - "1883:1883"
 
   db:
+    container_name: mapache-db
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: ${DATABASE_USER}

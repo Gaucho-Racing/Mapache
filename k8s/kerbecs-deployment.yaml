@@ -35,21 +35,19 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
           env:
-            - name: PORT
-              value: "10310"
-            - name: ADMIN_PORT
-              value: "10300"
+            - name: ENV
+              value: "PROD"
+            - name: KERBECS_CONFIG
+              value: /etc/kerbecs/kerbecs.yaml
             - name: KERBECS_USER
               value: "admin"
             - name: KERBECS_PASSWORD
               value: "admin"
-            - name: KERBECS_ENDPOINT
-              value: "http://kerbecs:10300"
-            - name: KERBECS_HEALTH_CHECK
-              value: "http://kerbecs:10300/admin-gw/ping"
-            - name: RINCON_USER
-              value: "admin"
-            - name: RINCON_PASSWORD
-              value: "admin"
-            - name: RINCON_ENDPOINT
-              value: "http://rincon:10311"
+          volumeMounts:
+            - name: kerbecs-config
+              mountPath: /etc/kerbecs
+              readOnly: true
+      volumes:
+        - name: kerbecs-config
+          configMap:
+            name: kerbecs-config

@@ -35,16 +35,12 @@ spec:
           env:
             - name: PORT
               value: "8080"
-            - name: SERVICE_ENDPOINT
-              value: "http://query:8080"
-            - name: SERVICE_HEALTH_CHECK
-              value: "http://query:8080/query/ping"
-            - name: RINCON_USER
+            - name: KERBECS_ENDPOINT
+              value: "http://kerbecs:10300"
+            - name: KERBECS_USER
               value: "admin"
-            - name: RINCON_PASSWORD
+            - name: KERBECS_PASSWORD
               value: "admin"
-            - name: RINCON_ENDPOINT
-              value: "http://rincon:10311"
           envFrom:
             - configMapRef:
                 name: db-config
