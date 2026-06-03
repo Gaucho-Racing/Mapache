@@ -43,7 +43,6 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET(fmt.Sprintf("/%s/jobs", p), ListJobs)
 	router.GET(fmt.Sprintf("/%s/jobs/:id", p), GetJob)
 	router.GET(fmt.Sprintf("/%s/jobs/:id/events", p), StreamJobEvents)
-	router.GET(fmt.Sprintf("/%s/schedules", p), ListSchedules)
 
 	// Write endpoints — producer/worker only, guarded by the shared token.
 	w := router.Group("/" + p)
@@ -55,7 +54,6 @@ func InitializeRoutes(router *gin.Engine) {
 		w.POST("/jobs/:id/complete", CompleteJob)
 		w.POST("/jobs/:id/fail", FailJob)
 		w.POST("/jobs/:id/cancel", CancelJob)
-		w.PUT("/schedules", UpsertSchedule)
 	}
 }
 

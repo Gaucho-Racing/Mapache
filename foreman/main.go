@@ -15,7 +15,6 @@ func main() {
 	config.Verify()
 	config.PrintStartupBanner()
 	database.Init()
-	service.StartScheduler()
 	service.StartReaper()
 
 	api.Run()
