@@ -1,6 +1,10 @@
 package config
 
-import "github.com/gaucho-racing/mapache/gr26/pkg/logger"
+import (
+	"strconv"
+
+	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+)
 
 func Verify() {
 	if Env == "" {
@@ -42,5 +46,14 @@ func Verify() {
 	if VehicleUploadKeyCacheTTL == "" {
 		VehicleUploadKeyCacheTTL = "600"
 		logger.SugarLogger.Infof("VEHICLE_UPLOAD_KEY_CACHE_TTL is not set, defaulting to %s", VehicleUploadKeyCacheTTL)
+	}
+	if ShelterPollIntervalRaw == "" {
+		ShelterPollIntervalRaw = "60"
+	}
+	if n, err := strconv.Atoi(ShelterPollIntervalRaw); err != nil {
+		logger.SugarLogger.Errorf("SHELTER_POLL_INTERVAL_SEC=%q is not an int, defaulting to 60", ShelterPollIntervalRaw)
+		ShelterPollIntervalSec = 60
+	} else {
+		ShelterPollIntervalSec = n
 	}
 }

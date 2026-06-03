@@ -31,7 +31,7 @@ func Init() {
 		}
 	} else {
 		logger.SugarLogger.Infoln("Connected to database")
-		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{}, &model.CAN{})
+		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{}, &model.CAN{}, &model.ShelterIngested{})
 		logger.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
