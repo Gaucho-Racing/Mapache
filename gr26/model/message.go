@@ -37,8 +37,10 @@ var messageMap = map[int]mp.Message{
 	0x01A: DashStatus,
 	0x01B: DashConfig,
 	// TCM
-	0x029: TCMStatus,
-	0x02A: TCMResourceUtil,
+	0x200: TCMStatus,
+	0x201: TCMResourceUtil,
+	0x210: TCMShelterHeartbeat,
+	0x211: TCMShelterBatch,
 	// GPS
 	0x030: DGPS_UVW,
 	0x031: GPSLatitude,

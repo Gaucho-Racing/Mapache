@@ -3,16 +3,20 @@ package model
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 // TCM Status is a synthetic 8-byte message the relay publishes every 5s
-// summarizing on-vehicle connectivity. status_bits is a flat bitfield per
-// GRCAN.CANdo; we expose each bit as its own boolean signal so consumers
-// can query 'is cloud reachable?' without bit-twiddling.
+// summarizing on-vehicle connectivity. status_bits is a flat bitfield;
+// each bit is exposed as its own boolean signal so consumers can query
+// "is X reachable?" without bit-twiddling.
+//
+//   connection_ok — TCM has general internet (DNS reachable)
+//   mqtt_ok       — cloud MQTT broker is connected
+//   mapache_ok    — cloud Mapache is responding (recent pong)
+//   mapache_ping  — RTT to Mapache in ms (from most recent pong)
 var TCMStatus = mp.Message{
 	mp.NewField("status_bits", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
 			bit(f.Value, 0, "connection_ok"),
 			bit(f.Value, 1, "mqtt_ok"),
-			bit(f.Value, 2, "epic_shelter_ok"),
-			bit(f.Value, 3, "camera_ok"),
+			bit(f.Value, 2, "mapache_ok"),
 		}
 	}),
 	mp.NewField("mapache_ping", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
@@ -20,9 +24,73 @@ var TCMStatus = mp.Message{
 			{Name: "mapache_ping", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
-	mp.NewField("cache_size", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("_reserved", 5, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+}
+
+// TCMShelterHeartbeat is emitted by the shelter service on the TCM every
+// few seconds. It surfaces shelter's current phase and the depth of the
+// unsynced queue so the dash + cloud Mapache can show drain progress
+// without poking at shelter directly.
+//
+//   state         u8 enum  0=idle, 1=claiming, 2=uploading, 3=error
+//   pending_rows  u32 LE   count of rows in gr26_message with synced=0
+var TCMShelterHeartbeat = mp.Message{
+	mp.NewField("state", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "cache_size", Value: float64(f.Value), RawValue: f.Value},
+			{Name: "shelter_state", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("pending_rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_pending_rows", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("_reserved", 3, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+}
+
+// TCMShelterBatch is a 16-byte CAN-FD frame emitted by shelter after each
+// successful Parquet upload — combines what landed (rows, compressed size)
+// with how it went (claim/upload timing, compression ratio, trigger).
+//
+//   rows              u32 LE  row count in the uploaded batch
+//   compressed_bytes  u32 LE  size of the parquet file on S3 (after zstd)
+//   upload_ms         u16 LE  parquet write + S3 multipart upload duration
+//   claim_ms          u16 LE  postgres claim CTE duration
+//   ratio_x100        u16 LE  compression ratio × 100 (e.g. 724 → 7.24x)
+//   trigger           u8      0=size 1=age 2=startup
+var TCMShelterBatch = mp.Message{
+	mp.NewField("rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_rows", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("compressed_bytes", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_compressed_bytes", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("upload_ms", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_upload_ms", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("claim_ms", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_claim_ms", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("ratio_x100", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_ratio", Value: float64(f.Value) / 100.0, RawValue: f.Value},
+		}
+	}),
+	mp.NewField("trigger", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_batch_trigger", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
 	mp.NewField("_reserved", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
