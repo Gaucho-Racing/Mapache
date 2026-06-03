@@ -21,6 +21,7 @@ func main() {
 	rincon.Init(&config.Service, &config.Routes)
 	database.Init()
 	mqtt.Init(service.SubscribeTopics)
+	service.StartVirtualCANListeners()
 
 	api.Run()
 }

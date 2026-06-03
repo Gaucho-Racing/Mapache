@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/bk1031/rincon-go/v2"
 )
@@ -27,6 +28,28 @@ var EnableSignalWS = os.Getenv("ENABLE_SIGNAL_WS") != "false"
 
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
+var VehicleID = os.Getenv("VEHICLE_ID")
+
+// VirtualCANPorts is a comma-separated list of UDP ports where on-vehicle
+// software services (e.g. shelter) emit synthetic CAN frames. gr26 listens
+// on each port and dispatches through the same decoder as the MQTT path —
+// no relay, no postgres persistence on the mqtt side, no cloud publish.
+var VirtualCANPorts = parsePortList(os.Getenv("VIRTUAL_CAN_PORTS"))
+
+func parsePortList(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
 
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
