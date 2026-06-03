@@ -3,16 +3,20 @@ package model
 import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 // TCM Status is a synthetic 8-byte message the relay publishes every 5s
-// summarizing on-vehicle connectivity. status_bits is a flat bitfield per
-// GRCAN.CANdo; we expose each bit as its own boolean signal so consumers
-// can query 'is cloud reachable?' without bit-twiddling.
+// summarizing on-vehicle connectivity. status_bits is a flat bitfield;
+// each bit is exposed as its own boolean signal so consumers can query
+// "is X reachable?" without bit-twiddling.
+//
+//   connection_ok — TCM has general internet (DNS reachable)
+//   mqtt_ok       — cloud MQTT broker is connected
+//   mapache_ok    — cloud Mapache is responding (recent pong)
+//   mapache_ping  — RTT to Mapache in ms (from most recent pong)
 var TCMStatus = mp.Message{
 	mp.NewField("status_bits", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
 			bit(f.Value, 0, "connection_ok"),
 			bit(f.Value, 1, "mqtt_ok"),
-			bit(f.Value, 2, "epic_shelter_ok"),
-			bit(f.Value, 3, "camera_ok"),
+			bit(f.Value, 2, "mapache_ok"),
 		}
 	}),
 	mp.NewField("mapache_ping", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
@@ -20,12 +24,7 @@ var TCMStatus = mp.Message{
 			{Name: "mapache_ping", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
-	mp.NewField("cache_size", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
-		return []mp.Signal{
-			{Name: "cache_size", Value: float64(f.Value), RawValue: f.Value},
-		}
-	}),
-	mp.NewField("_reserved", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("_reserved", 5, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return nil
 	}),
 }
