@@ -103,7 +103,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		}
 	}
 
-	can, err := CreateCAN(model.CAN{
+	_, err := CreateCAN(model.CAN{
 		VehicleID:  vehicleID,
 		NodeID:     nodeID,
 		Timestamp:  ts,
@@ -132,14 +132,6 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	if err := CreateSignals(signals); err != nil {
 		logger.SugarLogger.Infof("Error creating signals: %s", err)
 		return
-	}
-
-	signalIDs := make([]string, len(signals))
-	for i, s := range signals {
-		signalIDs[i] = s.ID
-	}
-	if err := CreateCANSignals(can.ID, signalIDs); err != nil {
-		logger.SugarLogger.Infof("Error creating CAN-signal links: %s", err)
 	}
 
 	if config.EnableSignalWS {
