@@ -29,6 +29,29 @@ var TCMStatus = mp.Message{
 	}),
 }
 
+// TCMShelterHeartbeat is emitted by the shelter service on the TCM every
+// few seconds. It surfaces shelter's current phase and the depth of the
+// unsynced queue so the dash + cloud Mapache can show drain progress
+// without poking at shelter directly.
+//
+//   state         u8 enum  0=idle, 1=claiming, 2=uploading, 3=error
+//   pending_rows  u32 LE   count of rows in gr26_message with synced=0
+var TCMShelterHeartbeat = mp.Message{
+	mp.NewField("state", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_state", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("pending_rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return []mp.Signal{
+			{Name: "shelter_pending_rows", Value: float64(f.Value), RawValue: f.Value},
+		}
+	}),
+	mp.NewField("_reserved", 3, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+}
+
 var TCMResourceUtil = mp.Message{
 	mp.NewField("cpu0_freq", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		signals := []mp.Signal{}

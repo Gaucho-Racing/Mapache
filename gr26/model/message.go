@@ -39,6 +39,7 @@ var messageMap = map[int]mp.Message{
 	// TCM
 	0x200: TCMStatus,
 	0x201: TCMResourceUtil,
+	0x210: TCMShelterHeartbeat,
 	// GPS
 	0x030: DGPS_UVW,
 	0x031: GPSLatitude,
