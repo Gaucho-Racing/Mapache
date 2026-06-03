@@ -103,7 +103,7 @@ class AuthService:
     def get_user_from_token(cls, token: str) -> str:
         if Config.SKIP_AUTH_CHECK:
             return {"id": "mock-user", "email": "mock@gauchoracing.com"}
-        url = resolve("GET", "/users/@me")
+        url = resolve("GET", "/api/users/@me")
         r = requests.get(
             url,
             headers={"Authorization": f"Bearer {token}"}

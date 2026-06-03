@@ -44,7 +44,7 @@ func ValidateUploadKey(vehicleID string, key int) bool {
 		hitTTL = 600
 	}
 
-	path := fmt.Sprintf("/vehicles/%s", vehicleID)
+	path := fmt.Sprintf("/api/vehicles/%s", vehicleID)
 	upstreamURL, err := kerbecs.Resolve("GET", path)
 	if err != nil {
 		logger.SugarLogger.Warnf("Failed to resolve vehicle route via kerbecs: %v", err)

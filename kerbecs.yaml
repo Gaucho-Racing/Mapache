@@ -63,62 +63,82 @@ upstreams:
 routes:
   - name: auth
     match:
-      path: /auth/*
+      path: /api/auth/*
     upstream: auth
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: users
     match:
-      path: /users/*
+      path: /api/users/*
     upstream: auth
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: vehicle-ping
     match:
-      path: /vehicle/ping
+      path: /api/vehicle/ping
     upstream: vehicle
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: vehicles
     match:
-      path: /vehicles
+      path: /api/vehicles
     upstream: vehicle
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: vehicles-id
     match:
-      path: /vehicles/*
+      path: /api/vehicles/*
     upstream: vehicle
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: sessions
     match:
-      path: /sessions
+      path: /api/sessions
     upstream: vehicle
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: sessions-id
     match:
-      path: /sessions/*
+      path: /api/sessions/*
     upstream: vehicle
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: gr26-live
     match:
-      path: /gr26/live
+      path: /api/gr26/live
     upstream: gr26
+    rewrite:
+      strip_prefix: /api
     envelope: passthrough
 
   - name: gr26
     match:
-      path: /gr26/*
+      path: /api/gr26/*
     upstream: gr26
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: query
     match:
-      path: /query/*
+      path: /api/query/*
     upstream: query
+    rewrite:
+      strip_prefix: /api
     envelope: default
 
   - name: dashboard

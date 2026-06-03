@@ -1,8 +1,8 @@
 export const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL ?? "https://mapache-api.gauchoracing.com";
+  import.meta.env.VITE_BACKEND_URL ?? "https://mapache.gauchoracing.com/api";
 
 export const BACKEND_WS_URL =
-  import.meta.env.VITE_BACKEND_WS_URL ?? "wss://mapache-api.gauchoracing.com";
+  import.meta.env.VITE_BACKEND_WS_URL ?? "wss://mapache.gauchoracing.com/api";
 
 export const SENTINEL_OAUTH_BASE_URL =
   "https://sso.gauchoracing.com/oauth/authorize";

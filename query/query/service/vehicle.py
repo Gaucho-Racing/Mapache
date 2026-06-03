@@ -8,7 +8,7 @@ from query.service.kerbecs import resolve
 
 def get_all_vehicles() -> list[dict[str, Any]]:
     try:
-        url = resolve("GET", "/vehicles")
+        url = resolve("GET", "/api/vehicles")
         r = requests.get(url)
         return r.json()
     except Exception as e:
@@ -18,7 +18,7 @@ def get_all_vehicles() -> list[dict[str, Any]]:
 
 def get_vehicle_by_id(vehicle_id: str) -> dict[str, Any]:
     try:
-        url = resolve("GET", f"/vehicles/{vehicle_id}")
+        url = resolve("GET", f"/api/vehicles/{vehicle_id}")
         r = requests.get(url)
         return r.json()
     except Exception as e:
