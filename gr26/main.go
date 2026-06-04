@@ -32,6 +32,8 @@ func main() {
 
 	reg := worker.NewRegistry()
 	reg.Register("gr26.ingest_batch", job.IngestBatchHandler)
+	reg.Register("gr26.ingest_latest_batch", job.IngestLatestBatchHandler)
+	reg.Register("gr26.ingest_all_batches", job.IngestAllBatchesHandler)
 	worker.StartPool(context.Background(), reg)
 
 	api.Run()
