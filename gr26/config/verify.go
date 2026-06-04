@@ -47,13 +47,13 @@ func Verify() {
 		VehicleUploadKeyCacheTTL = "600"
 		logger.SugarLogger.Infof("VEHICLE_UPLOAD_KEY_CACHE_TTL is not set, defaulting to %s", VehicleUploadKeyCacheTTL)
 	}
-	if ShelterPollIntervalRaw == "" {
-		ShelterPollIntervalRaw = "60"
+	if NumWorkersRaw == "" {
+		NumWorkersRaw = "1"
 	}
-	if n, err := strconv.Atoi(ShelterPollIntervalRaw); err != nil {
-		logger.SugarLogger.Errorf("SHELTER_POLL_INTERVAL_SEC=%q is not an int, defaulting to 60", ShelterPollIntervalRaw)
-		ShelterPollIntervalSec = 60
+	if n, err := strconv.Atoi(NumWorkersRaw); err != nil || n < 1 {
+		logger.SugarLogger.Errorf("NUM_WORKERS=%q is not a positive int, defaulting to 1", NumWorkersRaw)
+		NumWorkers = 1
 	} else {
-		ShelterPollIntervalSec = n
+		NumWorkers = n
 	}
 }

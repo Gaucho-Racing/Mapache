@@ -19,6 +19,7 @@ import (
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
 	"github.com/gaucho-racing/mapache/gr26/model"
+	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 )
 
@@ -33,52 +34,51 @@ type shelterRow struct {
 	TargetNode string `parquet:"target_node"`
 }
 
-// StartShelterIngest spins up the S3 polling loop in the background.
-// No-op when SHELTER_S3_BUCKET is unset, so the on-car gr26 deployment
-// stays out of S3.
-func StartShelterIngest() {
+// IngestLatestBatchHandler is the worker entrypoint registered for
+// "gr26.ingest_latest_batch" jobs. Each invocation finds the oldest
+// unprocessed shelter parquet in S3 (ULID lexical order = chronological)
+// and runs it through the same HandleMessage decode path as live MQTT.
+//
+// If no unprocessed file exists, the handler returns nil — that's a
+// successful no-op, not an error (we can race with another worker that
+// claimed first).
+func IngestLatestBatchHandler(ctx context.Context, job *foreman.Job) error {
 	if gr26config.ShelterS3Bucket == "" {
-		logger.SugarLogger.Infoln("[SHELTER] ingest disabled (SHELTER_S3_BUCKET unset)")
-		return
+		return errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
-	go runShelterIngest()
-}
-
-func runShelterIngest() {
-	ctx := context.Background()
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(gr26config.ShelterS3Region),
 	)
 	if err != nil {
-		logger.SugarLogger.Errorf("[SHELTER] AWS config load failed: %v", err)
-		return
+		return fmt.Errorf("aws config: %w", err)
 	}
 	client := s3.NewFromConfig(awsCfg)
 
-	logger.SugarLogger.Infof("[SHELTER] starting (bucket=%s prefix=%q interval=%ds)",
-		gr26config.ShelterS3Bucket, gr26config.ShelterS3Prefix, gr26config.ShelterPollIntervalSec)
-
-	for {
-		if err := pollOnce(ctx, client); err != nil {
-			logger.SugarLogger.Errorf("[SHELTER] poll iteration failed: %v", err)
-		}
-		time.Sleep(time.Duration(gr26config.ShelterPollIntervalSec) * time.Second)
+	key, fileULID, err := findOldestUnprocessed(ctx, client)
+	if err != nil {
+		return fmt.Errorf("scan s3: %w", err)
 	}
+	if key == "" {
+		logger.SugarLogger.Debugf("[SHELTER] job %s: nothing to ingest", job.ID)
+		return nil
+	}
+	return processFile(ctx, client, key, fileULID)
 }
 
-func pollOnce(ctx context.Context, client *s3.Client) error {
-	var continuationToken *string
-	for {
-		out, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-			Bucket:            aws.String(gr26config.ShelterS3Bucket),
-			Prefix:            aws.String(gr26config.ShelterS3Prefix),
-			ContinuationToken: continuationToken,
-		})
+// findOldestUnprocessed walks the S3 prefix in lexical (= chronological,
+// because ULID) order and returns the first parquet whose ULID isn't in
+// gr26_shelter_ingested. Returns ("", "", nil) when nothing pending.
+func findOldestUnprocessed(ctx context.Context, client *s3.Client) (string, string, error) {
+	paginator := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(gr26config.ShelterS3Bucket),
+		Prefix: aws.String(gr26config.ShelterS3Prefix),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			return fmt.Errorf("list: %w", err)
+			return "", "", err
 		}
-
-		for _, obj := range out.Contents {
+		for _, obj := range page.Contents {
 			key := aws.ToString(obj.Key)
 			if !strings.HasSuffix(key, ".parquet") {
 				continue
@@ -87,20 +87,12 @@ func pollOnce(ctx context.Context, client *s3.Client) error {
 			if fileULID == "" {
 				continue
 			}
-			if alreadyIngested(fileULID) {
-				continue
-			}
-			if err := processFile(ctx, client, key, fileULID); err != nil {
-				logger.SugarLogger.Errorf("[SHELTER] %s failed: %v", key, err)
-				continue
+			if !alreadyIngested(fileULID) {
+				return key, fileULID, nil
 			}
 		}
-
-		if !aws.ToBool(out.IsTruncated) {
-			return nil
-		}
-		continuationToken = out.NextContinuationToken
 	}
+	return "", "", nil
 }
 
 // extractULID pulls the file ULID out of an S3 key like
