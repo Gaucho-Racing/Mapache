@@ -1,6 +1,6 @@
 [project]
 name = "query"
-version = "3.4.1"
+version = "33.4.2"
 description = ""
 authors = [
     {name = "Bharat Kathi",email = "bkathi@ucsb.edu"},
