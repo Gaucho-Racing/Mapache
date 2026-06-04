@@ -274,7 +274,11 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
             <Progress
               value={pct}
               className="h-1.5 w-24"
-              indicatorClassName={PROGRESS_GRADIENT_CLASS}
+              indicatorClassName={
+                isTerminalStatus(job.status)
+                  ? "bg-white"
+                  : PROGRESS_GRADIENT_CLASS
+              }
             />
             <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
               {formatCount(job.progress_current)}/
