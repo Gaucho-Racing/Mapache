@@ -25,6 +25,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
+	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
 // ─── producer side: gr26.ingest_batch ───────────────────────────────────────
@@ -98,7 +99,7 @@ type shelterRow struct {
 // On retry (foreman re-claim after lease expiry / restart), the same
 // file gets reprocessed; the downstream upserts on gr26_can + signal
 // keep that safe.
-func IngestBatchHandler(ctx context.Context, job *foreman.Job) error {
+func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.ProgressReporter) error {
 	if gr26config.ShelterS3Bucket == "" {
 		return errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
@@ -122,12 +123,13 @@ func IngestBatchHandler(ctx context.Context, job *foreman.Job) error {
 	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/")
 	key := fmt.Sprintf("%s/%s/batch_%s.parquet", prefix, p.VehicleID, p.FileULID)
 
-	return processFile(ctx, client, key, p.FileULID)
+	return processFile(ctx, client, key, p.FileULID, progress)
 }
 
-func processFile(ctx context.Context, client *s3.Client, key, fileULID string) error {
+func processFile(ctx context.Context, client *s3.Client, key, fileULID string, progress *worker.ProgressReporter) error {
 	start := time.Now()
 	logger.SugarLogger.Infof("[SHELTER] processing %s", key)
+	progress.Set(0, 0, "downloading parquet from s3")
 
 	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(gr26config.ShelterS3Bucket),
@@ -148,6 +150,8 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string) e
 
 	pr := parquet.NewGenericReader[shelterRow](bytes.NewReader(body))
 	defer pr.Close()
+	totalRows := pr.NumRows()
+	progress.Set(0, totalRows, "decoding parquet rows")
 
 	const chunk = 4096
 	rows := make([]shelterRow, chunk)
@@ -158,6 +162,7 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string) e
 			dispatchRow(rows[i])
 		}
 		total += n
+		progress.Set(int64(total), totalRows, "decoding parquet rows")
 		if errors.Is(readErr, io.EOF) {
 			break
 		}

@@ -19,8 +19,9 @@ var (
 	claimLeaseSec = 60
 
 	// heartbeatInterval is how often a running handler refreshes its
-	// lease. Should be comfortably less than claimLeaseSec.
-	heartbeatInterval = 20 * time.Second
+	// lease and emits progress (if the handler is publishing any).
+	// Should be comfortably less than claimLeaseSec.
+	heartbeatInterval = 10 * time.Second
 
 	// claimEmptySleep is how long a worker waits after foreman returns
 	// 204 (no jobs available) before trying again. Tradeoff: shorter
@@ -71,7 +72,10 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 	logger.SugarLogger.Infof("[WORKER %s] claimed job %s (kind=%s, attempt=%d/%d)",
 		w.ID, job.ID, job.Kind, job.Attempt, job.MaxAttempts)
 
-	// Heartbeat in the background while the handler runs.
+	progress := &ProgressReporter{}
+
+	// Heartbeat in the background while the handler runs. Each tick
+	// also folds in whatever progress the handler has Set most recently.
 	hbCtx, cancelHB := context.WithCancel(ctx)
 	hbDone := make(chan struct{})
 	go func() {
@@ -83,10 +87,18 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 			case <-hbCtx.Done():
 				return
 			case <-ticker.C:
-				if err := foreman.Heartbeat(ctx, job.ID, foreman.HeartbeatRequest{
+				req := foreman.HeartbeatRequest{
 					WorkerID: w.ID,
 					LeaseSec: claimLeaseSec,
-				}); err != nil {
+				}
+				if cur, tot, msg, set := progress.snapshot(); set {
+					req.ProgressCurrent = &cur
+					req.ProgressTotal = &tot
+					if msg != "" {
+						req.ProgressMessage = &msg
+					}
+				}
+				if err := foreman.Heartbeat(ctx, job.ID, req); err != nil {
 					logger.SugarLogger.Warnf("[WORKER %s] heartbeat %s failed: %v", w.ID, job.ID, err)
 				}
 			}
@@ -94,7 +106,7 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 	}()
 
 	start := time.Now()
-	handlerErr := w.Registry.Handle(ctx, job)
+	handlerErr := w.Registry.Handle(ctx, job, progress)
 	cancelHB()
 	<-hbDone
 
