@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/parquet-go/parquet-go"
 	ulid "github.com/gaucho-racing/ulid-go"
@@ -63,7 +62,7 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := foreman.Enqueue(ctx, req); err != nil {
+	if _, err := foreman.Enqueue(ctx, req); err != nil {
 		logger.SugarLogger.Errorf("[SHELTER] failed to enqueue ingest job for %s/%s: %v", vehicleID, fileULID, err)
 		return
 	}
@@ -112,22 +111,20 @@ func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.
 		return nil, fmt.Errorf("incomplete params: vehicle_id=%q file_ulid=%q", p.VehicleID, p.FileULID)
 	}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
-		awsconfig.WithRegion(gr26config.ShelterS3Region),
-	)
+	client, err := newS3Client(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("aws config: %w", err)
+		return nil, err
 	}
-	client := s3.NewFromConfig(awsCfg)
 
-	// Path scheme must stay in sync with TCM-26 shelter/service/upload.py.
-	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/")
-	key := fmt.Sprintf("%s/%s/batch_%s.parquet", prefix, p.VehicleID, p.FileULID)
-
-	return processFile(ctx, client, key, progress)
+	res, err := processFile(ctx, client, shelterKey(p.VehicleID, p.FileULID), progress)
+	if err != nil {
+		return nil, err
+	}
+	res.FileULID = p.FileULID
+	return json.Marshal(res)
 }
 
-func processFile(ctx context.Context, client *s3.Client, key string, progress *worker.ProgressReporter) (json.RawMessage, error) {
+func processFile(ctx context.Context, client *s3.Client, key string, progress *worker.ProgressReporter) (ingestResult, error) {
 	start := time.Now()
 	logger.SugarLogger.Infof("[SHELTER] processing %s", key)
 	progress.Set(0, 0, "downloading parquet from s3")
@@ -137,7 +134,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("get: %w", err)
+		return ingestResult{}, fmt.Errorf("get: %w", err)
 	}
 	defer obj.Body.Close()
 
@@ -146,7 +143,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	// a couple hundred MB we'd switch to a tempfile + io.ReaderAt.
 	body, err := io.ReadAll(obj.Body)
 	if err != nil {
-		return nil, fmt.Errorf("download: %w", err)
+		return ingestResult{}, fmt.Errorf("download: %w", err)
 	}
 
 	pr := parquet.NewGenericReader[shelterRow](bytes.NewReader(body))
@@ -169,7 +166,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 			break
 		}
 		if readErr != nil {
-			return nil, fmt.Errorf("parquet read: %w", readErr)
+			return ingestResult{}, fmt.Errorf("parquet read: %w", readErr)
 		}
 	}
 
@@ -181,7 +178,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d)",
 		key, total, duration, stats.decoded, stats.unknown, stats.decodeError)
 
-	return json.Marshal(ingestResult{
+	return ingestResult{
 		TotalRows:            total,
 		Decoded:              stats.decoded,
 		UnknownCanID:         stats.unknown,
@@ -189,7 +186,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 		DurationMs:           duration.Milliseconds(),
 		UnknownBreakdown:     topUnknown(stats.unknownByCanID, 10),
 		DecodeErrorBreakdown: topErrors(stats.errorByCanID, 10),
-	})
+	}, nil
 }
 
 // dispatchRow parses the topic out of one Parquet row and runs it
@@ -298,7 +295,10 @@ type errorBreakdownEntry struct {
 
 // ingestResult is the json shape stored on foreman's job.result column.
 // Top-N caps keep payload size bounded even on pathological batches.
+// FileULID is set by the handler after processFile returns — handy for
+// ingest_latest_batch where the file_ulid isn't in the job params.
 type ingestResult struct {
+	FileULID             string                `json:"file_ulid,omitempty"`
 	TotalRows            int                   `json:"total_rows"`
 	Decoded              int                   `json:"decoded"`
 	UnknownCanID         int                   `json:"unknown_can_id"`

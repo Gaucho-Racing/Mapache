@@ -73,26 +73,47 @@ type FailRequest struct {
 
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
-// Enqueue POSTs the request to foreman. Returns nil on success (201) or
-// conflict (409 — idempotency key collision, treated as "already
-// enqueued"). No-op when FOREMAN_ENDPOINT is unset.
-func Enqueue(ctx context.Context, req EnqueueRequest) error {
+// EnqueueResult is what callers get back from Enqueue. Created
+// distinguishes 201 (new job) from 409 (idempotency key collision,
+// existing job returned). JobID is populated for both — handy for
+// fan-out callers that want to record which jobs they queued.
+type EnqueueResult struct {
+	Created bool
+	JobID   string
+}
+
+// Enqueue POSTs the request to foreman. Treats 409 as a non-error
+// (Created=false) so idempotent retransmits don't bubble as failures.
+// Returns a zero EnqueueResult when FOREMAN_ENDPOINT is unset.
+func Enqueue(ctx context.Context, req EnqueueRequest) (EnqueueResult, error) {
 	if config.ForemanEndpoint == "" {
-		return nil
+		return EnqueueResult{}, nil
 	}
 	resp, err := doJSON(ctx, http.MethodPost, "/foreman/jobs", req)
 	if err != nil {
-		return err
+		return EnqueueResult{}, err
 	}
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusCreated:
-		return nil
+		var job Job
+		if err := json.NewDecoder(resp.Body).Decode(&job); err != nil {
+			return EnqueueResult{}, fmt.Errorf("decode created: %w", err)
+		}
+		return EnqueueResult{Created: true, JobID: job.ID}, nil
 	case http.StatusConflict:
-		logger.SugarLogger.Debugf("[FOREMAN] job already enqueued (kind=%s, idem=%v)", req.Kind, deref(req.IdempotencyKey))
-		return nil
+		var body struct {
+			Job Job `json:"job"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			logger.SugarLogger.Debugf("[FOREMAN] conflict decode (kind=%s): %v", req.Kind, err)
+			return EnqueueResult{Created: false}, nil
+		}
+		logger.SugarLogger.Debugf("[FOREMAN] job already enqueued (kind=%s, idem=%v, id=%s)",
+			req.Kind, deref(req.IdempotencyKey), body.Job.ID)
+		return EnqueueResult{Created: false, JobID: body.Job.ID}, nil
 	default:
-		return fmt.Errorf("enqueue: foreman responded %d", resp.StatusCode)
+		return EnqueueResult{}, fmt.Errorf("enqueue: foreman responded %d", resp.StatusCode)
 	}
 }
 
