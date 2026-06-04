@@ -141,9 +141,10 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 
 	// Side-channel: when shelter announces a successful upload, kick off
-	// a job for the downstream ingest worker.
+	// a job for the downstream ingest worker. The raw `data` payload
+	// carries the parquet file's ULID in its trailing 16 bytes.
 	if canID == model.MsgIDShelterBatch {
-		go onShelterBatchReceived(vehicleID, ts)
+		go onShelterBatchReceived(vehicleID, ts, data)
 	}
 }
 

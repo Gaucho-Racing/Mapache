@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,8 +18,6 @@ import (
 	"github.com/parquet-go/parquet-go"
 
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/database"
-	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 )
@@ -34,18 +33,36 @@ type shelterRow struct {
 	TargetNode string `parquet:"target_node"`
 }
 
-// IngestLatestBatchHandler is the worker entrypoint registered for
-// "gr26.ingest_latest_batch" jobs. Each invocation finds the oldest
-// unprocessed shelter parquet in S3 (ULID lexical order = chronological)
-// and runs it through the same HandleMessage decode path as live MQTT.
+// shelterIngestParams is what the foreman job body carries to point at
+// a specific parquet file. Producer side (shelter_batch_hook.go) writes
+// these; worker side (this file) reads them. No S3 scan needed —
+// foreman itself is the dedup mechanism (its idempotency_key collapses
+// duplicate enqueues from MQTT replay).
+type shelterIngestParams struct {
+	VehicleID string `json:"vehicle_id"`
+	FileULID  string `json:"file_ulid"`
+}
+
+// IngestLatestBatchHandler is the worker entrypoint for
+// "gr26.ingest_latest_batch" jobs. The job's params name the exact
+// parquet file to ingest, so this is a fully deterministic targeted
+// fetch — no listing, no "what's the next unprocessed" question.
 //
-// If no unprocessed file exists, the handler returns nil — that's a
-// successful no-op, not an error (we can race with another worker that
-// claimed first).
+// On retry (foreman re-claim after lease expiry / restart), the same
+// file gets reprocessed; the downstream upserts on gr26_can + signal
+// keep that safe.
 func IngestLatestBatchHandler(ctx context.Context, job *foreman.Job) error {
 	if gr26config.ShelterS3Bucket == "" {
 		return errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
+	var p shelterIngestParams
+	if err := json.Unmarshal(job.Params, &p); err != nil {
+		return fmt.Errorf("decode params: %w", err)
+	}
+	if p.VehicleID == "" || p.FileULID == "" {
+		return fmt.Errorf("incomplete params: vehicle_id=%q file_ulid=%q", p.VehicleID, p.FileULID)
+	}
+
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(gr26config.ShelterS3Region),
 	)
@@ -54,74 +71,11 @@ func IngestLatestBatchHandler(ctx context.Context, job *foreman.Job) error {
 	}
 	client := s3.NewFromConfig(awsCfg)
 
-	key, fileULID, err := findOldestUnprocessed(ctx, client)
-	if err != nil {
-		return fmt.Errorf("scan s3: %w", err)
-	}
-	if key == "" {
-		logger.SugarLogger.Debugf("[SHELTER] job %s: nothing to ingest", job.ID)
-		return nil
-	}
-	return processFile(ctx, client, key, fileULID)
-}
+	// Path scheme must stay in sync with TCM-26 shelter/service/upload.py.
+	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/")
+	key := fmt.Sprintf("%s/%s/batch_%s.parquet", prefix, p.VehicleID, p.FileULID)
 
-// findOldestUnprocessed walks the S3 prefix in lexical (= chronological,
-// because ULID) order and returns the first parquet whose ULID isn't in
-// gr26_shelter_ingested. Returns ("", "", nil) when nothing pending.
-func findOldestUnprocessed(ctx context.Context, client *s3.Client) (string, string, error) {
-	paginator := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{
-		Bucket: aws.String(gr26config.ShelterS3Bucket),
-		Prefix: aws.String(gr26config.ShelterS3Prefix),
-	})
-	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			return "", "", err
-		}
-		for _, obj := range page.Contents {
-			key := aws.ToString(obj.Key)
-			if !strings.HasSuffix(key, ".parquet") {
-				continue
-			}
-			fileULID := extractULID(key)
-			if fileULID == "" {
-				continue
-			}
-			if !alreadyIngested(fileULID) {
-				return key, fileULID, nil
-			}
-		}
-	}
-	return "", "", nil
-}
-
-// extractULID pulls the file ULID out of an S3 key like
-// "<prefix>/batch_01k....parquet". Returns "" if the shape doesn't match.
-func extractULID(key string) string {
-	base := key
-	if idx := strings.LastIndex(key, "/"); idx >= 0 {
-		base = key[idx+1:]
-	}
-	base = strings.TrimSuffix(base, ".parquet")
-	const prefix = "batch_"
-	if !strings.HasPrefix(base, prefix) {
-		return ""
-	}
-	return base[len(prefix):]
-}
-
-func alreadyIngested(fileULID string) bool {
-	var count int64
-	database.DB.Model(&model.ShelterIngested{}).Where("file_ulid = ?", fileULID).Count(&count)
-	return count > 0
-}
-
-func markIngested(fileULID, key string, rows int) error {
-	return database.DB.Create(&model.ShelterIngested{
-		FileULID: fileULID,
-		S3Key:    key,
-		Rows:     rows,
-	}).Error
+	return processFile(ctx, client, key, p.FileULID)
 }
 
 func processFile(ctx context.Context, client *s3.Client, key, fileULID string) error {
@@ -163,10 +117,6 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string) e
 		if readErr != nil {
 			return fmt.Errorf("parquet read: %w", readErr)
 		}
-	}
-
-	if err := markIngested(fileULID, key, total); err != nil {
-		return fmt.Errorf("mark ingested: %w", err)
 	}
 
 	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s", key, total, time.Since(start))
