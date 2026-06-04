@@ -105,8 +105,11 @@ function JobsPage() {
     fetchJobs(last.id);
   };
 
+  // Cards at the top show only actively-running jobs. Pending jobs live
+  // in the table below — they have no progress to draw and a row reads
+  // better than a near-empty card.
   const runningJobs = useMemo(
-    () => jobs.filter((j) => !isTerminalStatus(j.status)),
+    () => jobs.filter((j) => j.status === "running"),
     [jobs],
   );
 
