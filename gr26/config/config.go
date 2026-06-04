@@ -61,7 +61,7 @@ var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
 // Epic Shelter cold-storage ingest. Driven by foreman jobs now, not by
-// polling — SHELTER_S3_BUCKET unset means the IngestLatestBatchHandler
+// polling — SHELTER_S3_BUCKET unset means the IngestBatchHandler
 // rejects any job claimed for it. The on-vehicle gr26 leaves this unset.
 var ShelterS3Bucket = os.Getenv("SHELTER_S3_BUCKET")
 var ShelterS3Region = os.Getenv("SHELTER_S3_REGION")

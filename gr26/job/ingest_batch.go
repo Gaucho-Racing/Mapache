@@ -27,7 +27,7 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/service"
 )
 
-// ─── producer side: gr26.ingest_latest_batch ────────────────────────────────
+// ─── producer side: gr26.ingest_batch ───────────────────────────────────────
 
 // OnShelterBatchReceived is wired into service.ShelterBatchHook by
 // main.go. When a TCMShelterBatch CAN frame finishes processing in
@@ -46,13 +46,13 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 	copy(u[:], data[16:32])
 	fileULID := u.String()
 
-	idem := fmt.Sprintf("gr26.ingest_latest_batch:%s:%s", vehicleID, fileULID)
+	idem := fmt.Sprintf("gr26.ingest_batch:%s:%s", vehicleID, fileULID)
 	params, _ := json.Marshal(shelterIngestParams{
 		VehicleID: vehicleID,
 		FileULID:  fileULID,
 	})
 	req := foreman.EnqueueRequest{
-		Kind:           "gr26.ingest_latest_batch",
+		Kind:           "gr26.ingest_batch",
 		Service:        "gr26",
 		IdempotencyKey: &idem,
 		Params:         params,
@@ -65,13 +65,13 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 		logger.SugarLogger.Errorf("[SHELTER] failed to enqueue ingest job for %s/%s: %v", vehicleID, fileULID, err)
 		return
 	}
-	logger.SugarLogger.Debugf("[SHELTER] enqueued gr26.ingest_latest_batch (vehicle=%s, file_ulid=%s)", vehicleID, fileULID)
+	logger.SugarLogger.Debugf("[SHELTER] enqueued gr26.ingest_batch (vehicle=%s, file_ulid=%s)", vehicleID, fileULID)
 }
 
-// ─── consumer side: gr26.ingest_latest_batch worker ─────────────────────────
+// ─── consumer side: gr26.ingest_batch worker ────────────────────────────────
 
 // shelterIngestParams is what foreman jobs carry as Params. The producer
-// (OnShelterBatchReceived) writes it; the worker (IngestLatestBatchHandler)
+// (OnShelterBatchReceived) writes it; the worker (IngestBatchHandler)
 // reads it. file_ulid names the exact parquet to fetch — no S3 scan, no
 // dedup table; foreman's idempotency key is our only dedup.
 type shelterIngestParams struct {
@@ -90,15 +90,15 @@ type shelterRow struct {
 	TargetNode string `parquet:"target_node"`
 }
 
-// IngestLatestBatchHandler is the worker entrypoint registered for
-// "gr26.ingest_latest_batch" jobs. Params name the exact parquet file
-// to ingest, so this is a deterministic targeted fetch — no listing,
+// IngestBatchHandler is the worker entrypoint registered for
+// "gr26.ingest_batch" jobs. Params name the exact parquet file to
+// ingest, so this is a deterministic targeted fetch — no listing,
 // no "what's the next unprocessed" question.
 //
 // On retry (foreman re-claim after lease expiry / restart), the same
 // file gets reprocessed; the downstream upserts on gr26_can + signal
 // keep that safe.
-func IngestLatestBatchHandler(ctx context.Context, job *foreman.Job) error {
+func IngestBatchHandler(ctx context.Context, job *foreman.Job) error {
 	if gr26config.ShelterS3Bucket == "" {
 		return errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}

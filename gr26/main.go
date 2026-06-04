@@ -33,7 +33,7 @@ func main() {
 	// Worker pool: foreman gives us jobs, we run them. Each job kind
 	// lives in gr26/job/; register its handler here.
 	reg := worker.NewRegistry()
-	reg.Register("gr26.ingest_latest_batch", job.IngestLatestBatchHandler)
+	reg.Register("gr26.ingest_batch", job.IngestBatchHandler)
 	worker.StartPool(context.Background(), reg)
 
 	api.Run()
