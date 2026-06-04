@@ -297,7 +297,8 @@ case "$TARGET" in
 
         GO_CONFIG_SERVICES=("auth" "gr26" "vehicle" "foreman")
         PY_SERVICES=("query")
-        ALL_SERVICES=("${GO_CONFIG_SERVICES[@]}" "${PY_SERVICES[@]}")
+        NODE_SERVICES=("dashboard")
+        ALL_SERVICES=("${GO_CONFIG_SERVICES[@]}" "${PY_SERVICES[@]}" "${NODE_SERVICES[@]}")
 
         echo ""
         echo "=== Release Summary ==="
@@ -313,6 +314,9 @@ case "$TARGET" in
         done
         for svc in "${PY_SERVICES[@]}"; do
             echo "    ${svc}/pyproject.toml"
+        done
+        for svc in "${NODE_SERVICES[@]}"; do
+            echo "    ${svc}/package.json"
         done
         echo ""
         echo "  Docker images that will be tagged:"
@@ -332,6 +336,12 @@ case "$TARGET" in
         for svc in "${PY_SERVICES[@]}"; do
             sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/pyproject.toml"
         done
+        # Top-level package.json "version" — the only line in package.json
+        # matching this pattern (npm deps use the package name as key, not
+        # the literal token "version").
+        for svc in "${NODE_SERVICES[@]}"; do
+            sed -i '' "s/\"version\": \".*\"/\"version\": \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/package.json"
+        done
 
         FILES=()
         for svc in "${GO_CONFIG_SERVICES[@]}"; do
@@ -339,6 +349,9 @@ case "$TARGET" in
         done
         for svc in "${PY_SERVICES[@]}"; do
             FILES+=("${svc}/pyproject.toml")
+        done
+        for svc in "${NODE_SERVICES[@]}"; do
+            FILES+=("${svc}/package.json")
         done
         git add "${FILES[@]}"
         git commit -m "release: mapache ${VERSION}"
