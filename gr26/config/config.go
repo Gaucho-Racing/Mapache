@@ -46,8 +46,11 @@ var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 // should trigger downstream work (e.g. TCMShelterBatch arriving means
 // "go ingest the latest shelter parquet"). Empty endpoint disables the
 // enqueue calls entirely so the on-vehicle gr26 stays out of it.
+//
+// Service-to-service auth was removed for fast iteration; foreman
+// endpoints are public. Re-add ForemanToken + the X-Foreman-Token
+// header in pkg/foreman/client.go when locking back down.
 var ForemanEndpoint = os.Getenv("FOREMAN_ENDPOINT")
-var ForemanToken = os.Getenv("FOREMAN_TOKEN")
 
 // NumWorkers is the size of the worker pool that claims foreman jobs.
 // Each worker runs its own claim loop; goroutine cost is negligible

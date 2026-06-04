@@ -156,7 +156,6 @@ services:
       KERBECS_ENDPOINT: "http://kerbecs:10300"
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
-      FOREMAN_INTERNAL_SECRET: "dev-foreman-secret"
       SKIP_AUTH_CHECK: "true"
 
   dashboard:

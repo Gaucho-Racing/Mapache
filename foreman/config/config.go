@@ -24,13 +24,9 @@ var Service = ServiceInfo{
 	Version: "3.3.0",
 }
 
-var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
-
-// InternalSecret guards the emitter/worker write endpoints (enqueue,
-// claim, heartbeat, complete, fail, cancel).
-// Callers present it as the X-Foreman-Token header. Empty + SkipAuthCheck
-// is the DEV escape hatch; empty in PROD is rejected at startup.
-var InternalSecret = os.Getenv("FOREMAN_INTERNAL_SECRET")
+// Service-to-service auth was removed for fast iteration; all
+// endpoints are public. Re-add SkipAuthCheck / InternalSecret +
+// the RequireServiceToken middleware in api/api.go when locking back down.
 
 // ReaperIntervalSec is how often expired leases are swept back to pending.
 var ReaperIntervalRaw = os.Getenv("FOREMAN_REAPER_INTERVAL_SEC")
