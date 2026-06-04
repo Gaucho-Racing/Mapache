@@ -27,18 +27,23 @@ import { useNavigate } from "react-router-dom";
 interface Preset {
   kind: string;
   description: string;
-  service: string;
   params: Record<string, unknown>;
   maxAttempts: number;
 }
 
 const CUSTOM_VALUE = "__custom__";
 
+// `service` on a job is who *requested* it — when the user clicks New
+// Job, that's the dashboard. The kind tells the worker pool what to
+// pick up; service is just the producer tag. Kept distinct from the
+// MQTT-triggered path in gr26's OnShelterBatchReceived which sets
+// service="gr26".
+const REQUESTER_SERVICE = "dashboard";
+
 const PRESETS: Preset[] = [
   {
     kind: "gr26.ingest_batch",
     description: "Ingest a specific parquet by file_ulid.",
-    service: "gr26",
     params: { vehicle_id: "gr26", file_ulid: "" },
     maxAttempts: 3,
   },
@@ -46,7 +51,6 @@ const PRESETS: Preset[] = [
     kind: "gr26.ingest_latest_batch",
     description:
       "Find the most-recently-uploaded parquet for a vehicle and ingest it inline.",
-    service: "gr26",
     params: { vehicle_id: "gr26" },
     maxAttempts: 3,
   },
@@ -54,7 +58,6 @@ const PRESETS: Preset[] = [
     kind: "gr26.ingest_all_batches",
     description:
       "Fan-out: enqueue an ingest_batch for every parquet uploaded in the last N hours.",
-    service: "gr26",
     params: { vehicle_id: "gr26", hours: 24 },
     maxAttempts: 1,
   },
@@ -74,7 +77,7 @@ export function EnqueueJobDialog({
   const navigate = useNavigate();
   const [presetValue, setPresetValue] = useState<string>(PRESETS[0].kind);
   const [kind, setKind] = useState("");
-  const [service, setService] = useState("");
+  const [service, setService] = useState(REQUESTER_SERVICE);
   const [paramsText, setParamsText] = useState("{}");
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [priority, setPriority] = useState("0");
@@ -94,7 +97,7 @@ export function EnqueueJobDialog({
       return;
     }
     setKind(p.kind);
-    setService(p.service);
+    setService(REQUESTER_SERVICE);
     setParamsText(JSON.stringify(p.params, null, 2));
     setMaxAttempts(String(p.maxAttempts));
     setParamsError(null);
