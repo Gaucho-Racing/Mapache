@@ -42,6 +42,13 @@ var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
 var KerbecsUser = os.Getenv("KERBECS_USER")
 var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 
+// Foreman is the job queue gr26 enqueues into when it sees events that
+// should trigger downstream work (e.g. TCMShelterBatch arriving means
+// "go ingest the latest shelter parquet"). Empty endpoint disables the
+// enqueue calls entirely so the on-vehicle gr26 stays out of it.
+var ForemanEndpoint = os.Getenv("FOREMAN_ENDPOINT")
+var ForemanToken = os.Getenv("FOREMAN_TOKEN")
+
 var MQTTHost = os.Getenv("MQTT_HOST")
 var MQTTPort = os.Getenv("MQTT_PORT")
 var MQTTUser = os.Getenv("MQTT_USER")

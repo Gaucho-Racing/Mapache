@@ -139,6 +139,12 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 			Hub.Publish(s)
 		}
 	}
+
+	// Side-channel: when shelter announces a successful upload, kick off
+	// a job for the downstream ingest worker.
+	if canID == model.MsgIDShelterBatch {
+		go onShelterBatchReceived(vehicleID, ts)
+	}
 }
 
 func mustJSON(v any) []byte {

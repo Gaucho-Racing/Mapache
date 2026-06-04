@@ -52,6 +52,11 @@ var TCMShelterHeartbeat = mp.Message{
 	}),
 }
 
+// MsgIDShelterBatch is the canonical name for 0x211 — used by gr26
+// service code that needs to recognize TCMShelterBatch as a side-channel
+// trigger (e.g. enqueueing a downstream ingest job).
+const MsgIDShelterBatch = 0x211
+
 // TCMShelterBatch is a 16-byte CAN-FD frame emitted by shelter after each
 // successful Parquet upload — combines what landed (rows, compressed size)
 // with how it went (claim/upload timing, compression ratio, trigger).
