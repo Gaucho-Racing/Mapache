@@ -20,6 +20,7 @@ services:
       - vehicle
       - gr26
       - query
+      - foreman
       - dashboard
 
   auth:
@@ -133,6 +134,31 @@ services:
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
       SKIP_AUTH_CHECK: "true"
 
+  foreman:
+    container_name: mapache-foreman
+    build:
+      context: .
+      dockerfile: foreman/Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "7011:7011"
+    volumes:
+      - ./foreman:/app/foreman
+      - foreman_go_cache:/go
+    environment:
+      ENV: "DEV"
+      PORT: "7011"
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
+      FOREMAN_INTERNAL_SECRET: "dev-foreman-secret"
+      SKIP_AUTH_CHECK: "true"
+
   dashboard:
     container_name: mapache-dashboard
     build:
@@ -177,4 +203,5 @@ volumes:
   auth_go_cache:
   vehicle_go_cache:
   gr26_go_cache:
+  foreman_go_cache:
   dashboard_node_modules:

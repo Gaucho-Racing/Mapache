@@ -3,7 +3,7 @@ package config
 import (
 	"strconv"
 
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache/foreman/pkg/logger"
 )
 
 func Verify() {
@@ -12,7 +12,7 @@ func Verify() {
 		logger.SugarLogger.Infof("ENV is not set, defaulting to %s", Env)
 	}
 	if Port == "" {
-		Port = "7005"
+		Port = "7011"
 		logger.SugarLogger.Infof("PORT is not set, defaulting to %s", Port)
 	}
 	if DatabaseHost == "" {
@@ -35,25 +35,26 @@ func Verify() {
 		DatabaseName = "mapache"
 		logger.SugarLogger.Infof("DATABASE_NAME is not set, defaulting to %s", DatabaseName)
 	}
-	if MQTTHost == "" {
-		MQTTHost = "localhost"
-		logger.SugarLogger.Infof("MQTT_HOST is not set, defaulting to %s", MQTTHost)
+
+	ReaperIntervalSec = intEnv(ReaperIntervalRaw, "FOREMAN_REAPER_INTERVAL_SEC", 10)
+	DefaultLeaseSec = intEnv(DefaultLeaseRaw, "FOREMAN_DEFAULT_LEASE_SEC", 60)
+
+	if InternalSecret == "" {
+		if IsProduction() {
+			logger.SugarLogger.Fatalln("FOREMAN_INTERNAL_SECRET must be set in PROD")
+		}
+		logger.SugarLogger.Warnln("FOREMAN_INTERNAL_SECRET is not set; write endpoints are unguarded (DEV only)")
 	}
-	if MQTTPort == "" {
-		MQTTPort = "1883"
-		logger.SugarLogger.Infof("MQTT_PORT is not set, defaulting to %s", MQTTPort)
+}
+
+func intEnv(raw, name string, def int) int {
+	if raw == "" {
+		return def
 	}
-	if VehicleUploadKeyCacheTTL == "" {
-		VehicleUploadKeyCacheTTL = "600"
-		logger.SugarLogger.Infof("VEHICLE_UPLOAD_KEY_CACHE_TTL is not set, defaulting to %s", VehicleUploadKeyCacheTTL)
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		logger.SugarLogger.Errorf("%s=%q is not an int, defaulting to %d", name, raw, def)
+		return def
 	}
-	if ShelterPollIntervalRaw == "" {
-		ShelterPollIntervalRaw = "60"
-	}
-	if n, err := strconv.Atoi(ShelterPollIntervalRaw); err != nil {
-		logger.SugarLogger.Errorf("SHELTER_POLL_INTERVAL_SEC=%q is not an int, defaulting to 60", ShelterPollIntervalRaw)
-		ShelterPollIntervalSec = 60
-	} else {
-		ShelterPollIntervalSec = n
-	}
+	return n
 }

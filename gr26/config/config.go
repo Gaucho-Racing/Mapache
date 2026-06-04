@@ -47,6 +47,15 @@ var MQTTPort = os.Getenv("MQTT_PORT")
 var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
+// Epic Shelter cold-storage ingest. SHELTER_S3_BUCKET unset means the
+// feature is off entirely — the on-vehicle gr26 deployment should keep
+// it unset and only the cloud gr26 deployment turns it on.
+var ShelterS3Bucket = os.Getenv("SHELTER_S3_BUCKET")
+var ShelterS3Region = os.Getenv("SHELTER_S3_REGION")
+var ShelterS3Prefix = os.Getenv("SHELTER_S3_PREFIX")
+var ShelterPollIntervalRaw = os.Getenv("SHELTER_POLL_INTERVAL_SEC")
+var ShelterPollIntervalSec int
+
 func IsProduction() bool {
 	return Env == "PROD"
 }

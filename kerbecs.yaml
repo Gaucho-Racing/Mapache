@@ -54,6 +54,12 @@ upstreams:
     instances:
       - http://query:7010
 
+  foreman:
+    name: mapache-foreman
+    version: 3.3.0
+    instances:
+      - http://foreman:7011
+
   dashboard:
     name: mapache-dashboard
     version: 3.3.0
@@ -137,6 +143,22 @@ routes:
     match:
       path: /api/query/*
     upstream: query
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: foreman-events
+    match:
+      path: /api/foreman/events/*
+    upstream: foreman
+    rewrite:
+      strip_prefix: /api
+    envelope: passthrough
+
+  - name: foreman
+    match:
+      path: /api/foreman/*
+    upstream: foreman
     rewrite:
       strip_prefix: /api
     envelope: default

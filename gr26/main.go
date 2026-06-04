@@ -19,6 +19,7 @@ func main() {
 	kerbecs.Init(config.KerbecsEndpoint, config.KerbecsUser, config.KerbecsPassword)
 	database.Init()
 	mqtt.Init(service.SubscribeTopics)
+	service.StartShelterIngest()
 
 	api.Run()
 }

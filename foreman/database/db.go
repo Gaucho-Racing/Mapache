@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/model"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/mapache-go/v3"
+	"github.com/gaucho-racing/mapache/foreman/config"
+	"github.com/gaucho-racing/mapache/foreman/model"
+	"github.com/gaucho-racing/mapache/foreman/pkg/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -31,7 +30,7 @@ func Init() {
 		}
 	} else {
 		logger.SugarLogger.Infoln("Connected to database")
-		db.AutoMigrate(&mapache.Signal{}, &mapache.Ping{}, &model.CAN{}, &model.ShelterIngested{})
+		db.AutoMigrate(&model.Job{})
 		logger.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}
