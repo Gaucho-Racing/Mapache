@@ -37,3 +37,24 @@ type Signal struct {
 func (Signal) TableName() string {
 	return "signal"
 }
+
+// SignalClickHouseDDL is the ClickHouse table definition for Signal, shared
+// by every service that writes or migrates the signal table. The dedup key
+// (vehicle_id, name, timestamp) mirrors the gorm uniqueIndex above;
+// produced_at is derived from timestamp so it is never written directly, and
+// created_at is the ReplacingMergeTree version column so a later write
+// (retransmit, corrected decode, replay) wins on merge.
+const SignalClickHouseDDL = `
+CREATE TABLE IF NOT EXISTS signal (
+	id          String,
+	timestamp   Int64,
+	vehicle_id  LowCardinality(String),
+	name        LowCardinality(String),
+	value       Float64,
+	raw_value   Int64,
+	produced_at DateTime64(6, 'UTC') MATERIALIZED toDateTime64(timestamp / 1e6, 6, 'UTC'),
+	created_at  DateTime64(6, 'UTC') DEFAULT now64(6),
+	INDEX idx_id id TYPE bloom_filter GRANULARITY 4
+) ENGINE = ReplacingMergeTree(created_at)
+PARTITION BY toYYYYMM(produced_at)
+ORDER BY (vehicle_id, name, timestamp)`
