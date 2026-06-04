@@ -1,0 +1,156 @@
+name: deploy
+run-name: Open infrastructure PR for ${{ github.event.release.tag_name }}
+
+# When a release is published, open a PR into the infrastructure repo that
+# bumps the mapache service image tags to the new version. Fires on the
+# release event (not tag push) so it only ever runs for real releases.
+#
+# Requires repo secret INFRA_PR_TOKEN: a PAT (or GitHub App token) with
+# contents:write + pull-requests:write on Gaucho-Racing/infrastructure. The
+# default GITHUB_TOKEN can't write to another repo.
+on:
+  release:
+    types: [published]
+
+env:
+  INFRA_REPO: Gaucho-Racing/infrastructure
+  KUSTOMIZATION: infra/kubernetes/manifests/mapache/kustomization.yaml
+  SERVICES: "auth vehicle gr26 query foreman dashboard"
+
+jobs:
+  infra-pr:
+    # Only the services release (tag is plain v*, no slash). Skip
+    # mapache-py/* and mapache-go/* library releases.
+    if: ${{ !contains(github.event.release.tag_name, '/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout mapache (full history + tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Checkout infrastructure
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_PR_TOKEN }}
+          path: infra
+
+      - name: Resolve versions
+        id: versions
+        run: |
+          NEW_TAG="${{ github.event.release.tag_name }}"
+          NEW="${NEW_TAG#v}"
+          OLD="$(yq '.images[] | select(.name == "ghcr.io/gaucho-racing/mapache/auth") | .newTag' "$KUSTOMIZATION")"
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "old_tag=v$OLD" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+          if [ "$NEW" = "$OLD" ]; then
+            echo "infra already at $NEW; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump image tags
+        if: steps.versions.outputs.skip == 'false'
+        env:
+          NEW: ${{ steps.versions.outputs.new }}
+        run: |
+          # Surgically rewrite the newTag of each mapache/* image only, leaving
+          # kerbecs and all comments/formatting untouched for a clean diff.
+          awk -v new="$NEW" '
+            $0 ~ "- name: ghcr.io/gaucho-racing/mapache/(auth|vehicle|gr26|query|foreman|dashboard)$" { inmap=1; print; next }
+            inmap==1 && $1=="newTag:" { sub(/newTag:[[:space:]]*.*/, "newTag: " new); inmap=0 }
+            { print }
+          ' "$KUSTOMIZATION" > "$KUSTOMIZATION.tmp" && mv "$KUSTOMIZATION.tmp" "$KUSTOMIZATION"
+          echo "--- diff ---"
+          git -C infra diff -- kubernetes/manifests/mapache/kustomization.yaml
+
+      - name: Build changelog
+        if: steps.versions.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAPACHE_REPO: ${{ github.repository }}
+          NEW_TAG: ${{ steps.versions.outputs.new_tag }}
+          OLD_TAG: ${{ steps.versions.outputs.old_tag }}
+        run: |
+          # Format each commit as: `sha` subject - @author (#pr)
+          # author is the commit's GitHub login (not the git name), and the PR
+          # link points at the mapache repo explicitly so it doesn't resolve
+          # against the infra repo the PR lives in.
+          emit_commits() {
+            for sha in $(git rev-list --no-merges "$@"); do
+              short="$(git rev-parse --short "$sha")"
+              # Drop the trailing "(#NN)" GitHub appends on squash merges — we
+              # re-add it as an explicit cross-repo link below.
+              subject="$(git show -s --format=%s "$sha" | sed -E 's/ \(#[0-9]+\)$//')"
+              login="$(gh api "repos/$MAPACHE_REPO/commits/$sha" --jq '.author.login // empty' 2>/dev/null || true)"
+              pr="$(gh api "repos/$MAPACHE_REPO/commits/$sha/pulls" --jq '.[0].number // empty' 2>/dev/null || true)"
+              line="- \`$short\` $subject"
+              [ -n "$login" ] && line="$line - @$login"
+              [ -n "$pr" ] && line="$line ([#$pr](https://github.com/$MAPACHE_REPO/pull/$pr))"
+              echo "$line"
+            done
+          }
+          {
+            echo "Bumps the mapache service images to **${NEW_TAG#v}**:"
+            echo
+            for svc in $SERVICES; do echo "- \`mapache/$svc\` → \`${NEW_TAG#v}\`"; done
+            echo
+            echo "## Changes since ${OLD_TAG}"
+            echo
+            if git rev-parse "$OLD_TAG" >/dev/null 2>&1; then
+              COMMITS="$(emit_commits "${OLD_TAG}..${NEW_TAG}")"
+              if [ -n "$COMMITS" ]; then echo "$COMMITS"; else echo "_No non-merge commits between ${OLD_TAG} and ${NEW_TAG}._"; fi
+            else
+              echo "_Previous tag ${OLD_TAG} not found in history; showing the latest commits instead._"
+              echo
+              emit_commits -20 "$NEW_TAG"
+            fi
+            echo
+            echo "---"
+            echo "_Opened automatically by the \`deploy\` workflow on release ${NEW_TAG}._"
+          } > "$RUNNER_TEMP/pr-body.md"
+          cat "$RUNNER_TEMP/pr-body.md"
+
+      - name: Create pull request
+        if: steps.versions.outputs.skip == 'false'
+        working-directory: infra
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_PR_TOKEN }}
+          NEW: ${{ steps.versions.outputs.new }}
+          NEW_TAG: ${{ steps.versions.outputs.new_tag }}
+          SHORT_SHA: ${{ steps.versions.outputs.short_sha }}
+          RELEASE_AUTHOR: ${{ github.event.release.author.login }}
+        run: |
+          BRANCH="bot/bump-mapache-${NEW}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git commit -am "Deploy: mapache to ${NEW_TAG} (${SHORT_SHA})"
+          git push -f -u origin "$BRANCH"
+          PR="$(gh pr list --repo "$INFRA_REPO" --head "$BRANCH" --state open --json number -q '.[0].number')"
+          if [ -n "$PR" ]; then
+            echo "PR #$PR already open for $BRANCH; pushed the updated branch."
+          else
+            gh pr create \
+              --repo "$INFRA_REPO" \
+              --base main \
+              --head "$BRANCH" \
+              --title "Deploy: mapache to ${NEW_TAG} (${SHORT_SHA})" \
+              --body-file "$RUNNER_TEMP/pr-body.md"
+            PR="$(gh pr list --repo "$INFRA_REPO" --head "$BRANCH" --state open --json number -q '.[0].number')"
+          fi
+          # Request a review from the release author. Best-effort: GitHub rejects
+          # requesting a review from the PR's own author (happens when the token
+          # belongs to the release author), so don't fail the run over it.
+          if [ -n "$PR" ] && [ -n "$RELEASE_AUTHOR" ]; then
+            gh pr edit "$PR" --repo "$INFRA_REPO" --add-reviewer "$RELEASE_AUTHOR" \
+              || echo "Could not request review from @$RELEASE_AUTHOR (they may be the PR author)."
+          fi
