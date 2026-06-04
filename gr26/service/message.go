@@ -150,15 +150,18 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)
 	can.UploadKey = uploadKeyInt
 
+	// Each persist step is independent — signals are still meaningful
+	// even if the gr26_can write fails (they're queryable by name +
+	// timestamp + vehicle), and the WS feed is worth firing for live
+	// consumers regardless of DB state. So we log and continue rather
+	// than short-circuit the rest of the pipeline.
 	if _, err := CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
-		return
 	}
 
 	if len(signals) > 0 {
 		if err := CreateSignals(signals); err != nil {
 			logger.SugarLogger.Infof("Error creating signals: %s", err)
-			return
 		}
 		if config.EnableSignalWS {
 			for _, s := range signals {

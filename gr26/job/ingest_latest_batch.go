@@ -199,7 +199,6 @@ func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte) {
 
 	if _, err := service.CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
-		return
 	}
 	if len(signals) > 0 {
 		if err := service.CreateSignals(signals); err != nil {
