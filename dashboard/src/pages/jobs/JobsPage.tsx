@@ -28,10 +28,11 @@ import {
   PROGRESS_GRADIENT_CLASS,
 } from "@/lib/job-stream";
 import { Job, JOB_STATUSES, isTerminalStatus } from "@/models/job";
+import { EnqueueJobDialog } from "@/components/jobs/EnqueueJobDialog";
 import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
 import { RunningJobCard } from "@/components/jobs/RunningJobCard";
 import axios from "axios";
-import { RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -47,6 +48,7 @@ function JobsPage() {
   const [serviceName, setServiceName] = useState("");
   const [hasMore, setHasMore] = useState(false);
   const [paginated, setPaginated] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const fetchJobs = useCallback(
     async (cursor?: string) => {
@@ -120,6 +122,16 @@ function JobsPage() {
           setServiceName={setServiceName}
           loading={loading}
           onRefresh={() => {
+            setPaginated(false);
+            fetchJobs();
+          }}
+          onNew={() => setDialogOpen(true)}
+        />
+
+        <EnqueueJobDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onEnqueued={() => {
             setPaginated(false);
             fetchJobs();
           }}
@@ -198,56 +210,63 @@ interface FilterBarProps {
   setServiceName: (s: string) => void;
   loading: boolean;
   onRefresh: () => void;
+  onNew: () => void;
 }
 
 function FilterBar(props: FilterBarProps) {
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Status</label>
-        <Select
-          value={props.status || "all"}
-          onValueChange={(v) => props.setStatus(v === "all" ? "" : v)}
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Status</label>
+          <Select
+            value={props.status || "all"}
+            onValueChange={(v) => props.setStatus(v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {JOB_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Kind</label>
+          <Input
+            value={props.kind}
+            onChange={(e) => props.setKind(e.target.value)}
+            placeholder="e.g. gr26.ingest_batch"
+            className="w-[260px]"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Service</label>
+          <Input
+            value={props.serviceName}
+            onChange={(e) => props.setServiceName(e.target.value)}
+            placeholder="e.g. gr26"
+            className="w-[160px]"
+          />
+        </div>
+        <Button
+          variant="outline"
+          onClick={props.onRefresh}
+          disabled={props.loading}
         >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {JOB_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <RefreshCw
+            className={`h-4 w-4 ${props.loading ? "animate-spin" : ""}`}
+          />
+        </Button>
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Kind</label>
-        <Input
-          value={props.kind}
-          onChange={(e) => props.setKind(e.target.value)}
-          placeholder="e.g. gr26.ingest_batch"
-          className="w-[260px]"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Service</label>
-        <Input
-          value={props.serviceName}
-          onChange={(e) => props.setServiceName(e.target.value)}
-          placeholder="e.g. gr26"
-          className="w-[160px]"
-        />
-      </div>
-      <Button
-        variant="outline"
-        onClick={props.onRefresh}
-        disabled={props.loading}
-      >
-        <RefreshCw
-          className={`h-4 w-4 ${props.loading ? "animate-spin" : ""}`}
-        />
+      <Button onClick={props.onNew}>
+        <Plus className="mr-2 h-4 w-4" />
+        New Job
       </Button>
     </div>
   );
