@@ -21,11 +21,13 @@ import {
 import { BACKEND_URL } from "@/consts/config";
 import { notify } from "@/lib/notify";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
+import { formatDurationMs, elapsedMs } from "@/lib/job-stream";
 import { Job, JOB_STATUSES, isTerminalStatus } from "@/models/job";
 import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
+import { RunningJobCard } from "@/components/jobs/RunningJobCard";
 import axios from "axios";
 import { RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 50;
@@ -77,9 +79,11 @@ function JobsPage() {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Poll the first page while any visible job is still moving. Skip if the
-  // user has clicked "Load more" — refreshing would blow away the appended
-  // pages, which is more annoying than a stale list.
+  // Per-card SSE streams (RunningJobCard) keep in-progress data fresh in
+  // real-time, so we only poll the list to *discover* newly enqueued or
+  // newly-running jobs. Skip while the user has paginated — refreshing
+  // would blow away the appended pages, which is more annoying than a
+  // stale list.
   useEffect(() => {
     if (paginated) return;
     if (!jobs.some((j) => !isTerminalStatus(j.status))) return;
@@ -93,6 +97,11 @@ function JobsPage() {
     setPaginated(true);
     fetchJobs(last.id);
   };
+
+  const runningJobs = useMemo(
+    () => jobs.filter((j) => !isTerminalStatus(j.status)),
+    [jobs],
+  );
 
   return (
     <Layout activeTab="jobs" headerTitle="Jobs">
@@ -110,6 +119,19 @@ function JobsPage() {
             fetchJobs();
           }}
         />
+
+        {runningJobs.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              Running ({runningJobs.length})
+            </h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {runningJobs.map((j) => (
+                <RunningJobCard key={j.id} job={j} />
+              ))}
+            </div>
+          </div>
+        )}
 
         <Card>
           <Table>
@@ -254,26 +276,14 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
           <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
-      <TableCell className="text-xs">{formatDuration(job)}</TableCell>
+      <TableCell className="text-xs">
+        {job.started_at ? formatDurationMs(elapsedMs(job, Date.now())) : "—"}
+      </TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {new Date(job.created_at).toLocaleString()}
       </TableCell>
     </TableRow>
   );
-}
-
-function formatDuration(job: Job): string {
-  if (!job.started_at) return "—";
-  const end = job.finished_at
-    ? new Date(job.finished_at).getTime()
-    : Date.now();
-  const start = new Date(job.started_at).getTime();
-  const ms = end - start;
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const m = Math.floor(ms / 60_000);
-  const s = Math.floor((ms % 60_000) / 1000);
-  return `${m}m ${s}s`;
 }
 
 export default JobsPage;
