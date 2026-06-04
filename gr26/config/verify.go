@@ -15,25 +15,24 @@ func Verify() {
 		Port = "7005"
 		logger.SugarLogger.Infof("PORT is not set, defaulting to %s", Port)
 	}
-	if DatabaseHost == "" {
-		DatabaseHost = "localhost"
-		logger.SugarLogger.Infof("DATABASE_HOST is not set, defaulting to %s", DatabaseHost)
+	if ClickhouseHost == "" {
+		ClickhouseHost = "localhost"
+		logger.SugarLogger.Infof("CLICKHOUSE_HOST is not set, defaulting to %s", ClickhouseHost)
 	}
-	if DatabasePort == "" {
-		DatabasePort = "5432"
-		logger.SugarLogger.Infof("DATABASE_PORT is not set, defaulting to %s", DatabasePort)
+	if ClickhousePort == "" {
+		ClickhousePort = "9000"
+		logger.SugarLogger.Infof("CLICKHOUSE_PORT is not set, defaulting to %s", ClickhousePort)
 	}
-	if DatabaseUser == "" {
-		DatabaseUser = "postgres"
-		logger.SugarLogger.Infof("DATABASE_USER is not set, defaulting to %s", DatabaseUser)
+	if ClickhouseUser == "" {
+		ClickhouseUser = "default"
+		logger.SugarLogger.Infof("CLICKHOUSE_USER is not set, defaulting to %s", ClickhouseUser)
 	}
-	if DatabasePassword == "" {
-		DatabasePassword = "password"
-		logger.SugarLogger.Infof("DATABASE_PASSWORD is not set, defaulting to %s", DatabasePassword)
+	if ClickhousePassword == "" {
+		logger.SugarLogger.Infof("CLICKHOUSE_PASSWORD is not set, defaulting to empty")
 	}
-	if DatabaseName == "" {
-		DatabaseName = "mapache"
-		logger.SugarLogger.Infof("DATABASE_NAME is not set, defaulting to %s", DatabaseName)
+	if ClickhouseDatabase == "" {
+		ClickhouseDatabase = "mapache"
+		logger.SugarLogger.Infof("CLICKHOUSE_DATABASE is not set, defaulting to %s", ClickhouseDatabase)
 	}
 	if MQTTHost == "" {
 		MQTTHost = "localhost"
