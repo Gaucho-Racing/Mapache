@@ -8,6 +8,7 @@ import {
   useVehicleList,
 } from "@/lib/store";
 import {
+  Briefcase,
   Bug,
   CarFront,
   ChevronsUpDown,
@@ -280,6 +281,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Vehicles"
             link={`/vehicles?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "vehicles"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={Briefcase}
+            text="Jobs"
+            link={`/jobs`}
+            isSelected={props.selectedPage === "jobs"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">
