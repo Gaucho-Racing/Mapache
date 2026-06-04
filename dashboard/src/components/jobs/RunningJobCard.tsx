@@ -4,7 +4,9 @@ import { Separator } from "@/components/ui/separator";
 import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
 import {
   elapsedMs,
+  formatCount,
   formatDurationMs,
+  PROGRESS_GRADIENT_CLASS,
   useJobStream,
   useTickingNow,
 } from "@/lib/job-stream";
@@ -33,11 +35,15 @@ export function RunningJobCard({ job: initial }: { job: Job }) {
           <div className="truncate text-sm font-semibold">{job.kind}</div>
           <JobStatusBadge status={job.status} />
         </div>
-        <Progress value={pct} className="h-2" />
-        <div className="flex justify-between text-xs text-muted-foreground">
+        <Progress
+          value={pct}
+          className="h-2"
+          indicatorClassName={PROGRESS_GRADIENT_CLASS}
+        />
+        <div className="flex justify-between font-mono text-xs text-muted-foreground">
           <span>
-            {job.progress_current.toLocaleString()} /{" "}
-            {job.progress_total.toLocaleString()}
+            {formatCount(job.progress_current)} /{" "}
+            {formatCount(job.progress_total)}
           </span>
           <span>{pct.toFixed(1)}%</span>
         </div>

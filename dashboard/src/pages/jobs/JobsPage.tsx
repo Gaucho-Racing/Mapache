@@ -21,7 +21,12 @@ import {
 import { BACKEND_URL } from "@/consts/config";
 import { notify } from "@/lib/notify";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
-import { formatDurationMs, elapsedMs } from "@/lib/job-stream";
+import {
+  formatDurationMs,
+  formatCount,
+  elapsedMs,
+  PROGRESS_GRADIENT_CLASS,
+} from "@/lib/job-stream";
 import { Job, JOB_STATUSES, isTerminalStatus } from "@/models/job";
 import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
 import { RunningJobCard } from "@/components/jobs/RunningJobCard";
@@ -266,10 +271,14 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
       <TableCell className="w-[220px]">
         {job.progress_total > 0 ? (
           <div className="flex items-center gap-2">
-            <Progress value={pct} className="h-1.5 w-24" />
-            <span className="whitespace-nowrap text-xs text-muted-foreground">
-              {job.progress_current.toLocaleString()}/
-              {job.progress_total.toLocaleString()}
+            <Progress
+              value={pct}
+              className="h-1.5 w-24"
+              indicatorClassName={PROGRESS_GRADIENT_CLASS}
+            />
+            <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+              {formatCount(job.progress_current)}/
+              {formatCount(job.progress_total)}
             </span>
           </div>
         ) : (

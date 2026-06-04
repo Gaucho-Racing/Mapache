@@ -70,6 +70,27 @@ export function useTickingNow(intervalMs: number, active: boolean): number {
   return now;
 }
 
+// formatCount abbreviates large integers for dense table / card display
+// (e.g. 1234 -> "1.2k", 991232 -> "991k", 4_200_000 -> "4.2M"). Drops the
+// decimal once the result would have 3+ leading digits to avoid noise.
+export function formatCount(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) {
+    return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`;
+  }
+  if (n < 1_000_000_000) {
+    return `${(n / 1_000_000).toFixed(n < 10_000_000 ? 1 : 0)}M`;
+  }
+  return `${(n / 1_000_000_000).toFixed(1)}B`;
+}
+
+// PROGRESS_GRADIENT_CLASS styles a Progress indicator with the GR brand
+// gradient. Exported so list / card / detail progress bars share one
+// source of truth — change here, all job views update together.
+export const PROGRESS_GRADIENT_CLASS =
+  "bg-gradient-to-r from-gr-pink to-gr-purple";
+
 export function formatDurationMs(ms: number): string {
   if (ms < 0) return "—";
   if (ms < 1000) return `${ms}ms`;

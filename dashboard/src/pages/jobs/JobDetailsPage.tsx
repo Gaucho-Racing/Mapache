@@ -8,6 +8,7 @@ import { LoadingComponent } from "@/components/Loading";
 import {
   elapsedMs,
   formatDurationMs,
+  PROGRESS_GRADIENT_CLASS,
   useJobStream,
   useTickingNow,
 } from "@/lib/job-stream";
@@ -153,7 +154,7 @@ function ProgressCard({ job }: { job: Job }) {
       <Separator className="mb-3" />
       {job.progress_total > 0 ? (
         <div className="flex flex-col gap-2">
-          <Progress value={pct} />
+          <Progress value={pct} indicatorClassName={PROGRESS_GRADIENT_CLASS} />
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>
               {job.progress_current.toLocaleString()} /{" "}
