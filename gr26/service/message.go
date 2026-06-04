@@ -18,6 +18,13 @@ import (
 	mq "github.com/eclipse/paho.mqtt.golang"
 )
 
+// ShelterBatchHook fires at the tail of HandleMessage when a frame's
+// canID matches model.MsgIDShelterBatch. Wired up in main.go to the
+// job package — left as a nil-able package var here so service stays
+// importable without job (avoids the circular import; service is the
+// lower layer).
+var ShelterBatchHook func(vehicleID string, ts int, data []byte)
+
 func SubscribeTopics() {
 	mqtt.Client.Subscribe("gr26/#", 0, func(client mq.Client, msg mq.Message) {
 		topic := msg.Topic()
@@ -86,20 +93,20 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	switch {
 	case messageStruct == nil:
 		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
-		meta = mustJSON(map[string]any{
+		meta = MustJSON(map[string]any{
 			"status": "unknown_can_id",
 			"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
 		})
 	default:
 		if err := messageStruct.FillFromBytes(data); err != nil {
 			logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
-			meta = mustJSON(map[string]any{
+			meta = MustJSON(map[string]any{
 				"status": "decode_error",
 				"note":   err.Error(),
 			})
 		} else {
 			signals = messageStruct.ExportSignals()
-			meta = mustJSON(map[string]any{"status": "ok"})
+			meta = MustJSON(map[string]any{"status": "ok"})
 		}
 	}
 
@@ -140,15 +147,18 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		}
 	}
 
-	// Side-channel: when shelter announces a successful upload, kick off
-	// a job for the downstream ingest worker. The raw `data` payload
-	// carries the parquet file's ULID in its trailing 16 bytes.
-	if canID == model.MsgIDShelterBatch {
-		go onShelterBatchReceived(vehicleID, ts, data)
+	// Side-channel: when shelter announces a successful upload, hand off
+	// to whichever module registered the hook (today: gr26/job/, which
+	// enqueues a foreman ingest job).
+	if canID == model.MsgIDShelterBatch && ShelterBatchHook != nil {
+		go ShelterBatchHook(vehicleID, ts, data)
 	}
 }
 
-func mustJSON(v any) []byte {
+// MustJSON marshals v to JSON, returning a sentinel error blob if
+// marshaling fails. Exported because gr26/job's replayFrame builds the
+// same status/note metadata blobs and we share this rather than copy it.
+func MustJSON(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
 		// json.Marshal on a map of strings/strings can't fail in practice;
