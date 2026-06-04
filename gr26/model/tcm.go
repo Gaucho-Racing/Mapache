@@ -57,16 +57,22 @@ var TCMShelterHeartbeat = mp.Message{
 // trigger (e.g. enqueueing a downstream ingest job).
 const MsgIDShelterBatch = 0x211
 
-// TCMShelterBatch is a 16-byte CAN-FD frame emitted by shelter after each
+// TCMShelterBatch is a 32-byte CAN-FD frame emitted by shelter after each
 // successful Parquet upload — combines what landed (rows, compressed size)
-// with how it went (claim/upload timing, compression ratio, trigger).
+// with how it went (claim/upload timing, compression ratio, trigger), plus
+// the raw ULID of the parquet file so downstream ingest workers can
+// target that file directly without scanning S3.
 //
-//   rows              u32 LE  row count in the uploaded batch
-//   compressed_bytes  u32 LE  size of the parquet file on S3 (after zstd)
-//   upload_ms         u16 LE  parquet write + S3 multipart upload duration
-//   claim_ms          u16 LE  postgres claim CTE duration
-//   ratio_x100        u16 LE  compression ratio × 100 (e.g. 724 → 7.24x)
-//   trigger           u8      0=size 1=age 2=startup
+//   rows              u32 LE   row count in the uploaded batch
+//   compressed_bytes  u32 LE   size of the parquet file on S3 (after zstd)
+//   upload_ms         u16 LE   parquet write + S3 multipart upload duration
+//   claim_ms          u16 LE   postgres claim CTE duration
+//   ratio_x100        u16 LE   compression ratio × 100 (e.g. 724 → 7.24x)
+//   trigger           u8       0=size 1=age 2=startup
+//   _reserved         u8       padding
+//   batch_id          [16]u8   raw ULID of the parquet file. Not exposed
+//                              as a signal; the gr26 batch hook reads it
+//                              directly out of the raw frame bytes.
 var TCMShelterBatch = mp.Message{
 	mp.NewField("rows", 4, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
@@ -99,6 +105,12 @@ var TCMShelterBatch = mp.Message{
 		}
 	}),
 	mp.NewField("_reserved", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+		return nil
+	}),
+	// 16 raw ULID bytes. The integer Value overflows int64 (silently —
+	// see mapache-go binary.go) but Bytes are preserved, which is all
+	// the gr26 batch hook needs since it reads from the raw frame.
+	mp.NewField("_batch_id", 16, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return nil
 	}),
 }
