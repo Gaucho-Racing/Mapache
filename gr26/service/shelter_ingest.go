@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -123,12 +122,11 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string) e
 	return nil
 }
 
-// dispatchRow runs one Parquet row through the same decode/persist path
-// the live MQTT subscriber uses. We rebuild the message envelope
-// HandleMessage expects (timestamp u64 BE || upload_key u16 BE || data)
-// with upload_key zeroed — shelter-sourced frames bypass key validation
-// since they came from our own S3 bucket. The cloud gr26 deployment is
-// expected to run with SKIP_AUTH_CHECK=true.
+// dispatchRow runs one Parquet row through the cold-storage decode path
+// (replayFrame). Same persist as live MQTT but skips the WS broadcast
+// (data is historical, dash shouldn't see it streaming) and the
+// shelter-batch side-channel hook (which would recursively enqueue
+// ingest jobs).
 func dispatchRow(r shelterRow) {
 	// Topic format: gr26/{vehicle}/{node}/0x{can_id_hex}
 	parts := strings.Split(r.Topic, "/")
@@ -141,11 +139,5 @@ func dispatchRow(r shelterRow) {
 	if err != nil {
 		return
 	}
-
-	envelope := make([]byte, 10+len(r.Data))
-	binary.BigEndian.PutUint64(envelope[0:8], uint64(r.Timestamp))
-	// envelope[8:10] = upload_key (left zero)
-	copy(envelope[10:], r.Data)
-
-	HandleMessage(r.VehicleID, nodeID, int(canIDInt), envelope)
+	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data)
 }

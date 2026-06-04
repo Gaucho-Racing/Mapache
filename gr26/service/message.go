@@ -57,6 +57,12 @@ func SubscribeTopics() {
 	})
 }
 
+// HandleMessage is the live MQTT entry point. Strips the upload-key
+// envelope, validates the key, persists the frame via persistFrame,
+// then publishes signals to the dash WS and fires side-channel hooks.
+//
+// Use replayFrame for cold-storage ingest paths — same persist, no WS,
+// no hooks.
 func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	if len(message) < 11 {
 		logger.SugarLogger.Infof("[MQ] Message too short, ignoring %d bytes", len(message))
@@ -73,6 +79,39 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 
 	ts := int(binary.BigEndian.Uint64(timestamp))
+	signals := persistFrame(vehicleID, nodeID, canID, ts, uploadKeyInt, data)
+
+	if config.EnableSignalWS {
+		for _, s := range signals {
+			Hub.Publish(s)
+		}
+	}
+
+	// Side-channel: when shelter announces a successful upload, kick off
+	// a job for the downstream ingest worker. The raw `data` payload
+	// carries the parquet file's ULID in its trailing 16 bytes.
+	if canID == model.MsgIDShelterBatch {
+		go onShelterBatchReceived(vehicleID, ts, data)
+	}
+}
+
+// replayFrame is the cold-storage entry point used by the shelter
+// ingest worker. Same persist as live, but skips WS publish (the data
+// is historical so dashboards shouldn't see it streaming) and skips
+// the side-channel hooks (would recursively re-enqueue ingest jobs).
+//
+// Caller is expected to have already authenticated the source (S3
+// bucket access serves as the trust boundary), so no upload-key
+// validation here.
+func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte) {
+	persistFrame(vehicleID, nodeID, canID, ts, 0, data)
+}
+
+// persistFrame is the decode + persist core shared by the live MQTT
+// (HandleMessage) and cold-storage (replayFrame) paths. Returns the
+// decoded signals so the live path can broadcast them to the WS hub;
+// the replay path discards.
+func persistFrame(vehicleID, nodeID string, canID, ts, uploadKey int, data []byte) []mapache.Signal {
 	producedAt := time.UnixMicro(int64(ts))
 
 	// Attempt to decode first. If anything goes wrong, capture why in
@@ -109,17 +148,17 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		Timestamp:  ts,
 		CANID:      canID,
 		Bytes:      data,
-		UploadKey:  uploadKeyInt,
+		UploadKey:  uploadKey,
 		Metadata:   meta,
 		ProducedAt: producedAt,
 	})
 	if err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
-		return
+		return nil
 	}
 
 	if len(signals) == 0 {
-		return
+		return nil
 	}
 	now := time.Now().Truncate(time.Microsecond)
 	for i := range signals {
@@ -131,21 +170,9 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 	if err := CreateSignals(signals); err != nil {
 		logger.SugarLogger.Infof("Error creating signals: %s", err)
-		return
+		return nil
 	}
-
-	if config.EnableSignalWS {
-		for _, s := range signals {
-			Hub.Publish(s)
-		}
-	}
-
-	// Side-channel: when shelter announces a successful upload, kick off
-	// a job for the downstream ingest worker. The raw `data` payload
-	// carries the parquet file's ULID in its trailing 16 bytes.
-	if canID == model.MsgIDShelterBatch {
-		go onShelterBatchReceived(vehicleID, ts, data)
-	}
+	return signals
 }
 
 func mustJSON(v any) []byte {
