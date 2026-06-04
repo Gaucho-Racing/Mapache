@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -99,23 +100,23 @@ type shelterRow struct {
 // On retry (foreman re-claim after lease expiry / restart), the same
 // file gets reprocessed; the downstream upserts on gr26_can + signal
 // keep that safe.
-func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.ProgressReporter) error {
+func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
-		return errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
+		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
 	var p shelterIngestParams
 	if err := json.Unmarshal(job.Params, &p); err != nil {
-		return fmt.Errorf("decode params: %w", err)
+		return nil, fmt.Errorf("decode params: %w", err)
 	}
 	if p.VehicleID == "" || p.FileULID == "" {
-		return fmt.Errorf("incomplete params: vehicle_id=%q file_ulid=%q", p.VehicleID, p.FileULID)
+		return nil, fmt.Errorf("incomplete params: vehicle_id=%q file_ulid=%q", p.VehicleID, p.FileULID)
 	}
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(gr26config.ShelterS3Region),
 	)
 	if err != nil {
-		return fmt.Errorf("aws config: %w", err)
+		return nil, fmt.Errorf("aws config: %w", err)
 	}
 	client := s3.NewFromConfig(awsCfg)
 
@@ -123,10 +124,10 @@ func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.
 	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/")
 	key := fmt.Sprintf("%s/%s/batch_%s.parquet", prefix, p.VehicleID, p.FileULID)
 
-	return processFile(ctx, client, key, p.FileULID, progress)
+	return processFile(ctx, client, key, progress)
 }
 
-func processFile(ctx context.Context, client *s3.Client, key, fileULID string, progress *worker.ProgressReporter) error {
+func processFile(ctx context.Context, client *s3.Client, key string, progress *worker.ProgressReporter) (json.RawMessage, error) {
 	start := time.Now()
 	logger.SugarLogger.Infof("[SHELTER] processing %s", key)
 	progress.Set(0, 0, "downloading parquet from s3")
@@ -136,7 +137,7 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string, p
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return fmt.Errorf("get: %w", err)
+		return nil, fmt.Errorf("get: %w", err)
 	}
 	defer obj.Body.Close()
 
@@ -145,7 +146,7 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string, p
 	// a couple hundred MB we'd switch to a tempfile + io.ReaderAt.
 	body, err := io.ReadAll(obj.Body)
 	if err != nil {
-		return fmt.Errorf("download: %w", err)
+		return nil, fmt.Errorf("download: %w", err)
 	}
 
 	pr := parquet.NewGenericReader[shelterRow](bytes.NewReader(body))
@@ -153,13 +154,14 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string, p
 	totalRows := pr.NumRows()
 	progress.Set(0, totalRows, "decoding parquet rows")
 
+	stats := newIngestStats()
 	const chunk = 4096
 	rows := make([]shelterRow, chunk)
 	total := 0
 	for {
 		n, readErr := pr.Read(rows)
 		for i := 0; i < n; i++ {
-			dispatchRow(rows[i])
+			dispatchRow(rows[i], stats)
 		}
 		total += n
 		progress.Set(int64(total), totalRows, "decoding parquet rows")
@@ -167,17 +169,28 @@ func processFile(ctx context.Context, client *s3.Client, key, fileULID string, p
 			break
 		}
 		if readErr != nil {
-			return fmt.Errorf("parquet read: %w", readErr)
+			return nil, fmt.Errorf("parquet read: %w", readErr)
 		}
 	}
 
-	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s", key, total, time.Since(start))
-	return nil
+	duration := time.Since(start)
+	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d)",
+		key, total, duration, stats.decoded, stats.unknown, stats.decodeError)
+
+	return json.Marshal(ingestResult{
+		TotalRows:            total,
+		Decoded:              stats.decoded,
+		UnknownCanID:         stats.unknown,
+		DecodeError:          stats.decodeError,
+		DurationMs:           duration.Milliseconds(),
+		UnknownBreakdown:     topUnknown(stats.unknownByCanID, 10),
+		DecodeErrorBreakdown: topErrors(stats.errorByCanID, 10),
+	})
 }
 
 // dispatchRow parses the topic out of one Parquet row and runs it
-// through replayFrame.
-func dispatchRow(r shelterRow) {
+// through replayFrame, threading the per-job stats accumulator.
+func dispatchRow(r shelterRow, stats *ingestStats) {
 	// Topic format: gr26/{vehicle}/{node}/0x{can_id_hex}
 	parts := strings.Split(r.Topic, "/")
 	if len(parts) != 4 {
@@ -189,7 +202,7 @@ func dispatchRow(r shelterRow) {
 	if err != nil {
 		return
 	}
-	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data)
+	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data, stats)
 }
 
 // replayFrame is the cold-storage decode-and-persist function. Shares
@@ -198,9 +211,11 @@ func dispatchRow(r shelterRow) {
 // shelter-sourced frames don't carry one, no WS publish (data is
 // historical), no side-channel hook (would recursively re-enqueue
 // ingest jobs if the replayed frame is itself a TCMShelterBatch).
-func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte) {
+func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
 	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
 	// UploadKey left at 0 — bucket access is the trust boundary.
+
+	stats.record(canID, can.Metadata)
 
 	if _, err := service.CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
@@ -210,4 +225,118 @@ func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte) {
 			logger.SugarLogger.Infof("Error creating signals: %s", err)
 		}
 	}
+}
+
+// ─── result reporting ───────────────────────────────────────────────────────
+
+// ingestStats accumulates per-canID outcomes as the parquet rows stream
+// through. Running totals (decoded/unknown/decodeError) are kept so we
+// don't have to re-sum the maps at the end.
+type ingestStats struct {
+	decoded        int
+	unknown        int
+	decodeError    int
+	unknownByCanID map[int]int
+	errorByCanID   map[int]decodeErrorSample
+}
+
+type decodeErrorSample struct {
+	count  int
+	sample string
+}
+
+func newIngestStats() *ingestStats {
+	return &ingestStats{
+		unknownByCanID: make(map[int]int),
+		errorByCanID:   make(map[int]decodeErrorSample),
+	}
+}
+
+// record peeks at the metadata blob ProcessFrame just built to bucket
+// this row's outcome. Unknown statuses are silently ignored — they can
+// only happen if ProcessFrame grows a new status string without us
+// noticing, and counting them as "not decoded" would be misleading.
+func (s *ingestStats) record(canID int, metadata []byte) {
+	var meta struct {
+		Status string `json:"status"`
+		Note   string `json:"note"`
+	}
+	if err := json.Unmarshal(metadata, &meta); err != nil {
+		return
+	}
+	switch meta.Status {
+	case "ok":
+		s.decoded++
+	case "unknown_can_id":
+		s.unknown++
+		s.unknownByCanID[canID]++
+	case "decode_error":
+		s.decodeError++
+		e := s.errorByCanID[canID]
+		e.count++
+		if e.sample == "" {
+			e.sample = meta.Note
+		}
+		s.errorByCanID[canID] = e
+	}
+}
+
+type breakdownEntry struct {
+	CanID string `json:"can_id"`
+	Count int    `json:"count"`
+}
+
+type errorBreakdownEntry struct {
+	CanID       string `json:"can_id"`
+	Count       int    `json:"count"`
+	SampleError string `json:"sample_error,omitempty"`
+}
+
+// ingestResult is the json shape stored on foreman's job.result column.
+// Top-N caps keep payload size bounded even on pathological batches.
+type ingestResult struct {
+	TotalRows            int                   `json:"total_rows"`
+	Decoded              int                   `json:"decoded"`
+	UnknownCanID         int                   `json:"unknown_can_id"`
+	DecodeError          int                   `json:"decode_error"`
+	DurationMs           int64                 `json:"duration_ms"`
+	UnknownBreakdown     []breakdownEntry      `json:"unknown_breakdown,omitempty"`
+	DecodeErrorBreakdown []errorBreakdownEntry `json:"decode_error_breakdown,omitempty"`
+}
+
+func topUnknown(m map[int]int, n int) []breakdownEntry {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]breakdownEntry, 0, len(m))
+	for id, count := range m {
+		out = append(out, breakdownEntry{
+			CanID: fmt.Sprintf("0x%X", id),
+			Count: count,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out
+}
+
+func topErrors(m map[int]decodeErrorSample, n int) []errorBreakdownEntry {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make([]errorBreakdownEntry, 0, len(m))
+	for id, e := range m {
+		out = append(out, errorBreakdownEntry{
+			CanID:       fmt.Sprintf("0x%X", id),
+			Count:       e.count,
+			SampleError: e.sample,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out
 }

@@ -106,7 +106,7 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 	}()
 
 	start := time.Now()
-	handlerErr := w.Registry.Handle(ctx, job, progress)
+	result, handlerErr := w.Registry.Handle(ctx, job, progress)
 	cancelHB()
 	<-hbDone
 
@@ -125,6 +125,7 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 
 	if err := foreman.Complete(ctx, job.ID, foreman.CompleteRequest{
 		WorkerID: w.ID,
+		Result:   result,
 	}); err != nil {
 		logger.SugarLogger.Errorf("[WORKER %s] couldn't report success on %s: %v", w.ID, job.ID, err)
 		return
