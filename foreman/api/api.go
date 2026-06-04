@@ -42,7 +42,7 @@ func InitializeRoutes(router *gin.Engine) {
 	// Read endpoints — fronted by the gateway for the dashboard.
 	router.GET(fmt.Sprintf("/%s/jobs", p), ListJobs)
 	router.GET(fmt.Sprintf("/%s/jobs/:id", p), GetJob)
-	router.GET(fmt.Sprintf("/%s/jobs/:id/events", p), StreamJobEvents)
+	router.GET(fmt.Sprintf("/%s/events/:id", p), StreamJobEvents)
 
 	// Write endpoints — producer/worker only, guarded by the shared token.
 	w := router.Group("/" + p)

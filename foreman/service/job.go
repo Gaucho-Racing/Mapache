@@ -31,7 +31,7 @@ type EnqueueParams struct {
 	Queue          string
 	Service        string
 	IdempotencyKey *string
-	Params         []byte
+	Params         model.JSON
 	Priority       int
 	MaxAttempts    int
 	ScheduledAt    *time.Time
@@ -178,7 +178,7 @@ func Heartbeat(id, workerID string, prog ProgressUpdate, leaseSec int) (model.Jo
 	return Get(id)
 }
 
-func Complete(id, workerID string, result []byte) (model.Job, error) {
+func Complete(id, workerID string, result model.JSON) (model.Job, error) {
 	updates := map[string]any{
 		"status":      model.StatusSucceeded,
 		"finished_at": time.Now(),

@@ -27,8 +27,8 @@ type Job struct {
 	// skip dedup. This is what replaces bespoke "already processed" tables.
 	IdempotencyKey *string `json:"idempotency_key,omitempty" gorm:"uniqueIndex:idx_jobs_kind_idem"`
 
-	Params []byte `json:"params,omitempty" gorm:"type:jsonb"`
-	Result []byte `json:"result,omitempty" gorm:"type:jsonb"`
+	Params JSON   `json:"params,omitempty" gorm:"type:jsonb"`
+	Result JSON   `json:"result,omitempty" gorm:"type:jsonb"`
 	Error  string `json:"error,omitempty"`
 
 	Priority        int    `json:"priority" gorm:"not null;default:0"`

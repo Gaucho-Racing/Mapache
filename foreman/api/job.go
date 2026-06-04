@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gaucho-racing/mapache/foreman/model"
 	"github.com/gaucho-racing/mapache/foreman/service"
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +34,7 @@ func EnqueueJob(c *gin.Context) {
 		Queue:          req.Queue,
 		Service:        req.Service,
 		IdempotencyKey: req.IdempotencyKey,
-		Params:         req.Params,
+		Params:         model.JSON(req.Params),
 		Priority:       req.Priority,
 		MaxAttempts:    req.MaxAttempts,
 		ScheduledAt:    req.ScheduledAt,
@@ -115,7 +116,7 @@ func CompleteJob(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	job, err := service.Complete(c.Param("id"), req.WorkerID, req.Result)
+	job, err := service.Complete(c.Param("id"), req.WorkerID, model.JSON(req.Result))
 	if respondServiceErr(c, err) {
 		return
 	}

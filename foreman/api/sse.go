@@ -9,8 +9,9 @@ import (
 
 // StreamJobEvents pushes the job's current state to the client as SSE,
 // re-sending on a tick until the job reaches a terminal status or the
-// client disconnects. The route is configured envelope:passthrough in
-// kerbecs so the stream is not wrapped.
+// client disconnects. Served at /foreman/events/:id (trailing-wildcard
+// path) and configured envelope:passthrough in kerbecs so the stream is
+// not wrapped.
 func StreamJobEvents(c *gin.Context) {
 	id := c.Param("id")
 	job, err := service.Get(id)
