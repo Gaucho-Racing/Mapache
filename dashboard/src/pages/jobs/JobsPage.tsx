@@ -161,7 +161,8 @@ function JobsPage() {
           }}
         />
 
-        {runningJobs.length > 0 && (
+        {runningJobs.length > 0 &&
+          (status === "" || status === "running") && (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-muted-foreground">
               Running ({runningJobs.length})
@@ -317,11 +318,7 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
             <Progress
               value={pct}
               className="h-1.5 w-24"
-              indicatorClassName={
-                isTerminalStatus(job.status)
-                  ? "bg-white"
-                  : PROGRESS_GRADIENT_CLASS
-              }
+              indicatorClassName={progressBarClass(job.status)}
             />
             <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
               {formatCount(job.progress_current)}/
@@ -340,6 +337,17 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
       </TableCell>
     </TableRow>
   );
+}
+
+// progressBarClass picks the indicator colour from job status:
+//   - running   → GR brand gradient (live)
+//   - pending   → neutral gray (progress carried from a previous attempt
+//                 that got reaped or failed; waiting to be re-claimed)
+//   - terminal  → white (frozen final reading)
+function progressBarClass(status: string): string {
+  if (status === "running") return PROGRESS_GRADIENT_CLASS;
+  if (status === "pending") return "bg-neutral-500";
+  return "bg-white";
 }
 
 export default JobsPage;
