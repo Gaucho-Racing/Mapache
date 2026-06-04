@@ -16,6 +16,8 @@ import SettingsPage from "@/pages/settings/SettingsPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
+import JobsPage from "@/pages/jobs/JobsPage.tsx";
+import JobDetailsPage from "@/pages/jobs/JobDetailsPage.tsx";
 import DebugPage from "@/pages/debug/DebugPage.tsx";
 import { useRoseMode } from "@/lib/store";
 import { useEffect } from "react";
@@ -52,6 +54,14 @@ const router = createBrowserRouter([
   {
     path: "/vehicles",
     element: <VehiclesPage />,
+  },
+  {
+    path: "/jobs",
+    element: <JobsPage />,
+  },
+  {
+    path: "/jobs/:id",
+    element: <JobDetailsPage />,
   },
   {
     path: "/debug",

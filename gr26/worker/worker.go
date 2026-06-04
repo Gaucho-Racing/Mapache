@@ -123,6 +123,25 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 		return
 	}
 
+	// Flush the handler's final progress before Complete so the DB row
+	// reflects the terminal state, not whatever the last 10s ticker
+	// happened to catch. Handlers that ended mid-tick would otherwise
+	// freeze at the last snapshot (e.g. 991k/1M instead of 1M/1M).
+	if cur, tot, msg, set := progress.snapshot(); set {
+		req := foreman.HeartbeatRequest{
+			WorkerID:        w.ID,
+			LeaseSec:        claimLeaseSec,
+			ProgressCurrent: &cur,
+			ProgressTotal:   &tot,
+		}
+		if msg != "" {
+			req.ProgressMessage = &msg
+		}
+		if err := foreman.Heartbeat(ctx, job.ID, req); err != nil {
+			logger.SugarLogger.Warnf("[WORKER %s] final heartbeat %s failed: %v", w.ID, job.ID, err)
+		}
+	}
+
 	if err := foreman.Complete(ctx, job.ID, foreman.CompleteRequest{
 		WorkerID: w.ID,
 		Result:   result,
