@@ -64,27 +64,24 @@ func SubscribeTopics() {
 	})
 }
 
-func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
-	if len(message) < 11 {
-		logger.SugarLogger.Infof("[MQ] Message too short, ignoring %d bytes", len(message))
-		return
-	}
-	timestamp := message[:8]
-	uploadKey := message[8:10]
-	data := message[10:]
+// ProcessFrame decodes a single CAN frame and returns the assembled
+// gr26_can record + the list of signals it produced, ready for the
+// caller to persist however it wants. Pure data transformation — no
+// DB writes, no WS publish, no side-channel hooks.
+//
+// The returned CAN's UploadKey is left at 0; the live MQTT path fills
+// it in from the envelope, the cold-storage replay path leaves it.
+// Signals are stamped with the node-prefixed Name and the per-frame
+// metadata (Timestamp, VehicleID, ProducedAt, CreatedAt) so the caller
+// can pass them straight to CreateSignals.
+//
+// On unknown canID or a decode_error, the CAN comes back with its
+// Metadata field set to a {status, note} blob and signals is empty —
+// callers still want to persist the raw frame so "what bytes did we
+// fail to parse" stays answerable.
+func ProcessFrame(vehicleID, nodeID string, canID, timestamp int, data []byte) (model.CAN, []mapache.Signal) {
+	producedAt := time.UnixMicro(int64(timestamp))
 
-	uploadKeyInt := int(binary.BigEndian.Uint16(uploadKey))
-	if !ValidateUploadKey(vehicleID, uploadKeyInt) {
-		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
-		return
-	}
-
-	ts := int(binary.BigEndian.Uint64(timestamp))
-	producedAt := time.UnixMicro(int64(ts))
-
-	// Attempt to decode first. If anything goes wrong, capture why in
-	// metadata so a "what bytes did we get that we couldn't parse" view
-	// has the answer alongside the raw frame.
 	var (
 		signals []mapache.Signal
 		meta    []byte
@@ -110,40 +107,63 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		}
 	}
 
-	_, err := CreateCAN(model.CAN{
+	can := model.CAN{
 		VehicleID:  vehicleID,
 		NodeID:     nodeID,
-		Timestamp:  ts,
+		Timestamp:  timestamp,
 		CANID:      canID,
 		Bytes:      data,
-		UploadKey:  uploadKeyInt,
 		Metadata:   meta,
 		ProducedAt: producedAt,
-	})
-	if err != nil {
+	}
+
+	if len(signals) > 0 {
+		now := time.Now().Truncate(time.Microsecond)
+		for i := range signals {
+			signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
+			signals[i].Timestamp = timestamp
+			signals[i].VehicleID = vehicleID
+			signals[i].ProducedAt = producedAt
+			signals[i].CreatedAt = now
+		}
+	}
+
+	return can, signals
+}
+
+func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
+	if len(message) < 11 {
+		logger.SugarLogger.Infof("[MQ] Message too short, ignoring %d bytes", len(message))
+		return
+	}
+	timestamp := message[:8]
+	uploadKey := message[8:10]
+	data := message[10:]
+
+	uploadKeyInt := int(binary.BigEndian.Uint16(uploadKey))
+	if !ValidateUploadKey(vehicleID, uploadKeyInt) {
+		logger.SugarLogger.Infof("Upload key validation failed for vehicle %s, ignoring", vehicleID)
+		return
+	}
+
+	ts := int(binary.BigEndian.Uint64(timestamp))
+	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)
+	can.UploadKey = uploadKeyInt
+
+	if _, err := CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
 		return
 	}
 
-	if len(signals) == 0 {
-		return
-	}
-	now := time.Now().Truncate(time.Microsecond)
-	for i := range signals {
-		signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
-		signals[i].Timestamp = ts
-		signals[i].VehicleID = vehicleID
-		signals[i].ProducedAt = producedAt
-		signals[i].CreatedAt = now
-	}
-	if err := CreateSignals(signals); err != nil {
-		logger.SugarLogger.Infof("Error creating signals: %s", err)
-		return
-	}
-
-	if config.EnableSignalWS {
-		for _, s := range signals {
-			Hub.Publish(s)
+	if len(signals) > 0 {
+		if err := CreateSignals(signals); err != nil {
+			logger.SugarLogger.Infof("Error creating signals: %s", err)
+			return
+		}
+		if config.EnableSignalWS {
+			for _, s := range signals {
+				Hub.Publish(s)
+			}
 		}
 	}
 

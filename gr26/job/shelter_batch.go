@@ -19,11 +19,9 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/parquet-go/parquet-go"
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
 
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
@@ -189,72 +187,23 @@ func dispatchRow(r shelterRow) {
 	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data)
 }
 
-// replayFrame is the cold-storage decode-and-persist function. Mirrors
-// service.HandleMessage but standalone — no envelope parsing (caller
-// already has ts and data), no upload-key validation (S3 access is the
-// trust boundary), no WS publish (data is historical, dash shouldn't
-// see it streaming), no side-channel hook (would recursively re-enqueue
-// ingest jobs if the replayed frame happens to be a TCMShelterBatch
-// itself).
-//
-// Intentionally duplicates the decode + CreateCAN + CreateSignals logic
-// from HandleMessage rather than sharing a helper; live and replay are
-// allowed to diverge cleanly without one being constrained by the other.
+// replayFrame is the cold-storage decode-and-persist function. Shares
+// the pure decode step (service.ProcessFrame) with the live MQTT path;
+// the persistence side-effects diverge here — UploadKey stays 0 since
+// shelter-sourced frames don't carry one, no WS publish (data is
+// historical), no side-channel hook (would recursively re-enqueue
+// ingest jobs if the replayed frame is itself a TCMShelterBatch).
 func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte) {
-	producedAt := time.UnixMicro(int64(ts))
+	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
+	// UploadKey left at 0 — bucket access is the trust boundary.
 
-	var (
-		signals []mapache.Signal
-		meta    []byte
-	)
-	messageStruct := model.GetMessage(canID)
-	switch {
-	case messageStruct == nil:
-		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
-		meta = service.MustJSON(map[string]any{
-			"status": "unknown_can_id",
-			"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
-		})
-	default:
-		if err := messageStruct.FillFromBytes(data); err != nil {
-			logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
-			meta = service.MustJSON(map[string]any{
-				"status": "decode_error",
-				"note":   err.Error(),
-			})
-		} else {
-			signals = messageStruct.ExportSignals()
-			meta = service.MustJSON(map[string]any{"status": "ok"})
-		}
-	}
-
-	_, err := service.CreateCAN(model.CAN{
-		VehicleID:  vehicleID,
-		NodeID:     nodeID,
-		Timestamp:  ts,
-		CANID:      canID,
-		Bytes:      data,
-		UploadKey:  0, // shelter-sourced; bucket access is the trust boundary
-		Metadata:   meta,
-		ProducedAt: producedAt,
-	})
-	if err != nil {
+	if _, err := service.CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
 		return
 	}
-
-	if len(signals) == 0 {
-		return
-	}
-	now := time.Now().Truncate(time.Microsecond)
-	for i := range signals {
-		signals[i].Name = fmt.Sprintf("%s_%s", nodeID, signals[i].Name)
-		signals[i].Timestamp = ts
-		signals[i].VehicleID = vehicleID
-		signals[i].ProducedAt = producedAt
-		signals[i].CreatedAt = now
-	}
-	if err := service.CreateSignals(signals); err != nil {
-		logger.SugarLogger.Infof("Error creating signals: %s", err)
+	if len(signals) > 0 {
+		if err := service.CreateSignals(signals); err != nil {
+			logger.SugarLogger.Infof("Error creating signals: %s", err)
+		}
 	}
 }
