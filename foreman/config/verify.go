@@ -38,13 +38,6 @@ func Verify() {
 
 	ReaperIntervalSec = intEnv(ReaperIntervalRaw, "FOREMAN_REAPER_INTERVAL_SEC", 10)
 	DefaultLeaseSec = intEnv(DefaultLeaseRaw, "FOREMAN_DEFAULT_LEASE_SEC", 60)
-
-	if InternalSecret == "" {
-		if IsProduction() {
-			logger.SugarLogger.Fatalln("FOREMAN_INTERNAL_SECRET must be set in PROD")
-		}
-		logger.SugarLogger.Warnln("FOREMAN_INTERNAL_SECRET is not set; write endpoints are unguarded (DEV only)")
-	}
 }
 
 func intEnv(raw, name string, def int) int {

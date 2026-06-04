@@ -46,8 +46,11 @@ var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 // should trigger downstream work (e.g. TCMShelterBatch arriving means
 // "go ingest the latest shelter parquet"). Empty endpoint disables the
 // enqueue calls entirely so the on-vehicle gr26 stays out of it.
+//
+// Service-to-service auth was removed for fast iteration; foreman
+// endpoints are public. Re-add ForemanToken + the X-Foreman-Token
+// header in pkg/foreman/client.go when locking back down.
 var ForemanEndpoint = os.Getenv("FOREMAN_ENDPOINT")
-var ForemanToken = os.Getenv("FOREMAN_TOKEN")
 
 // NumWorkers is the size of the worker pool that claims foreman jobs.
 // Each worker runs its own claim loop; goroutine cost is negligible
@@ -61,7 +64,7 @@ var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
 // Epic Shelter cold-storage ingest. Driven by foreman jobs now, not by
-// polling — SHELTER_S3_BUCKET unset means the IngestLatestBatchHandler
+// polling — SHELTER_S3_BUCKET unset means the IngestBatchHandler
 // rejects any job claimed for it. The on-vehicle gr26 leaves this unset.
 var ShelterS3Bucket = os.Getenv("SHELTER_S3_BUCKET")
 var ShelterS3Region = os.Getenv("SHELTER_S3_REGION")

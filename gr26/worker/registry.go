@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
@@ -9,8 +10,16 @@ import (
 
 // Handler is the contract a job kind's worker code satisfies. The
 // returned error is what foreman gets — nil = Complete, non-nil = Fail
-// (with the error string in the message).
-type Handler func(ctx context.Context, job *foreman.Job) error
+// (with the error string in the message). The returned json.RawMessage,
+// if non-nil, is stored on the foreman job's `result` field so the
+// dashboard / API can surface outcome summaries (decode counts, per-id
+// breakdowns, etc.). Handlers may return nil if they have nothing to
+// say beyond success/failure.
+//
+// The ProgressReporter is supplied by the worker so the handler can
+// publish progress that rides along on the next heartbeat. Handlers
+// that don't care about reporting progress can ignore it.
+type Handler func(ctx context.Context, job *foreman.Job, progress *ProgressReporter) (json.RawMessage, error)
 
 // Registry maps job kinds to handlers. A single Registry is shared
 // across all workers in the pool; lookups are read-only at runtime so
@@ -46,10 +55,10 @@ func (r *Registry) Kinds() []string {
 // error if no handler is registered for the job's kind — that path
 // shouldn't fire in practice (foreman only claims kinds we asked for)
 // but a clear error helps if registration drifts.
-func (r *Registry) Handle(ctx context.Context, job *foreman.Job) error {
+func (r *Registry) Handle(ctx context.Context, job *foreman.Job, progress *ProgressReporter) (json.RawMessage, error) {
 	h, ok := r.handlers[job.Kind]
 	if !ok {
-		return fmt.Errorf("no handler registered for kind %q", job.Kind)
+		return nil, fmt.Errorf("no handler registered for kind %q", job.Kind)
 	}
-	return h(ctx, job)
+	return h(ctx, job, progress)
 }

@@ -107,6 +107,16 @@ services:
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
       SKIP_AUTH_CHECK: "true"
+      ENABLE_SIGNAL_DB: "true"
+      ENABLE_SIGNAL_WS: "true"
+      VEHICLE_UPLOAD_KEY_CACHE_TTL: "600"
+      FOREMAN_ENDPOINT: "http://foreman:7011"
+      NUM_WORKERS: "1"
+      SHELTER_S3_BUCKET: "gaucho-racing"
+      SHELTER_S3_REGION: "us-west-2"
+      SHELTER_S3_PREFIX: "epic-shelter/tcm-26/"
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
 
   query:
     container_name: mapache-query
@@ -156,7 +166,6 @@ services:
       KERBECS_ENDPOINT: "http://kerbecs:10300"
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
-      FOREMAN_INTERNAL_SECRET: "dev-foreman-secret"
       SKIP_AUTH_CHECK: "true"
 
   dashboard:
@@ -173,8 +182,8 @@ services:
     environment:
       VITE_BACKEND_URL: "http://localhost:10310/api"
       VITE_BACKEND_WS_URL: "ws://localhost:10310/api"
-      VITE_SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID:-z6V9NREjMFhf}
-      VITE_MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
+      VITE_SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
+      VITE_MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN}
       VITE_SKIP_AUTH_CHECK: "true"
 
   nanomq:

@@ -181,9 +181,9 @@ func doJSON(ctx context.Context, method, path string, body any) (*http.Response,
 		return nil, fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if config.ForemanToken != "" {
-		req.Header.Set("X-Foreman-Token", config.ForemanToken)
-	}
+	// Service-to-service auth was removed; foreman endpoints are public.
+	// Add X-Foreman-Token back here (with a corresponding ForemanToken
+	// config var) when re-introducing the guard.
 	return httpClient.Do(req)
 }
 
