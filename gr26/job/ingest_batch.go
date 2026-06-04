@@ -174,6 +174,10 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	}
 
 	duration := time.Since(start)
+	// Pin progress to (total, total) so the worker's final heartbeat
+	// flush stores a clean 100% reading instead of whatever the last
+	// in-flight tick caught.
+	progress.Set(totalRows, totalRows, "complete")
 	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d)",
 		key, total, duration, stats.decoded, stats.unknown, stats.decodeError)
 
