@@ -57,8 +57,8 @@ const PRESETS: Preset[] = [
   {
     kind: "gr26.ingest_all_batches",
     description:
-      "Fan-out: enqueue an ingest_batch for every parquet uploaded in the last N hours.",
-    params: { vehicle_id: "gr26", hours: 24 },
+      "Fan-out: enqueue an ingest_batch for every parquet uploaded in the last N hours. Set reingest=true to also re-process files that were already ingested.",
+    params: { vehicle_id: "gr26", hours: 24, reingest: false },
     maxAttempts: 1,
   },
 ];

@@ -47,7 +47,10 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 	copy(u[:], data[16:32])
 	fileULID := u.String()
 
-	idem := fmt.Sprintf("gr26.ingest_batch:%s:%s", vehicleID, fileULID)
+	// Foreman's unique index is (kind, idempotency_key), so the kind tag
+	// in the key would be redundant — scoping by (vehicle, file_ulid) is
+	// enough.
+	idem := fmt.Sprintf("%s:%s", vehicleID, fileULID)
 	params, _ := json.Marshal(shelterIngestParams{
 		VehicleID: vehicleID,
 		FileULID:  fileULID,
