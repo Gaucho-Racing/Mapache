@@ -33,7 +33,7 @@ import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
 import { RunningJobCard } from "@/components/jobs/RunningJobCard";
 import axios from "axios";
 import { Plus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 50;
@@ -42,6 +42,7 @@ const POLL_INTERVAL_MS = 5000;
 function JobsPage() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [runningJobs, setRunningJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [kind, setKind] = useState("");
@@ -80,11 +81,39 @@ function JobsPage() {
     [status, kind, serviceName],
   );
 
+  // Running jobs feed the top-of-page cards. Fetched independently of
+  // the main list so the cards always reflect what's actually running,
+  // regardless of how the user has filtered the table.
+  const fetchRunning = useCallback(async () => {
+    try {
+      const r = await axios.get(
+        `${BACKEND_URL}/foreman/jobs?status=running&limit=50`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
+          },
+        },
+      );
+      setRunningJobs((r.data.data as Job[]) ?? []);
+    } catch {
+      // Silently ignore — the main list's fetch surfaces broader errors
+      // and per-card SSE keeps already-visible cards fresh.
+    }
+  }, []);
+
   // Filter changes reset pagination + reload from the top.
   useEffect(() => {
     setPaginated(false);
     fetchJobs();
   }, [fetchJobs]);
+
+  // Always poll for running jobs (filter-independent). Cheap when the
+  // queue is quiet — one GET per 5s returning an empty array.
+  useEffect(() => {
+    fetchRunning();
+    const t = setInterval(fetchRunning, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [fetchRunning]);
 
   // Per-card SSE streams (RunningJobCard) keep in-progress data fresh in
   // real-time, so we only poll the list to *discover* newly enqueued or
@@ -104,14 +133,6 @@ function JobsPage() {
     setPaginated(true);
     fetchJobs(last.id);
   };
-
-  // Cards at the top show only actively-running jobs. Pending jobs live
-  // in the table below — they have no progress to draw and a row reads
-  // better than a near-empty card.
-  const runningJobs = useMemo(
-    () => jobs.filter((j) => j.status === "running"),
-    [jobs],
-  );
 
   return (
     <Layout activeTab="jobs" headerTitle="Jobs">
