@@ -151,12 +151,22 @@ CREATE TABLE IF NOT EXISTS gr26_can (
 PARTITION BY toYYYYMM(produced_at)
 ORDER BY (vehicle_id, node_id, timestamp)`
 
+// Kept in sync with mapache.PingClickHouseDDL. Plain MergeTree: pings are
+// append-only and not backfilled/corrected, so no version column or dedup.
 const pingDDL = `
 CREATE TABLE IF NOT EXISTS ping (
 	vehicle_id LowCardinality(String),
-	ping       Int64,
-	pong       Int64,
-	latency    Int32,
-	created_at DateTime64(6, 'UTC') DEFAULT now64(6)
-) ENGINE = ReplacingMergeTree(created_at)
+
+	ping       Int64 CODEC(Delta, ZSTD(1)),
+
+	pong       Int64 CODEC(Delta, ZSTD(1)),
+
+	latency    Int32 CODEC(T64, ZSTD(1)),
+
+	ping_at    DateTime64(6, 'UTC')
+		MATERIALIZED fromUnixTimestamp64Micro(ping)
+		CODEC(Delta, ZSTD(1))
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(ping_at)
 ORDER BY (vehicle_id, ping)`
