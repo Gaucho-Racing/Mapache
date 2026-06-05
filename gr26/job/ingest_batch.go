@@ -188,20 +188,8 @@ func dispatchRow(r shelterRow, stats *ingestStats) {
 // stays 0 (bucket access is the trust boundary), and no WS/side-channel
 // firing — historical data, and we don't want to re-enqueue shelter batches.
 func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
-	if !service.IsValidProducedAt(ts) {
-		stats.invalidTimestamp++
-		if len(stats.invalidTimestampSamples) < invalidTimestampSampleLimit {
-			stats.invalidTimestampSamples = append(stats.invalidTimestampSamples, invalidTimestampSample{
-				Timestamp: ts,
-				Decoded:   time.UnixMicro(int64(ts)).UTC().Format(time.RFC3339Nano),
-				CanID:     fmt.Sprintf("0x%X", canID),
-				NodeID:    nodeID,
-			})
-		}
-		return
-	}
 	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
-	stats.record(canID, can.Metadata)
+	stats.record(canID, nodeID, ts, can.Metadata)
 
 	if _, err := service.CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
@@ -246,7 +234,7 @@ func newIngestStats() *ingestStats {
 	}
 }
 
-func (s *ingestStats) record(canID int, metadata []byte) {
+func (s *ingestStats) record(canID int, nodeID string, ts int, metadata []byte) {
 	var meta struct {
 		Status string `json:"status"`
 		Note   string `json:"note"`
@@ -268,6 +256,16 @@ func (s *ingestStats) record(canID int, metadata []byte) {
 			e.sample = meta.Note
 		}
 		s.errorByCanID[canID] = e
+	case "invalid_timestamp":
+		s.invalidTimestamp++
+		if len(s.invalidTimestampSamples) < invalidTimestampSampleLimit {
+			s.invalidTimestampSamples = append(s.invalidTimestampSamples, invalidTimestampSample{
+				Timestamp: ts,
+				Decoded:   time.UnixMicro(int64(ts)).UTC().Format(time.RFC3339Nano),
+				CanID:     fmt.Sprintf("0x%X", canID),
+				NodeID:    nodeID,
+			})
+		}
 	}
 }
 

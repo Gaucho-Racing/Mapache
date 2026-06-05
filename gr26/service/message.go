@@ -67,8 +67,9 @@ func HandleInboundMessage(topic string, payload []byte) {
 
 // ProcessFrame is pure data transformation: decode bytes → (CAN, signals).
 // UploadKey on the returned CAN is left at 0 for the caller to fill in.
-// Unknown canID / decode errors return an empty signals list and a status
-// blob in CAN.Metadata so the raw frame can still be persisted.
+// Unknown canID, decode errors, and invalid timestamps return an empty
+// signals list and a status blob in CAN.Metadata so the raw frame can
+// still be persisted.
 func ProcessFrame(vehicleID, nodeID string, canID, timestamp int, data []byte) (model.CAN, []mapache.Signal) {
 	producedAt := time.UnixMicro(int64(timestamp))
 
@@ -76,24 +77,34 @@ func ProcessFrame(vehicleID, nodeID string, canID, timestamp int, data []byte) (
 		signals []mapache.Signal
 		meta    []byte
 	)
-	messageStruct := model.GetMessage(canID)
 	switch {
-	case messageStruct == nil:
-		logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
+	case !IsValidProducedAt(timestamp):
+		logger.SugarLogger.Warnf("Frame with invalid timestamp: vehicle=%s node=%s can_id=0x%X ts=%d decoded=%s",
+			vehicleID, nodeID, canID, timestamp, producedAt.UTC().Format(time.RFC3339Nano))
 		meta = MustJSON(map[string]any{
-			"status": "unknown_can_id",
-			"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
+			"status": "invalid_timestamp",
+			"note":   fmt.Sprintf("ts=%d (%s) is before %s", timestamp, producedAt.UTC().Format(time.RFC3339Nano), minValidProducedAt.UTC().Format(time.RFC3339Nano)),
 		})
 	default:
-		if err := messageStruct.FillFromBytes(data); err != nil {
-			logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
+		messageStruct := model.GetMessage(canID)
+		switch {
+		case messageStruct == nil:
+			logger.SugarLogger.Infof("Received unknown message id: %d, frame stored without signals", canID)
 			meta = MustJSON(map[string]any{
-				"status": "decode_error",
-				"note":   err.Error(),
+				"status": "unknown_can_id",
+				"note":   fmt.Sprintf("no decoder registered for can id 0x%X", canID),
 			})
-		} else {
-			signals = messageStruct.ExportSignals()
-			meta = MustJSON(map[string]any{"status": "ok"})
+		default:
+			if err := messageStruct.FillFromBytes(data); err != nil {
+				logger.SugarLogger.Infof("Error deserializing message id %d, frame stored without signals: %s", canID, err)
+				meta = MustJSON(map[string]any{
+					"status": "decode_error",
+					"note":   err.Error(),
+				})
+			} else {
+				signals = messageStruct.ExportSignals()
+				meta = MustJSON(map[string]any{"status": "ok"})
+			}
 		}
 	}
 
@@ -137,11 +148,6 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 
 	ts := int(binary.BigEndian.Uint64(timestamp))
-	if !IsValidProducedAt(ts) {
-		logger.SugarLogger.Warnf("[MQ] Dropping frame with invalid timestamp: vehicle=%s node=%s can_id=0x%X ts=%d decoded=%s",
-			vehicleID, nodeID, canID, ts, time.UnixMicro(int64(ts)).UTC().Format(time.RFC3339Nano))
-		return
-	}
 	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)
 	can.UploadKey = uploadKeyInt
 
