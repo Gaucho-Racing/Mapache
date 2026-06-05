@@ -19,16 +19,27 @@ func (Ping) TableName() string {
 }
 
 // PingClickHouseDDL is the ClickHouse table definition for Ping, shared by
-// every service that writes or migrates the ping table. The dedup key
-// (vehicle_id, ping) mirrors the gorm primary key above; created_at is the
-// ReplacingMergeTree version column so a retransmitted ping collapses on
-// merge.
+// every service that writes or migrates the ping table.
+//
+// Optimized for bursty vehicle telemetry where the dominant read pattern is:
+//   vehicle_id + ping time window.
+//
+// Dedup identity is logically (vehicle_id, ping), but this table does not use
+// ReplacingMergeTree because pings are append-only and not backfilled/corrected.
 const PingClickHouseDDL = `
 CREATE TABLE IF NOT EXISTS ping (
-	vehicle_id LowCardinality(String),
-	ping       Int64,
-	pong       Int64,
-	latency    Int32,
-	created_at DateTime64(6, 'UTC') DEFAULT now64(6)
-) ENGINE = ReplacingMergeTree(created_at)
+    vehicle_id LowCardinality(String),
+
+    ping       Int64 CODEC(Delta, ZSTD(1)),
+
+    pong       Int64 CODEC(Delta, ZSTD(1)),
+
+    latency    Int32 CODEC(T64, ZSTD(1)),
+
+    ping_at    DateTime64(6, 'UTC')
+        MATERIALIZED fromUnixTimestamp64Micro(ping)
+        CODEC(Delta, ZSTD(1))
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(ping_at)
 ORDER BY (vehicle_id, ping)`
