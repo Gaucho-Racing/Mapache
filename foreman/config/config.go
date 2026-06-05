@@ -21,7 +21,7 @@ func (s ServiceInfo) PathPrefix() string {
 
 var Service = ServiceInfo{
 	Name:    "Foreman",
-	Version:     "3.5.0",
+	Version:     "3.5.1",
 }
 
 // Service-to-service auth was removed for fast iteration; all
