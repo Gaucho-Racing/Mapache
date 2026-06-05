@@ -14,10 +14,12 @@ gateway:
 listeners:
   gateway:
     port: ${PORT:10310}
+    # CORS is set by each upstream service (gin-contrib/cors in Go
+    # services, fastapi.middleware.cors in query). Setting it here too
+    # caused duplicate Access-Control-Allow-Origin headers on passthrough
+    # routes (live SSE, gr26 WS, foreman events) which browsers reject.
     cors:
-      enabled: true
-      allowed_origins: ["*"]
-      allow_credentials: false
+      enabled: false
   admin:
     port: ${ADMIN_PORT:10300}
     auth:
