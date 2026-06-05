@@ -163,7 +163,6 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		for _, s := range signals {
 			topic := fmt.Sprintf("query/live/%s/%s", s.VehicleID, s.Name)
 			mqtt.PublishJSON(context.Background(), topic, s)
-			Hub.Publish(s)
 		}
 	}
 
