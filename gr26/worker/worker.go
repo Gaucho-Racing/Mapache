@@ -128,6 +128,7 @@ func (w *Worker) runJob(ctx context.Context, job *foreman.Job) {
 		}); err != nil {
 			logger.SugarLogger.Errorf("[WORKER %s] couldn't report failure on %s: %v", w.ID, job.ID, err)
 		}
+		sleep(ctx, jitter())
 		return
 	}
 
