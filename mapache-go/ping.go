@@ -17,3 +17,18 @@ type Ping struct {
 func (Ping) TableName() string {
 	return "ping"
 }
+
+// PingClickHouseDDL is the ClickHouse table definition for Ping, shared by
+// every service that writes or migrates the ping table. The dedup key
+// (vehicle_id, ping) mirrors the gorm primary key above; created_at is the
+// ReplacingMergeTree version column so a retransmitted ping collapses on
+// merge.
+const PingClickHouseDDL = `
+CREATE TABLE IF NOT EXISTS ping (
+	vehicle_id LowCardinality(String),
+	ping       Int64,
+	pong       Int64,
+	latency    Int32,
+	created_at DateTime64(6, 'UTC') DEFAULT now64(6)
+) ENGINE = ReplacingMergeTree(created_at)
+ORDER BY (vehicle_id, ping)`
