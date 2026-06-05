@@ -1,6 +1,6 @@
 import { Separator } from "./ui/separator";
 import { useLocation, useNavigate } from "react-router-dom";
-import { memo, useEffect } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   useVehicle,
   setVehicle,
@@ -119,27 +119,48 @@ function SidebarItem({
 
 function VehicleSwitcher({
   isSidebarExpanded,
+  vehiclesLoaded,
 }: {
   isSidebarExpanded: boolean;
+  vehiclesLoaded: boolean;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
   const currentVehicle = useVehicle();
   const vehicleList = useVehicleList();
 
+  const hasVehicles = vehicleList.length > 0;
+  const showEmpty = vehiclesLoaded && !hasVehicles;
+  const showSelected = !!currentVehicle.id;
+
+  const primaryText = showEmpty
+    ? "No vehicles"
+    : showSelected
+      ? currentVehicle.name
+      : "Loading...";
+  const secondaryText = showEmpty
+    ? "Create one to get started"
+    : showSelected
+      ? `${currentVehicle.id} • ${currentVehicle.type}`
+      : "";
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild disabled={!hasVehicles}>
         <div
           className="mx-2 my-2 flex cursor-pointer items-center overflow-hidden rounded-lg bg-gradient-to-br from-gr-pink to-gr-purple bg-[length:100%_100%] p-[2px] transition-all duration-150"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex h-12 w-full items-center overflow-hidden rounded-lg bg-card/50 p-1 hover:bg-card">
             <div className="flex min-w-[60px] flex-shrink-0 items-center justify-center">
-              <VehicleClassIcon
-                vehicleClass={currentVehicle.type}
-                iconType="pixel"
-              />
+              {showSelected ? (
+                <VehicleClassIcon
+                  vehicleClass={currentVehicle.type}
+                  iconType="pixel"
+                />
+              ) : (
+                <CarFront className="h-8 w-8 text-neutral-400" />
+              )}
             </div>
             <div
               className={`overflow-hidden whitespace-nowrap font-semibold text-white ${isSidebarExpanded ? "slide-in" : "slide-out"}`}
@@ -147,10 +168,10 @@ function VehicleSwitcher({
               <div className="flex w-full items-center justify-between">
                 <div className="flex w-[160px] flex-col items-start justify-center overflow-hidden">
                   <div className="w-full truncate text-sm font-semibold">
-                    {currentVehicle.name}
+                    {primaryText}
                   </div>
                   <div className="w-full truncate text-xs text-neutral-400">
-                    {currentVehicle.id} • {currentVehicle.type}
+                    {secondaryText}
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 items-center justify-center">
@@ -197,19 +218,28 @@ const Sidebar = (props: SidebarProps) => {
   const currentVehicle = useVehicle();
   const vehicleList = useVehicleList();
   const location = useLocation();
+  const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
 
   useEffect(() => {
     getVehicles();
   }, []);
 
-  // Sync the active vehicle to the ?vid=... URL param. Runs on first load
-  // (once the list arrives) and on any navigation that changes vid.
+  // Sync the active vehicle with the ?vid=... URL param, or fall back to the
+  // latest-created vehicle (first item, since the list is sorted desc by
+  // created_at). Runs on first load (once the list arrives) and on any
+  // navigation that changes vid.
   useEffect(() => {
     if (vehicleList.length === 0) return;
     const vid = new URLSearchParams(location.search).get("vid");
-    if (!vid || vid === currentVehicle.id) return;
-    const match = vehicleList.find((v) => v.id === vid);
-    if (match) setVehicle(match);
+    if (vid) {
+      if (vid === currentVehicle.id) return;
+      const match = vehicleList.find((v) => v.id === vid);
+      if (match) setVehicle(match);
+      return;
+    }
+    if (currentVehicle.id !== vehicleList[0].id) {
+      setVehicle(vehicleList[0]);
+    }
   }, [vehicleList, location.search, currentVehicle.id]);
 
   const getVehicles = async () => {
@@ -231,6 +261,8 @@ const Sidebar = (props: SidebarProps) => {
       }
     } catch (error) {
       notify.error("Failed to fetch vehicles: " + error);
+    } finally {
+      setVehiclesLoaded(true);
     }
   };
 
@@ -307,7 +339,10 @@ const Sidebar = (props: SidebarProps) => {
               <div className="px-4 py-2">
                 <Separator />
               </div>
-              <VehicleSwitcher isSidebarExpanded={props.isSidebarExpanded} />
+              <VehicleSwitcher
+                isSidebarExpanded={props.isSidebarExpanded}
+                vehiclesLoaded={vehiclesLoaded}
+              />
             </div>
           </div>
         </div>

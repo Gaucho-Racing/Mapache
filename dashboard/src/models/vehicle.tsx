@@ -8,12 +8,12 @@ export interface Vehicle {
   created_at: string;
 }
 
-export const initVehicle = {
-  id: "gr26-dev",
-  name: "GR26 Dev",
-  description: "GR26 development/test vehicle",
-  type: "gr26",
-  upload_key: 26026,
-  updated_at: new Date().toISOString(),
-  created_at: new Date().toISOString(),
+export const initVehicle: Vehicle = {
+  id: "",
+  name: "",
+  description: "",
+  type: "",
+  upload_key: 0,
+  updated_at: "",
+  created_at: "",
 };
