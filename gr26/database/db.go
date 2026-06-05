@@ -10,6 +10,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 // Conn is the shared ClickHouse connection. Telemetry (signal, gr26_can,
@@ -88,7 +89,7 @@ func connect() error {
 }
 
 func migrate(ctx context.Context, conn driver.Conn) error {
-	for _, stmt := range []string{signalDDL, canDDL, pingDDL} {
+	for _, stmt := range []string{mapache.SignalClickHouseDDL, canDDL, mapache.PingClickHouseDDL} {
 		if err := conn.Exec(ctx, stmt); err != nil {
 			return err
 		}
@@ -97,43 +98,9 @@ func migrate(ctx context.Context, conn driver.Conn) error {
 	return nil
 }
 
-// Kept in sync with mapache.SignalClickHouseDDL; gr26 switches to that const
-// once it's on mapache-go v3.4.0. produced_at is derived from the event
-// timestamp (exact, via fromUnixTimestamp64Micro) so the ingest path never
-// writes it directly. created_at is the insert wall clock and serves as the
-// ReplacingMergeTree version: a later write (retransmit, corrected decode,
-// cold-storage replay) wins on merge. Codecs (Delta for timestamps, Gorilla
-// for values, ZSTD) cut storage on the high-volume telemetry; ORDER BY
-// (vehicle_id, timestamp, name) matches the vehicle + time-window + many-names
-// read pattern.
-const signalDDL = `
-CREATE TABLE IF NOT EXISTS signal (
-	id          String CODEC(ZSTD(1)),
-
-	timestamp   Int64 CODEC(Delta, ZSTD(1)),
-
-	vehicle_id  LowCardinality(String),
-
-	name        LowCardinality(String),
-
-	value       Float64 CODEC(Gorilla, ZSTD(1)),
-
-	raw_value   Int64 CODEC(ZSTD(1)),
-
-	produced_at DateTime64(6, 'UTC')
-		MATERIALIZED fromUnixTimestamp64Micro(timestamp)
-		CODEC(Delta, ZSTD(1)),
-
-	created_at  DateTime64(6, 'UTC')
-		DEFAULT now64(6)
-		CODEC(Delta, ZSTD(1)),
-
-	INDEX idx_id id TYPE bloom_filter GRANULARITY 4
-)
-ENGINE = ReplacingMergeTree(created_at)
-PARTITION BY toYYYYMM(produced_at)
-ORDER BY (vehicle_id, timestamp, name)`
-
+// gr26_can has no shared mapache-go model (the CAN frame layout is
+// gr26-specific), so its DDL stays here. signal/ping DDL live on the shared
+// mapache.Signal / mapache.Ping types.
 const canDDL = `
 CREATE TABLE IF NOT EXISTS gr26_can (
 	id          String CODEC(ZSTD(1)),
@@ -165,23 +132,3 @@ CREATE TABLE IF NOT EXISTS gr26_can (
 ENGINE = ReplacingMergeTree(created_at)
 PARTITION BY toYYYYMM(produced_at)
 ORDER BY (vehicle_id, timestamp, node_id, can_id)`
-
-// Kept in sync with mapache.PingClickHouseDDL. Plain MergeTree: pings are
-// append-only and not backfilled/corrected, so no version column or dedup.
-const pingDDL = `
-CREATE TABLE IF NOT EXISTS ping (
-	vehicle_id LowCardinality(String),
-
-	ping       Int64 CODEC(Delta, ZSTD(1)),
-
-	pong       Int64 CODEC(Delta, ZSTD(1)),
-
-	latency    Int32 CODEC(T64, ZSTD(1)),
-
-	ping_at    DateTime64(6, 'UTC')
-		MATERIALIZED fromUnixTimestamp64Micro(ping)
-		CODEC(Delta, ZSTD(1))
-)
-ENGINE = MergeTree
-PARTITION BY toYYYYMM(ping_at)
-ORDER BY (vehicle_id, ping)`
