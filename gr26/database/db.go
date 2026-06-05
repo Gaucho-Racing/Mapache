@@ -13,8 +13,6 @@ import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
-// Conn is the shared ClickHouse connection. Telemetry (signal, gr26_can,
-// ping) lives in ClickHouse now; gr26 holds no Postgres connection.
 var Conn driver.Conn
 
 var dbRetries = 0
@@ -31,11 +29,8 @@ func options(database string) *clickhouse.Options {
 	}
 }
 
-// InsertCtx returns a context that flags inserts as server-side async:
-// gr26 fires many small INSERTs and lets ClickHouse coalesce them into
-// larger parts rather than batching client-side. wait_for_async_insert=0
-// means we don't block on the flush — an acceptable loss window for
-// high-rate telemetry (see plan tradeoffs).
+// InsertCtx flags inserts as server-side async — CH coalesces small INSERTs
+// into larger parts and we don't block on the flush.
 func InsertCtx(parent context.Context) context.Context {
 	return clickhouse.Context(parent, clickhouse.WithSettings(clickhouse.Settings{
 		"async_insert":          1,
@@ -59,8 +54,7 @@ func Init() {
 func connect() error {
 	ctx := context.Background()
 
-	// Ensure the target database exists before opening the app connection
-	// against it, bootstrapping through the always-present "default" db.
+	// Bootstrap through "default" so we can CREATE DATABASE before opening the app conn.
 	bootstrap, err := clickhouse.Open(options("default"))
 	if err != nil {
 		return err
@@ -98,9 +92,7 @@ func migrate(ctx context.Context, conn driver.Conn) error {
 	return nil
 }
 
-// gr26_can has no shared mapache-go model (the CAN frame layout is
-// gr26-specific), so its DDL stays here. signal/ping DDL live on the shared
-// mapache.Signal / mapache.Ping types.
+// gr26_can DDL lives here (gr26-specific); signal/ping DDL live on mapache-go.
 const canDDL = `
 CREATE TABLE IF NOT EXISTS gr26_can (
 	id          String CODEC(ZSTD(1)),

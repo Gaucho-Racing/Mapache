@@ -16,12 +16,8 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 )
 
-// Shared subscription so multiple gr26 replicas fan out the CAN-frame
-// stream — NanoMQ load-balances delivery across all members of the
-// "ingest" group. Single-replica deployments still work; the broker
-// just routes everything to the one member.
 const (
-	sharedSubGroup = "ingest"
+	sharedSubGroup = "gr26-cluster"
 	canTopicFilter = "$share/" + sharedSubGroup + "/gr26/#"
 )
 
@@ -30,10 +26,6 @@ const (
 	connectTimeout   = 15 * time.Second
 )
 
-// Manager is the singleton autopaho v5 ConnectionManager. Exposed so
-// publish-side callers (pongs, decoded signals) can reach it directly;
-// inbound messages come through the handler registered via
-// SetMessageHandler.
 var Manager *autopaho.ConnectionManager
 
 type MessageHandler func(topic string, payload []byte)
@@ -43,18 +35,12 @@ var (
 	handler   MessageHandler
 )
 
-// SetMessageHandler wires the function that processes inbound
-// messages from the shared subscription. Call this before Init so the
-// OnConnectionUp subscribe can't race against arriving frames.
 func SetMessageHandler(h MessageHandler) {
 	handlerMu.Lock()
 	handler = h
 	handlerMu.Unlock()
 }
 
-// Init brings up the autopaho-managed v5 connection and subscribes
-// to the shared CAN-frame topic inside OnConnectionUp so the
-// subscription is re-established on every reconnect.
 func Init(ctx context.Context) error {
 	serverURL, err := url.Parse(fmt.Sprintf("mqtt://%s:%s", config.MQTTHost, config.MQTTPort))
 	if err != nil {
@@ -68,13 +54,11 @@ func Init(ctx context.Context) error {
 	clientID := fmt.Sprintf("%s-%s", config.Service.Name, host)
 
 	cfg := autopaho.ClientConfig{
-		ServerUrls:      []*url.URL{serverURL},
-		KeepAlive:       keepAliveSeconds,
-		ConnectTimeout:  connectTimeout,
-		ConnectUsername: config.MQTTUser,
-		ConnectPassword: []byte(config.MQTTPassword),
-		// Mirror the v3 SetCleanSession(true) behavior — we're QoS 0
-		// with no need for retained session state across reconnects.
+		ServerUrls:                    []*url.URL{serverURL},
+		KeepAlive:                     keepAliveSeconds,
+		ConnectTimeout:                connectTimeout,
+		ConnectUsername:               config.MQTTUser,
+		ConnectPassword:               []byte(config.MQTTPassword),
 		CleanStartOnInitialConnection: true,
 		SessionExpiryInterval:         0,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, _ *paho.Connack) {
@@ -120,10 +104,6 @@ func Init(ctx context.Context) error {
 	return nil
 }
 
-// Publish is a fire-and-forget QoS 0 helper. At QoS 0 paho returns
-// once the packet hits TCP; broker-down surfaces as an error here
-// (we log and move on — next CAN frame for the same ID is 30-100ms
-// behind, retrying QoS 0 is wasted effort).
 func Publish(ctx context.Context, topic string, payload []byte) {
 	if Manager == nil {
 		return
@@ -137,8 +117,6 @@ func Publish(ctx context.Context, topic string, payload []byte) {
 	}
 }
 
-// PublishJSON marshals v to JSON and publishes it at QoS 0, retain=false.
-// Used by the decoded-signal fan-out to query/live/<vid>/<name>.
 func PublishJSON(ctx context.Context, topic string, v any) {
 	payload, err := json.Marshal(v)
 	if err != nil {

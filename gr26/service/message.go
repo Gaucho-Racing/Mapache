@@ -17,18 +17,9 @@ import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
-// ShelterBatchHook fires at the tail of HandleMessage when a frame's
-// canID matches model.MsgIDShelterBatch. Wired up in main.go to the
-// job package — left as a nil-able package var here so service stays
-// importable without job (avoids the circular import; service is the
-// lower layer).
+// ShelterBatchHook is set by main.go to avoid a service → job import cycle.
 var ShelterBatchHook func(vehicleID string, ts int, data []byte)
 
-// HandleInboundMessage is the per-message callback registered with
-// mqtt.SetMessageHandler. Parses the topic into vehicle/node/can-id,
-// dispatches ping/pong specially, and hands off CAN frames to
-// HandleMessage in a fresh goroutine so the paho receive loop never
-// blocks on downstream I/O.
 func HandleInboundMessage(topic string, payload []byte) {
 	if len(strings.Split(topic, "/")) != 4 {
 		logger.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)
@@ -64,21 +55,10 @@ func HandleInboundMessage(topic string, payload []byte) {
 	go HandleMessage(vehicleID, nodeID, int(canIDInt), payload)
 }
 
-// ProcessFrame decodes a single CAN frame and returns the assembled
-// gr26_can record + the list of signals it produced, ready for the
-// caller to persist however it wants. Pure data transformation — no
-// DB writes, no WS publish, no side-channel hooks.
-//
-// The returned CAN's UploadKey is left at 0; the live MQTT path fills
-// it in from the envelope, the cold-storage replay path leaves it.
-// Signals are stamped with the node-prefixed Name and the per-frame
-// metadata (Timestamp, VehicleID, ProducedAt, CreatedAt) so the caller
-// can pass them straight to CreateSignals.
-//
-// On unknown canID or a decode_error, the CAN comes back with its
-// Metadata field set to a {status, note} blob and signals is empty —
-// callers still want to persist the raw frame so "what bytes did we
-// fail to parse" stays answerable.
+// ProcessFrame is pure data transformation: decode bytes → (CAN, signals).
+// UploadKey on the returned CAN is left at 0 for the caller to fill in.
+// Unknown canID / decode errors return an empty signals list and a status
+// blob in CAN.Metadata so the raw frame can still be persisted.
 func ProcessFrame(vehicleID, nodeID string, canID, timestamp int, data []byte) (model.CAN, []mapache.Signal) {
 	producedAt := time.UnixMicro(int64(timestamp))
 
@@ -150,11 +130,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)
 	can.UploadKey = uploadKeyInt
 
-	// Each persist step is independent — signals are still meaningful
-	// even if the gr26_can write fails (they're queryable by name +
-	// timestamp + vehicle), and the WS feed is worth firing for live
-	// consumers regardless of DB state. So we log and continue rather
-	// than short-circuit the rest of the pipeline.
+	// Persist steps log-and-continue so one failure doesn't drop the rest.
 	if _, err := CreateCAN(can); err != nil {
 		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
 	}
@@ -163,19 +139,10 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		if err := CreateSignals(signals); err != nil {
 			logger.SugarLogger.Infof("Error creating signals: %s", err)
 		}
-		// Fan decoded signals back out over MQTT so any consumer
-		// (live dashboard, query bridge, etc.) can subscribe to
-		// query/live/<vid>/<name> instead of relying on an in-process
-		// hub. Done per-replica: under the shared sub each frame is
-		// handled by exactly one replica, so each decoded signal is
-		// published exactly once.
 		for _, s := range signals {
 			topic := fmt.Sprintf("query/live/%s/%s", s.VehicleID, s.Name)
 			mqtt.PublishJSON(context.Background(), topic, s)
 		}
-		// On-car gr26 also fans signals to the in-process Hub so the
-		// on-car dash can keep using the /gr26/live WebSocket. Cloud
-		// replicas leave this off — see EnableSignalWS in config.
 		if config.EnableSignalWS {
 			for _, s := range signals {
 				Hub.Publish(s)
@@ -183,22 +150,16 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		}
 	}
 
-	// Side-channel: when shelter announces a successful upload, hand off
-	// to whichever module registered the hook (today: gr26/job/, which
-	// enqueues a foreman ingest job).
 	if canID == model.MsgIDShelterBatch && ShelterBatchHook != nil {
 		go ShelterBatchHook(vehicleID, ts, data)
 	}
 }
 
-// MustJSON marshals v to JSON, returning a sentinel error blob if
-// marshaling fails. Exported because gr26/job's replayFrame builds the
-// same status/note metadata blobs and we share this rather than copy it.
+// MustJSON marshals v, falling back to a sentinel blob on error so
+// callers always get valid jsonb. Shared with gr26/job's replayFrame.
 func MustJSON(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
-		// json.Marshal on a map of strings/strings can't fail in practice;
-		// fall back to a literal so callers always get a valid jsonb value.
 		return []byte(`{"status":"marshal_error"}`)
 	}
 	return b

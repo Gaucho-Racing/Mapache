@@ -48,9 +48,6 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	}
 }
 
-// ping is a plain append-only MergeTree (no version column, no dedup), so a
-// retransmitted ping just appends another row — fine for write-only latency
-// telemetry that is never read back or corrected.
 const insertPingSQL = `INSERT INTO ping (vehicle_id, ping, pong, latency) VALUES (?, ?, ?, ?)`
 
 func CreatePing(ping mapache.Ping) error {

@@ -11,15 +11,8 @@ import (
 	ulid "github.com/gaucho-racing/ulid-go"
 )
 
-// CreateSignals writes decoded signals to ClickHouse. WebSocket publishing
-// lives in HandleMessage so the published payload can carry the
-// can_message_id alongside the signal.
-//
-// produced_at and created_at are omitted from the insert: produced_at is a
-// MATERIALIZED column derived from timestamp, and created_at defaults to
-// the insert wall clock and acts as the ReplacingMergeTree version (latest
-// write wins on merge), so retransmits and corrected decodes dedup
-// naturally without an explicit ON CONFLICT.
+// produced_at is MATERIALIZED from timestamp; created_at defaults to insert
+// wall clock and acts as the ReplacingMergeTree version. Both omitted here.
 const insertSignalSQL = `INSERT INTO signal (id, timestamp, vehicle_id, name, value, raw_value) VALUES (?, ?, ?, ?, ?, ?)`
 
 func CreateSignals(signals []mapache.Signal) error {

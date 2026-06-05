@@ -26,19 +26,12 @@ var Service = ServiceInfo{
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
 var VehicleUploadKeyCacheTTL = os.Getenv("VEHICLE_UPLOAD_KEY_CACHE_TTL")
-// EnableSignalDB gates all ClickHouse operations: the database.Init()
-// connect/migrate, the CreateCAN/CreateSignals/CreatePing inserts, and
-// the CH-backed read endpoints. The on-car gr26 (running on the TCM
-// to feed the on-car dash) has no ClickHouse and must set this false;
-// cloud ingest leaves the default true. Despite the historical name,
-// this is the "do we have a ClickHouse to talk to?" master switch.
+// EnableSignalDB is the master switch for all ClickHouse access
+// (init, writes, read endpoints). On-car gr26 sets it false.
 var EnableSignalDB = os.Getenv("ENABLE_SIGNAL_DB") != "false"
 
-// EnableSignalWS gates the in-process signal Hub + /gr26/live WebSocket
-// endpoint. Defaults false because the cloud ingest (which can run as
-// multiple replicas under the shared subscription) gets its live feed
-// from the query/live/<vid>/<name> MQTT republish, not from this hub.
-// The on-car gr26 sets this true to keep feeding the on-car dash.
+// EnableSignalWS toggles the in-process Hub + /gr26/live WS for the on-car dash.
+// Cloud replicas get the live feed via query/live/<vid>/<name> instead.
 var EnableSignalWS = os.Getenv("ENABLE_SIGNAL_WS") == "true"
 
 var Env = os.Getenv("ENV")

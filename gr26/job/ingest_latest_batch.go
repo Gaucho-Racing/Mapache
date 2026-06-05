@@ -13,20 +13,12 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
-// ingestLatestParams is the params shape for gr26.ingest_latest_batch
-// jobs. Just a vehicle_id — the handler resolves the actual file at
-// claim time.
 type ingestLatestParams struct {
 	VehicleID string `json:"vehicle_id"`
 }
 
-// IngestLatestBatchHandler picks the most recently uploaded parquet
-// under the vehicle's shelter prefix and ingests it inline. The
-// resolved file_ulid lands in the job's result so the dashboard makes
-// it obvious which file got processed.
-//
-// Sort order is by S3 LastModified (newest first), matching the dialog
-// preset language ("most recently uploaded").
+// IngestLatestBatchHandler ingests the newest (by S3 LastModified) batch
+// for the vehicle, inline. file_ulid lands in the result.
 func IngestLatestBatchHandler(ctx context.Context, j *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
