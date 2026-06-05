@@ -97,25 +97,42 @@ func migrate(ctx context.Context, conn driver.Conn) error {
 	return nil
 }
 
-// produced_at is derived from the event timestamp (unix micros) so the
-// ingest path never writes it directly. created_at is the insert wall
-// clock and serves as the ReplacingMergeTree version: a later write
-// (retransmit, corrected decode, cold-storage replay) wins on merge,
-// matching the old Postgres ON CONFLICT ... DO UPDATE semantics.
+// Kept in sync with mapache.SignalClickHouseDDL; gr26 switches to that const
+// once it's on mapache-go v3.4.0. produced_at is derived from the event
+// timestamp (exact, via fromUnixTimestamp64Micro) so the ingest path never
+// writes it directly. created_at is the insert wall clock and serves as the
+// ReplacingMergeTree version: a later write (retransmit, corrected decode,
+// cold-storage replay) wins on merge. Codecs (Delta for timestamps, Gorilla
+// for values, ZSTD) cut storage on the high-volume telemetry; ORDER BY
+// (vehicle_id, timestamp, name) matches the vehicle + time-window + many-names
+// read pattern.
 const signalDDL = `
 CREATE TABLE IF NOT EXISTS signal (
-	id          String,
-	timestamp   Int64,
+	id          String CODEC(ZSTD(1)),
+
+	timestamp   Int64 CODEC(Delta, ZSTD(1)),
+
 	vehicle_id  LowCardinality(String),
+
 	name        LowCardinality(String),
-	value       Float64,
-	raw_value   Int64,
-	produced_at DateTime64(6, 'UTC') MATERIALIZED toDateTime64(timestamp / 1e6, 6, 'UTC'),
-	created_at  DateTime64(6, 'UTC') DEFAULT now64(6),
+
+	value       Float64 CODEC(Gorilla, ZSTD(1)),
+
+	raw_value   Int64 CODEC(ZSTD(1)),
+
+	produced_at DateTime64(6, 'UTC')
+		MATERIALIZED fromUnixTimestamp64Micro(timestamp)
+		CODEC(Delta, ZSTD(1)),
+
+	created_at  DateTime64(6, 'UTC')
+		DEFAULT now64(6)
+		CODEC(Delta, ZSTD(1)),
+
 	INDEX idx_id id TYPE bloom_filter GRANULARITY 4
-) ENGINE = ReplacingMergeTree(created_at)
+)
+ENGINE = ReplacingMergeTree(created_at)
 PARTITION BY toYYYYMM(produced_at)
-ORDER BY (vehicle_id, name, timestamp)`
+ORDER BY (vehicle_id, timestamp, name)`
 
 const canDDL = `
 CREATE TABLE IF NOT EXISTS gr26_can (
