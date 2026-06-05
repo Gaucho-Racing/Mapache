@@ -2,12 +2,20 @@ package worker
 
 import (
 	"context"
+	"math/rand/v2"
 	"os"
 	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 )
+
+// jitter returns 1-5 seconds of random delay. Used to spread worker
+// startup and post-error retries so N replicas don't hammer foreman
+// in lockstep.
+func jitter() time.Duration {
+	return time.Duration(1+rand.IntN(5)) * time.Second
+}
 
 // Tuning constants. Exposed as variables not consts so tests can poke
 // them, but no env wiring yet — defaults are fine until we have ops
@@ -56,7 +64,7 @@ func (w *Worker) Run(ctx context.Context) {
 		})
 		if err != nil {
 			logger.SugarLogger.Errorf("[WORKER %s] claim failed: %v", w.ID, err)
-			sleep(ctx, claimErrorBackoff)
+			sleep(ctx, claimErrorBackoff+jitter())
 			continue
 		}
 		if job == nil {

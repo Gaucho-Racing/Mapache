@@ -36,6 +36,9 @@ func StartPool(ctx context.Context, reg *Registry) {
 			ID:       fmt.Sprintf("gr26-%s-%d", host, i),
 			Registry: reg,
 		}
-		go w.Run(ctx)
+		go func() {
+			sleep(ctx, jitter())
+			w.Run(ctx)
+		}()
 	}
 }
