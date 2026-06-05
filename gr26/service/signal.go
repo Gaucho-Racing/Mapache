@@ -28,7 +28,7 @@ func CreateSignals(signals []mapache.Signal) error {
 		}
 		signals[i].ID = ulid.Make().Prefixed("sgnl")
 	}
-	if !config.EnableSignalDB {
+	if !config.ClickhouseEnabled() {
 		return nil
 	}
 	ctx := database.InsertCtx(context.Background())

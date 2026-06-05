@@ -51,7 +51,7 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 const insertPingSQL = `INSERT INTO ping (vehicle_id, ping, pong, latency) VALUES (?, ?, ?, ?)`
 
 func CreatePing(ping mapache.Ping) error {
-	if !config.EnableSignalDB {
+	if !config.ClickhouseEnabled() {
 		return nil
 	}
 	ctx := database.InsertCtx(context.Background())

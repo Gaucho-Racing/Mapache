@@ -70,7 +70,7 @@ func respondWithCAN(
 	id string,
 	notFoundMsg string,
 ) {
-	if !config.EnableSignalDB {
+	if !config.ClickhouseEnabled() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "clickhouse disabled"})
 		return
 	}

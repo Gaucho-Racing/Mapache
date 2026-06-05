@@ -108,7 +108,6 @@ services:
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
       SKIP_AUTH_CHECK: "true"
-      ENABLE_SIGNAL_DB: "true"
       VEHICLE_UPLOAD_KEY_CACHE_TTL: "600"
       FOREMAN_ENDPOINT: "http://foreman:7011"
       NUM_WORKERS: "1"

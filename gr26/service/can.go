@@ -92,7 +92,7 @@ const insertCANSQL = `INSERT INTO gr26_can (id, vehicle_id, node_id, timestamp, 
 
 func CreateCAN(can model.CAN) (model.CAN, error) {
 	can.ID = ulid.Make().Prefixed("can")
-	if !config.EnableSignalDB {
+	if !config.ClickhouseEnabled() {
 		return can, nil
 	}
 	ctx := database.InsertCtx(context.Background())

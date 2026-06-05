@@ -26,9 +26,6 @@ var Service = ServiceInfo{
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
 var VehicleUploadKeyCacheTTL = os.Getenv("VEHICLE_UPLOAD_KEY_CACHE_TTL")
-// EnableSignalDB is the master switch for all ClickHouse access
-// (init, writes, read endpoints). On-car gr26 sets it false.
-var EnableSignalDB = os.Getenv("ENABLE_SIGNAL_DB") != "false"
 
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
@@ -40,6 +37,11 @@ var ClickhousePort = os.Getenv("CLICKHOUSE_PORT")
 var ClickhouseUser = os.Getenv("CLICKHOUSE_USER")
 var ClickhousePassword = os.Getenv("CLICKHOUSE_PASSWORD")
 var ClickhouseDatabase = os.Getenv("CLICKHOUSE_DATABASE")
+
+// ClickhouseEnabled is the master switch for all CH access (init, writes,
+// read endpoints). Unset CLICKHOUSE_HOST means "no ClickHouse" — used by
+// the on-car gr26 which has no CH to talk to.
+func ClickhouseEnabled() bool { return ClickhouseHost != "" }
 
 var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
 var KerbecsUser = os.Getenv("KERBECS_USER")

@@ -21,10 +21,8 @@ func main() {
 	config.Verify()
 	config.PrintStartupBanner()
 	kerbecs.Init(config.KerbecsEndpoint, config.KerbecsUser, config.KerbecsPassword)
-	if config.EnableSignalDB {
+	if config.ClickhouseEnabled() {
 		database.Init()
-	} else {
-		logger.SugarLogger.Infoln("ClickHouse disabled (ENABLE_SIGNAL_DB=false), skipping database.Init")
 	}
 
 	// Wire hook + handler before mqtt.Init so neither races the first frame.
