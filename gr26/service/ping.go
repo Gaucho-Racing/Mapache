@@ -47,8 +47,9 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	}
 }
 
-// Dedup on (vehicle_id, ping) is handled by the ReplacingMergeTree engine,
-// so a retransmitted ping just collapses on merge — no conflict handling.
+// ping is a plain append-only MergeTree (no version column, no dedup), so a
+// retransmitted ping just appends another row — fine for write-only latency
+// telemetry that is never read back or corrected.
 const insertPingSQL = `INSERT INTO ping (vehicle_id, ping, pong, latency) VALUES (?, ?, ?, ?)`
 
 func CreatePing(ping mapache.Ping) error {

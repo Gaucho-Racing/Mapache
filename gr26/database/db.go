@@ -136,20 +136,35 @@ ORDER BY (vehicle_id, timestamp, name)`
 
 const canDDL = `
 CREATE TABLE IF NOT EXISTS gr26_can (
-	id          String,
+	id          String CODEC(ZSTD(1)),
+
 	vehicle_id  LowCardinality(String),
+
 	node_id     LowCardinality(String),
-	timestamp   Int64,
-	can_id      Int32,
-	bytes       String,
-	upload_key  Int32,
-	metadata    String,
-	produced_at DateTime64(6, 'UTC') MATERIALIZED toDateTime64(timestamp / 1e6, 6, 'UTC'),
-	created_at  DateTime64(6, 'UTC') DEFAULT now64(6),
+
+	timestamp   Int64 CODEC(Delta, ZSTD(1)),
+
+	can_id      Int32 CODEC(T64, ZSTD(1)),
+
+	bytes       String CODEC(ZSTD(1)),
+
+	upload_key  Int32 CODEC(T64, ZSTD(1)),
+
+	metadata    String CODEC(ZSTD(1)),
+
+	produced_at DateTime64(6, 'UTC')
+		MATERIALIZED fromUnixTimestamp64Micro(timestamp)
+		CODEC(Delta, ZSTD(1)),
+
+	created_at  DateTime64(6, 'UTC')
+		DEFAULT now64(6)
+		CODEC(Delta, ZSTD(1)),
+
 	INDEX idx_id id TYPE bloom_filter GRANULARITY 4
-) ENGINE = ReplacingMergeTree(created_at)
+)
+ENGINE = ReplacingMergeTree(created_at)
 PARTITION BY toYYYYMM(produced_at)
-ORDER BY (vehicle_id, node_id, timestamp)`
+ORDER BY (vehicle_id, timestamp, node_id, can_id)`
 
 // Kept in sync with mapache.PingClickHouseDDL. Plain MergeTree: pings are
 // append-only and not backfilled/corrected, so no version column or dedup.
