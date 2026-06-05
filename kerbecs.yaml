@@ -48,6 +48,12 @@ upstreams:
     instances:
       - http://gr26:7005
 
+  live:
+    name: mapache-live
+    version: 3.3.0
+    instances:
+      - http://live:7015
+
   query:
     name: mapache-query
     version: 3.3.0
@@ -135,6 +141,30 @@ routes:
     match:
       path: /api/gr26/*
     upstream: gr26
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: live-ws
+    match:
+      path: /api/live/ws
+    upstream: live
+    rewrite:
+      strip_prefix: /api
+    envelope: passthrough
+
+  - name: live-sse
+    match:
+      path: /api/live/sse
+    upstream: live
+    rewrite:
+      strip_prefix: /api
+    envelope: passthrough
+
+  - name: live
+    match:
+      path: /api/live/*
+    upstream: live
     rewrite:
       strip_prefix: /api
     envelope: default

@@ -1,4 +1,4 @@
-name: gr26
+name: live
 run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
 
 on:
@@ -49,9 +49,9 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: gr26
+          context: live
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/gaucho-racing/mapache/gr26,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=ghcr.io/gaucho-racing/mapache/live,push-by-digest=true,name-canonical=true,push=true
           cache-from: |
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-${{ github.ref_name }}
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-main
@@ -141,15 +141,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/gaucho-racing/mapache/gr26
+          images: ghcr.io/gaucho-racing/mapache/live
           tags: ${{ steps.tags.outputs.tags }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf 'ghcr.io/gaucho-racing/mapache/gr26@sha256:%s ' *)
+            $(printf 'ghcr.io/gaucho-racing/mapache/live@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache/gr26:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache/live:${{ steps.meta.outputs.version }}

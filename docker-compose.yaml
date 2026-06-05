@@ -19,6 +19,7 @@ services:
       - auth
       - vehicle
       - gr26
+      - live
       - query
       - foreman
       - dashboard
@@ -116,6 +117,29 @@ services:
       SHELTER_S3_PREFIX: "epic-shelter/tcm-26/"
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+  live:
+    container_name: mapache-live
+    build:
+      context: .
+      dockerfile: live/Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      - nanomq
+    ports:
+      - "7015:7015"
+    volumes:
+      - ./live:/app/live
+      - ./mapache-go:/app/mapache-go
+      - live_go_cache:/go
+    environment:
+      ENV: "DEV"
+      PORT: "7015"
+      MQTT_HOST: "nanomq"
+      MQTT_PORT: "1883"
+      MQTT_USER: "live"
+      MQTT_PASSWORD: "live"
+      CACHE_WINDOW_SEC: "60"
 
   query:
     container_name: mapache-query
@@ -233,5 +257,6 @@ volumes:
   auth_go_cache:
   vehicle_go_cache:
   gr26_go_cache:
+  live_go_cache:
   foreman_go_cache:
   dashboard_node_modules:

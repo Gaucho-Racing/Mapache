@@ -1,0 +1,21 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/main"
+  cmd = "go mod tidy && go build -o ./tmp/main ."
+  delay = 1000
+  exclude_dir = ["tmp", "vendor"]
+  exclude_regex = ["_test.go"]
+  include_ext = ["go", "toml"]
+  kill_delay = "0s"
+  send_interrupt = false
+  poll = true
+  poll_interval = 500
+  stop_on_error = true
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true
