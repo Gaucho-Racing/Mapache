@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
@@ -33,7 +34,7 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	binary.BigEndian.PutUint64(payload, ping)
 	binary.BigEndian.PutUint64(payload[8:], pong)
 
-	mqtt.Client.Publish(topic, 0, false, payload)
+	mqtt.Publish(context.Background(), topic, payload)
 	logger.SugarLogger.Infof("[PING] Received ping from gr26/%s/%s in %dms", vehicleID, nodeID, latency/1000)
 
 	err := CreatePing(mapache.Ping{
@@ -53,6 +54,9 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 const insertPingSQL = `INSERT INTO ping (vehicle_id, ping, pong, latency) VALUES (?, ?, ?, ?)`
 
 func CreatePing(ping mapache.Ping) error {
+	if !config.EnableSignalDB {
+		return nil
+	}
 	ctx := database.InsertCtx(context.Background())
 	return database.Conn.Exec(ctx, insertPingSQL,
 		ping.VehicleID, int64(ping.Ping), int64(ping.Pong), int32(ping.Latency))

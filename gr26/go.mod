@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.11
 	github.com/aws/aws-sdk-go-v2/config v1.32.22
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.103.1
-	github.com/eclipse/paho.mqtt.golang v1.5.0
+	github.com/eclipse/paho.golang v0.23.0
 	github.com/fatih/color v1.18.0
 	github.com/gaucho-racing/mapache/mapache-go/v3 v3.4.0
 	github.com/gaucho-racing/ulid-go v1.1.0
@@ -79,7 +79,6 @@ require (
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

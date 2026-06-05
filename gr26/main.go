@@ -21,14 +21,27 @@ func main() {
 	config.Verify()
 	config.PrintStartupBanner()
 	kerbecs.Init(config.KerbecsEndpoint, config.KerbecsUser, config.KerbecsPassword)
-	database.Init()
+	// Skip ClickHouse entirely when ENABLE_SIGNAL_DB=false (the on-car
+	// gr26 has no ClickHouse to talk to). Writes/reads also short-circuit
+	// on this flag so any code path that would have used database.Conn
+	// is a no-op (writes) or returns 503 (reads).
+	if config.EnableSignalDB {
+		database.Init()
+	} else {
+		logger.SugarLogger.Infoln("ClickHouse disabled (ENABLE_SIGNAL_DB=false), skipping database.Init")
+	}
 
 	// Wire the service-level side-channel hook into the job module. Has
 	// to happen before MQTT.Init so the hook is set by the time the
 	// subscriber callback starts firing.
 	service.ShelterBatchHook = job.OnShelterBatchReceived
 
-	mqtt.Init(service.SubscribeTopics)
+	// SetMessageHandler must run before Init so the OnConnectionUp
+	// subscribe doesn't race against the first arriving frames.
+	mqtt.SetMessageHandler(service.HandleInboundMessage)
+	if err := mqtt.Init(context.Background()); err != nil {
+		logger.SugarLogger.Fatalf("Failed to initialize MQTT: %v", err)
+	}
 
 	reg := worker.NewRegistry()
 	reg.Register("gr26.ingest_batch", job.IngestBatchHandler)

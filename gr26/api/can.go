@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/service"
 
@@ -76,6 +77,10 @@ func respondWithCAN(
 	id string,
 	notFoundMsg string,
 ) {
+	if !config.EnableSignalDB {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ClickHouse disabled on this gr26 instance"})
+		return
+	}
 	can, err := lookup(id)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {

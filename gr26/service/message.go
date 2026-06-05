@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -14,8 +15,6 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
-
-	mq "github.com/eclipse/paho.mqtt.golang"
 )
 
 // ShelterBatchHook fires at the tail of HandleMessage when a frame's
@@ -25,43 +24,44 @@ import (
 // lower layer).
 var ShelterBatchHook func(vehicleID string, ts int, data []byte)
 
-func SubscribeTopics() {
-	mqtt.Client.Subscribe("gr26/#", 0, func(client mq.Client, msg mq.Message) {
-		topic := msg.Topic()
-		if len(strings.Split(topic, "/")) != 4 {
-			logger.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)
-			return
-		}
-		vehicleID := strings.Split(topic, "/")[1]
-		nodeID := strings.Split(topic, "/")[2]
-		canID := strings.Split(topic, "/")[3]
+// HandleInboundMessage is the per-message callback registered with
+// mqtt.SetMessageHandler. Parses the topic into vehicle/node/can-id,
+// dispatches ping/pong specially, and hands off CAN frames to
+// HandleMessage in a fresh goroutine so the paho receive loop never
+// blocks on downstream I/O.
+func HandleInboundMessage(topic string, payload []byte) {
+	if len(strings.Split(topic, "/")) != 4 {
+		logger.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)
+		return
+	}
+	vehicleID := strings.Split(topic, "/")[1]
+	nodeID := strings.Split(topic, "/")[2]
+	canID := strings.Split(topic, "/")[3]
 
-		if vehicleID == "" {
-			logger.SugarLogger.Infof("[MQ] Received invalid vehicle id: %s, ignoring", topic)
-			return
-		}
-		if nodeID == "" {
-			logger.SugarLogger.Infof("[MQ] Received invalid node id: %s, ignoring", topic)
-			return
-		}
+	if vehicleID == "" {
+		logger.SugarLogger.Infof("[MQ] Received invalid vehicle id: %s, ignoring", topic)
+		return
+	}
+	if nodeID == "" {
+		logger.SugarLogger.Infof("[MQ] Received invalid node id: %s, ignoring", topic)
+		return
+	}
 
-		if canID == "ping" {
-			go HandlePing(vehicleID, nodeID, msg.Payload())
-			return
-		} else if canID == "pong" {
-			return
-		}
+	if canID == "ping" {
+		go HandlePing(vehicleID, nodeID, payload)
+		return
+	} else if canID == "pong" {
+		return
+	}
 
-		message := msg.Payload()
-		canID = strings.TrimPrefix(canID, "0x")
-		canIDInt, err := strconv.ParseInt(canID, 16, 64)
-		if err != nil {
-			logger.SugarLogger.Infof("[MQ] Received invalid can id: %s, ignoring", canID)
-			return
-		}
-		logger.SugarLogger.Infof("[MQ] Received message: %s", topic)
-		go HandleMessage(vehicleID, nodeID, int(canIDInt), message)
-	})
+	canID = strings.TrimPrefix(canID, "0x")
+	canIDInt, err := strconv.ParseInt(canID, 16, 64)
+	if err != nil {
+		logger.SugarLogger.Infof("[MQ] Received invalid can id: %s, ignoring", canID)
+		return
+	}
+	logger.SugarLogger.Infof("[MQ] Received message: %s", topic)
+	go HandleMessage(vehicleID, nodeID, int(canIDInt), payload)
 }
 
 // ProcessFrame decodes a single CAN frame and returns the assembled
@@ -163,6 +163,19 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		if err := CreateSignals(signals); err != nil {
 			logger.SugarLogger.Infof("Error creating signals: %s", err)
 		}
+		// Fan decoded signals back out over MQTT so any consumer
+		// (live dashboard, query bridge, etc.) can subscribe to
+		// query/live/<vid>/<name> instead of relying on an in-process
+		// hub. Done per-replica: under the shared sub each frame is
+		// handled by exactly one replica, so each decoded signal is
+		// published exactly once.
+		for _, s := range signals {
+			topic := fmt.Sprintf("query/live/%s/%s", s.VehicleID, s.Name)
+			mqtt.PublishJSON(context.Background(), topic, s)
+		}
+		// On-car gr26 also fans signals to the in-process Hub so the
+		// on-car dash can keep using the /gr26/live WebSocket. Cloud
+		// replicas leave this off — see EnableSignalWS in config.
 		if config.EnableSignalWS {
 			for _, s := range signals {
 				Hub.Publish(s)
