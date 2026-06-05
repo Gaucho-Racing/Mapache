@@ -4,9 +4,15 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"unsafe"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
+
+// signalStructBytes is the fixed-size memory footprint of a Signal — its
+// numeric fields, time.Time pairs, and string headers (NOT the string
+// contents, which live behind those headers and are added per-instance).
+var signalStructBytes = int(unsafe.Sizeof(mapache.Signal{}))
 
 // ringBuf is the per-(vehicle, signal) buffer. Stored signals are roughly
 // in arrival order; we don't enforce strict sort because downstream
@@ -97,6 +103,55 @@ func (c *Cache) Put(s mapache.Signal) {
 	cutoff := time.Now().Add(-c.window)
 	rb := c.getOrCreate(s.VehicleID, s.Name)
 	rb.put(s, cutoff)
+}
+
+// CacheStats is a snapshot of cache occupancy at call time.
+type CacheStats struct {
+	// Vehicles is the count of distinct vehicle_ids with at least one
+	// buffered signal.
+	Vehicles int `json:"vehicles"`
+	// Buckets is the count of distinct (vehicle, signal_name) ring
+	// buffers — roughly the per-vehicle signal vocabulary.
+	Buckets int `json:"buckets"`
+	// Signals is the total number of buffered Signal entries across all
+	// buckets.
+	Signals int `json:"signals"`
+	// Bytes is an approximate heap footprint: Signal struct size times
+	// signal count, plus the variable-length string contents (ID,
+	// VehicleID, Name) per signal. Does not include slice over-capacity,
+	// map overhead, or interned strings, so it's a floor not a ceiling.
+	Bytes int `json:"bytes"`
+	// WindowSec is the cache retention window in seconds.
+	WindowSec int `json:"window_sec"`
+}
+
+// Stats walks the cache once and reports occupancy. Cheap relative to the
+// signal-rate work the cache does, so safe to call from a /stats handler
+// even at a few Hz.
+func (c *Cache) Stats() CacheStats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := CacheStats{
+		WindowSec: int(c.window / time.Second),
+	}
+	for _, vm := range c.bufs {
+		if len(vm) == 0 {
+			continue
+		}
+		out.Vehicles++
+		for _, rb := range vm {
+			out.Buckets++
+			rb.mu.Lock()
+			out.Signals += len(rb.buf)
+			for i := range rb.buf {
+				s := &rb.buf[i]
+				out.Bytes += signalStructBytes +
+					len(s.ID) + len(s.VehicleID) + len(s.Name)
+			}
+			rb.mu.Unlock()
+		}
+	}
+	return out
 }
 
 // Snapshot returns all signals currently buffered for vehicleID whose name

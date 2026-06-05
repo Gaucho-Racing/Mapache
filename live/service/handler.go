@@ -23,5 +23,6 @@ func HandleInboundMessage(topic string, payload []byte) {
 		return
 	}
 	Recent.Put(s)
+	Latency.Record(s)
 	Signals.Publish(s)
 }
