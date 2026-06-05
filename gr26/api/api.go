@@ -37,7 +37,5 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/gr26/ping", Ping)
 	router.GET("/gr26/messages/:id", GetCANMessage)
 	router.GET("/gr26/signals/:id", GetCANBySignalID)
-	if config.EnableSignalWS {
-		router.GET("/gr26/live", GetLatestSignalWebSocket)
-	}
+	router.GET("/gr26/live", GetLatestSignalWebSocket)
 }

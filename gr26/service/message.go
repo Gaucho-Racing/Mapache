@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/mqtt"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
@@ -142,11 +141,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 		for _, s := range signals {
 			topic := fmt.Sprintf("query/live/%s/%s", s.VehicleID, s.Name)
 			mqtt.PublishJSON(context.Background(), topic, s)
-		}
-		if config.EnableSignalWS {
-			for _, s := range signals {
-				Hub.Publish(s)
-			}
+			Hub.Publish(s)
 		}
 	}
 

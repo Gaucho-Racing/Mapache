@@ -30,10 +30,6 @@ var VehicleUploadKeyCacheTTL = os.Getenv("VEHICLE_UPLOAD_KEY_CACHE_TTL")
 // (init, writes, read endpoints). On-car gr26 sets it false.
 var EnableSignalDB = os.Getenv("ENABLE_SIGNAL_DB") != "false"
 
-// EnableSignalWS toggles the in-process Hub + /gr26/live WS for the on-car dash.
-// Cloud replicas get the live feed via query/live/<vid>/<name> instead.
-var EnableSignalWS = os.Getenv("ENABLE_SIGNAL_WS") == "true"
-
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
