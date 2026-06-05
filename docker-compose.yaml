@@ -85,6 +85,7 @@ services:
     restart: unless-stopped
     depends_on:
       - nanomq
+      - clickhouse
     ports:
       - "7005:7005"
     volumes:
@@ -98,11 +99,11 @@ services:
       MQTT_PORT: "1883"
       MQTT_USER: "gr26"
       MQTT_PASSWORD: "gr26"
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: "mapache"
       KERBECS_ENDPOINT: "http://kerbecs:10300"
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
@@ -193,6 +194,27 @@ services:
     ports:
       - "1883:1883"
 
+  clickhouse:
+    container_name: mapache-clickhouse
+    image: clickhouse/clickhouse-server:latest
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: "mapache"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      # Stock image's default user already allows password-less access from
+      # any host; this just makes that explicit for local dev.
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"  # HTTP (query service / clickhouse-connect)
+      - "9000:9000"  # native protocol (gr26 / clickhouse-go)
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
   db:
     container_name: mapache-db
     image: postgres:18-alpine
@@ -209,6 +231,7 @@ services:
 
 volumes:
   pgdata:
+  clickhouse_data:
   auth_go_cache:
   vehicle_go_cache:
   gr26_go_cache:

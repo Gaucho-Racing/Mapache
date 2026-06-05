@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/database"
@@ -47,26 +47,13 @@ func SendPong(vehicleID string, nodeID string, ping uint64) {
 	}
 }
 
-func GetPing(vehicleID string, micros int) mapache.Ping {
-	var ping mapache.Ping
-	database.DB.Where("vehicle_id = ? AND ping = ?", vehicleID, micros).First(&ping)
-	return ping
-}
+// ping is a plain append-only MergeTree (no version column, no dedup), so a
+// retransmitted ping just appends another row — fine for write-only latency
+// telemetry that is never read back or corrected.
+const insertPingSQL = `INSERT INTO ping (vehicle_id, ping, pong, latency) VALUES (?, ?, ?, ?)`
 
 func CreatePing(ping mapache.Ping) error {
-	result := database.DB.Create(&ping)
-	if result.Error != nil {
-		if strings.Contains(result.Error.Error(), "Duplicate entry") {
-			logger.SugarLogger.Infof("Duplicate ping entry")
-			result = database.DB.Where("vehicle_id = ? AND ping = ?", ping.VehicleID, ping.Ping).Updates(&ping)
-		}
-	} else {
-		logger.SugarLogger.Infow("[DB] New ping created",
-			"vehicle_id", ping.VehicleID,
-			"ping", ping.Ping,
-			"pong", ping.Pong,
-			"latency", ping.Latency,
-		)
-	}
-	return result.Error
+	ctx := database.InsertCtx(context.Background())
+	return database.Conn.Exec(ctx, insertPingSQL,
+		ping.VehicleID, int64(ping.Ping), int64(ping.Pong), int32(ping.Latency))
 }

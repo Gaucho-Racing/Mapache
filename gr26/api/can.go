@@ -13,7 +13,6 @@ import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // canMessageResponse is the GET /gr26/messages/:id wire shape. We
@@ -79,7 +78,7 @@ func respondWithCAN(
 ) {
 	can, err := lookup(id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, service.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": notFoundMsg})
 			return
 		}

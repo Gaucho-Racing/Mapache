@@ -1,58 +1,26 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
-	"gorm.io/gorm/clause"
 )
 
-// CreateSignal/CreateSignals are pure DB writes. WebSocket publishing
-// lives in HandleMessage now so the published payload can carry the
+// CreateSignals writes decoded signals to ClickHouse. WebSocket publishing
+// lives in HandleMessage so the published payload can carry the
 // can_message_id alongside the signal.
-
-func GetSignal(timestamp int, vehicleID string, name string) mapache.Signal {
-	var signal mapache.Signal
-	database.DB.Where("timestamp = ?", timestamp).Where("vehicle_id = ?", vehicleID).Where("name = ?", name).First(&signal)
-	return signal
-}
-
-func CreateSignal(signal mapache.Signal) error {
-	if signal.Timestamp == 0 {
-		return fmt.Errorf("signal timestamp cannot be 0")
-	}
-	if signal.VehicleID == "" {
-		return fmt.Errorf("signal vehicle id cannot be empty")
-	}
-	if signal.Name == "" {
-		return fmt.Errorf("signal name cannot be empty")
-	}
-	signal.ID = ulid.Make().Prefixed("sgnl")
-	if config.EnableSignalDB {
-		if database.DB.Where("timestamp = ?", signal.Timestamp).Where("vehicle_id = ?", signal.VehicleID).Where("name = ?", signal.Name).Updates(&signal).RowsAffected == 0 {
-			logger.SugarLogger.Infow("[DB] New signal created",
-				"timestamp", signal.Timestamp,
-				"vehicle_id", signal.VehicleID,
-				"name", signal.Name,
-			)
-			if result := database.DB.Create(&signal); result.Error != nil {
-				return result.Error
-			}
-		} else {
-			logger.SugarLogger.Infow("[DB] Existing signal updated",
-				"timestamp", signal.Timestamp,
-				"vehicle_id", signal.VehicleID,
-				"name", signal.Name,
-			)
-		}
-	}
-	return nil
-}
+//
+// produced_at and created_at are omitted from the insert: produced_at is a
+// MATERIALIZED column derived from timestamp, and created_at defaults to
+// the insert wall clock and acts as the ReplacingMergeTree version (latest
+// write wins on merge), so retransmits and corrected decodes dedup
+// naturally without an explicit ON CONFLICT.
+const insertSignalSQL = `INSERT INTO signal (id, timestamp, vehicle_id, name, value, raw_value) VALUES (?, ?, ?, ?, ?, ?)`
 
 func CreateSignals(signals []mapache.Signal) error {
 	for i := range signals {
@@ -67,17 +35,15 @@ func CreateSignals(signals []mapache.Signal) error {
 		}
 		signals[i].ID = ulid.Make().Prefixed("sgnl")
 	}
-	if config.EnableSignalDB {
-		// Refresh value/raw_value/produced_at on conflict so a retransmit
-		// (or a corrected decode landed later) wins over the older row.
-		// Returning id rewrites our locally-generated ULID with the
-		// actually-stored one when the row already existed.
-		result := database.DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "timestamp"}, {Name: "vehicle_id"}, {Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"value", "raw_value", "produced_at"}),
-		}, clause.Returning{Columns: []clause.Column{{Name: "id"}}}).Create(&signals)
-		if result.Error != nil {
-			return result.Error
+	if !config.EnableSignalDB {
+		return nil
+	}
+	ctx := database.InsertCtx(context.Background())
+	for _, s := range signals {
+		if err := database.Conn.Exec(ctx, insertSignalSQL,
+			s.ID, int64(s.Timestamp), s.VehicleID, s.Name, s.Value, int64(s.RawValue),
+		); err != nil {
+			return err
 		}
 	}
 	return nil

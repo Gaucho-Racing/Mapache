@@ -32,11 +32,13 @@ var EnableSignalWS = os.Getenv("ENABLE_SIGNAL_WS") != "false"
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
-var DatabaseHost = os.Getenv("DATABASE_HOST")
-var DatabasePort = os.Getenv("DATABASE_PORT")
-var DatabaseUser = os.Getenv("DATABASE_USER")
-var DatabasePassword = os.Getenv("DATABASE_PASSWORD")
-var DatabaseName = os.Getenv("DATABASE_NAME")
+// Telemetry storage moved off Postgres to ClickHouse (signal, gr26_can,
+// ping). gr26 no longer holds any Postgres connection.
+var ClickhouseHost = os.Getenv("CLICKHOUSE_HOST")
+var ClickhousePort = os.Getenv("CLICKHOUSE_PORT")
+var ClickhouseUser = os.Getenv("CLICKHOUSE_USER")
+var ClickhousePassword = os.Getenv("CLICKHOUSE_PASSWORD")
+var ClickhouseDatabase = os.Getenv("CLICKHOUSE_DATABASE")
 
 var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
 var KerbecsUser = os.Getenv("KERBECS_USER")
