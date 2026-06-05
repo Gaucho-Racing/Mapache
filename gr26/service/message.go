@@ -138,8 +138,8 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 
 	ts := int(binary.BigEndian.Uint64(timestamp))
 	if !IsValidProducedAt(ts) {
-		logger.SugarLogger.Warnf("[MQ] Dropping frame with invalid timestamp: vehicle=%s node=%s can_id=0x%X ts=%d (%s)",
-			vehicleID, nodeID, canID, ts, time.UnixMicro(int64(ts)).UTC())
+		logger.SugarLogger.Warnf("[MQ] Dropping frame with invalid timestamp: vehicle=%s node=%s can_id=0x%X ts=%d decoded=%s",
+			vehicleID, nodeID, canID, ts, time.UnixMicro(int64(ts)).UTC().Format(time.RFC3339Nano))
 		return
 	}
 	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)

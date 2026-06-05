@@ -157,14 +157,15 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 		key, total, duration, stats.decoded, stats.unknown, stats.decodeError, stats.invalidTimestamp)
 
 	return ingestResult{
-		TotalRows:            total,
-		Decoded:              stats.decoded,
-		UnknownCanID:         stats.unknown,
-		DecodeError:          stats.decodeError,
-		InvalidTimestamp:     stats.invalidTimestamp,
-		DurationMs:           duration.Milliseconds(),
-		UnknownBreakdown:     topUnknown(stats.unknownByCanID, 10),
-		DecodeErrorBreakdown: topErrors(stats.errorByCanID, 10),
+		TotalRows:               total,
+		Decoded:                 stats.decoded,
+		UnknownCanID:            stats.unknown,
+		DecodeError:             stats.decodeError,
+		InvalidTimestamp:        stats.invalidTimestamp,
+		DurationMs:              duration.Milliseconds(),
+		UnknownBreakdown:        topUnknown(stats.unknownByCanID, 10),
+		DecodeErrorBreakdown:    topErrors(stats.errorByCanID, 10),
+		InvalidTimestampSamples: stats.invalidTimestampSamples,
 	}, nil
 }
 
@@ -189,6 +190,14 @@ func dispatchRow(r shelterRow, stats *ingestStats) {
 func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
 	if !service.IsValidProducedAt(ts) {
 		stats.invalidTimestamp++
+		if len(stats.invalidTimestampSamples) < invalidTimestampSampleLimit {
+			stats.invalidTimestampSamples = append(stats.invalidTimestampSamples, invalidTimestampSample{
+				Timestamp: ts,
+				Decoded:   time.UnixMicro(int64(ts)).UTC().Format(time.RFC3339Nano),
+				CanID:     fmt.Sprintf("0x%X", canID),
+				NodeID:    nodeID,
+			})
+		}
 		return
 	}
 	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
@@ -206,18 +215,28 @@ func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *in
 
 // ─── result reporting ───────────────────────────────────────────────────────
 
+const invalidTimestampSampleLimit = 10
+
 type ingestStats struct {
-	decoded          int
-	unknown          int
-	decodeError      int
-	invalidTimestamp int
-	unknownByCanID   map[int]int
-	errorByCanID     map[int]decodeErrorSample
+	decoded                 int
+	unknown                 int
+	decodeError             int
+	invalidTimestamp        int
+	unknownByCanID          map[int]int
+	errorByCanID            map[int]decodeErrorSample
+	invalidTimestampSamples []invalidTimestampSample
 }
 
 type decodeErrorSample struct {
 	count  int
 	sample string
+}
+
+type invalidTimestampSample struct {
+	Timestamp int    `json:"timestamp"`
+	Decoded   string `json:"decoded"`
+	CanID     string `json:"can_id"`
+	NodeID    string `json:"node_id"`
 }
 
 func newIngestStats() *ingestStats {
@@ -265,15 +284,16 @@ type errorBreakdownEntry struct {
 
 // ingestResult lands on foreman.job.result. Top-N caps bound payload size.
 type ingestResult struct {
-	FileULID             string                `json:"file_ulid,omitempty"`
-	TotalRows            int                   `json:"total_rows"`
-	Decoded              int                   `json:"decoded"`
-	UnknownCanID         int                   `json:"unknown_can_id"`
-	DecodeError          int                   `json:"decode_error"`
-	InvalidTimestamp     int                   `json:"invalid_timestamp,omitempty"`
-	DurationMs           int64                 `json:"duration_ms"`
-	UnknownBreakdown     []breakdownEntry      `json:"unknown_breakdown,omitempty"`
-	DecodeErrorBreakdown []errorBreakdownEntry `json:"decode_error_breakdown,omitempty"`
+	FileULID                string                   `json:"file_ulid,omitempty"`
+	TotalRows               int                      `json:"total_rows"`
+	Decoded                 int                      `json:"decoded"`
+	UnknownCanID            int                      `json:"unknown_can_id"`
+	DecodeError             int                      `json:"decode_error"`
+	InvalidTimestamp        int                      `json:"invalid_timestamp,omitempty"`
+	DurationMs              int64                    `json:"duration_ms"`
+	UnknownBreakdown        []breakdownEntry         `json:"unknown_breakdown,omitempty"`
+	DecodeErrorBreakdown    []errorBreakdownEntry    `json:"decode_error_breakdown,omitempty"`
+	InvalidTimestampSamples []invalidTimestampSample `json:"invalid_timestamp_samples,omitempty"`
 }
 
 func topUnknown(m map[int]int, n int) []breakdownEntry {
