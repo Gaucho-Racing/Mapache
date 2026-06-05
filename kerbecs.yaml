@@ -123,6 +123,14 @@ routes:
       strip_prefix: /api
     envelope: default
 
+  - name: gr26-live
+    match:
+      path: /api/gr26/live
+    upstream: gr26
+    rewrite:
+      strip_prefix: /api
+    envelope: passthrough
+
   - name: gr26
     match:
       path: /api/gr26/*
