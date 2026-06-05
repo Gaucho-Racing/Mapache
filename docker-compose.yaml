@@ -196,7 +196,7 @@ services:
 
   clickhouse:
     container_name: mapache-clickhouse
-    image: clickhouse/clickhouse-server:latest
+    image: clickhouse/clickhouse-server:26.3-alpine
     restart: unless-stopped
     environment:
       CLICKHOUSE_DB: "mapache"
