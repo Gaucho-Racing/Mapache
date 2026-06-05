@@ -53,7 +53,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/gaucho-racing/mapache/foreman,push-by-digest=true,name-canonical=true,push=true
           # Per-workflow + per-ref cache scopes. Without github.workflow,
-          # auth/gr26/vehicle/query/foreman would all race on `build-<pair>` since
+          # auth/gr26/live/vehicle/query/foreman would all race on `build-<pair>` since
           # they fire on every push. Without github.ref_name, simultaneous
           # main+tag pushes from a release commit race on the same scope
           # and can poison each other's layers (TCM-26 hit this on v1.2.x:

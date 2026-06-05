@@ -14,7 +14,7 @@ set -euo pipefail
 #       every dependent Go service and pushes a chore commit.
 #
 #   ./scripts/release.sh 3.1.0                  (default -t mapache)
-#       Cuts the services release (auth/gr26/vehicle/query). Bumps each
+#       Cuts the services release (auth/gr26/live/vehicle/query). Bumps each
 #       service's Version constant or pyproject.toml, commits, tags v3.1.0,
 #       and lets the per-service workflows publish images.
 #
@@ -27,7 +27,7 @@ usage() {
 Usage: $0 [-t target] <version>
 
 Targets:
-  mapache       services (auth, gr26, vehicle, query) — default
+  mapache       services (auth, gr26, live, vehicle, query) — default
   mapache-py    Python library; also bumps lockfiles in dependent services
   mapache-go    Go library; also bumps go.mod in dependent services
 
@@ -227,7 +227,7 @@ case "$TARGET" in
             exit 1
         fi
 
-        GO_DEPENDENTS=("gr26" "vehicle")
+        GO_DEPENDENTS=("gr26" "live" "vehicle")
 
         echo ""
         echo "=== Release Summary ==="
@@ -295,7 +295,7 @@ case "$TARGET" in
             exit 1
         fi
 
-        GO_CONFIG_SERVICES=("auth" "gr26" "vehicle" "foreman")
+        GO_CONFIG_SERVICES=("auth" "gr26" "live" "vehicle" "foreman")
         PY_SERVICES=("query")
         NODE_SERVICES=("dashboard")
         ALL_SERVICES=("${GO_CONFIG_SERVICES[@]}" "${PY_SERVICES[@]}" "${NODE_SERVICES[@]}")
