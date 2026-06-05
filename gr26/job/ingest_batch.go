@@ -153,15 +153,15 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	duration := time.Since(start)
 	// Pin to (total, total) so the final heartbeat stores a clean 100%.
 	progress.Set(totalRows, totalRows, "complete")
-	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d pre_clock=%d)",
-		key, total, duration, stats.decoded, stats.unknown, stats.decodeError, stats.preClock)
+	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d invalid_timestamp=%d)",
+		key, total, duration, stats.decoded, stats.unknown, stats.decodeError, stats.invalidTimestamp)
 
 	return ingestResult{
 		TotalRows:            total,
 		Decoded:              stats.decoded,
 		UnknownCanID:         stats.unknown,
 		DecodeError:          stats.decodeError,
-		PreClock:             stats.preClock,
+		InvalidTimestamp:     stats.invalidTimestamp,
 		DurationMs:           duration.Milliseconds(),
 		UnknownBreakdown:     topUnknown(stats.unknownByCanID, 10),
 		DecodeErrorBreakdown: topErrors(stats.errorByCanID, 10),
@@ -188,7 +188,7 @@ func dispatchRow(r shelterRow, stats *ingestStats) {
 // firing — historical data, and we don't want to re-enqueue shelter batches.
 func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
 	if !service.IsValidProducedAt(ts) {
-		stats.preClock++
+		stats.invalidTimestamp++
 		return
 	}
 	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
@@ -207,12 +207,12 @@ func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *in
 // ─── result reporting ───────────────────────────────────────────────────────
 
 type ingestStats struct {
-	decoded        int
-	unknown        int
-	decodeError    int
-	preClock       int
-	unknownByCanID map[int]int
-	errorByCanID   map[int]decodeErrorSample
+	decoded          int
+	unknown          int
+	decodeError      int
+	invalidTimestamp int
+	unknownByCanID   map[int]int
+	errorByCanID     map[int]decodeErrorSample
 }
 
 type decodeErrorSample struct {
@@ -270,7 +270,7 @@ type ingestResult struct {
 	Decoded              int                   `json:"decoded"`
 	UnknownCanID         int                   `json:"unknown_can_id"`
 	DecodeError          int                   `json:"decode_error"`
-	PreClock             int                   `json:"pre_clock,omitempty"`
+	InvalidTimestamp     int                   `json:"invalid_timestamp,omitempty"`
 	DurationMs           int64                 `json:"duration_ms"`
 	UnknownBreakdown     []breakdownEntry      `json:"unknown_breakdown,omitempty"`
 	DecodeErrorBreakdown []errorBreakdownEntry `json:"decode_error_breakdown,omitempty"`

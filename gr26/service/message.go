@@ -21,7 +21,7 @@ var ShelterBatchHook func(vehicleID string, ts int, data []byte)
 
 // minValidProducedAt is the cutoff for sane CAN-frame timestamps. The TCM
 // can emit pre-NTP "epoch + uptime" microseconds before its clock syncs;
-// frames stamped before this date are dropped as pre-clock garbage.
+// anything stamped before this date is dropped as an invalid timestamp.
 var minValidProducedAt = time.Date(2003, 10, 31, 0, 0, 0, 0, time.UTC)
 
 // IsValidProducedAt reports whether the given microseconds-since-epoch
@@ -138,7 +138,7 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 
 	ts := int(binary.BigEndian.Uint64(timestamp))
 	if !IsValidProducedAt(ts) {
-		logger.SugarLogger.Warnf("[MQ] Dropping pre-clock frame: vehicle=%s node=%s can_id=0x%X ts=%d (%s)",
+		logger.SugarLogger.Warnf("[MQ] Dropping frame with invalid timestamp: vehicle=%s node=%s can_id=0x%X ts=%d (%s)",
 			vehicleID, nodeID, canID, ts, time.UnixMicro(int64(ts)).UTC())
 		return
 	}
