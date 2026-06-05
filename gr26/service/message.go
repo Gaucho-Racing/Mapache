@@ -19,6 +19,17 @@ import (
 // ShelterBatchHook is set by main.go to avoid a service → job import cycle.
 var ShelterBatchHook func(vehicleID string, ts int, data []byte)
 
+// minValidProducedAt is the cutoff for sane CAN-frame timestamps. The TCM
+// can emit pre-NTP "epoch + uptime" microseconds before its clock syncs;
+// frames stamped before this date are dropped as pre-clock garbage.
+var minValidProducedAt = time.Date(2003, 10, 31, 0, 0, 0, 0, time.UTC)
+
+// IsValidProducedAt reports whether the given microseconds-since-epoch
+// resolves to a time at or after minValidProducedAt.
+func IsValidProducedAt(tsMicros int) bool {
+	return !time.UnixMicro(int64(tsMicros)).Before(minValidProducedAt)
+}
+
 func HandleInboundMessage(topic string, payload []byte) {
 	if len(strings.Split(topic, "/")) != 4 {
 		logger.SugarLogger.Infof("[MQ] Received invalid topic: %s, ignoring", topic)
@@ -126,6 +137,11 @@ func HandleMessage(vehicleID string, nodeID string, canID int, message []byte) {
 	}
 
 	ts := int(binary.BigEndian.Uint64(timestamp))
+	if !IsValidProducedAt(ts) {
+		logger.SugarLogger.Warnf("[MQ] Dropping pre-clock frame: vehicle=%s node=%s can_id=0x%X ts=%d (%s)",
+			vehicleID, nodeID, canID, ts, time.UnixMicro(int64(ts)).UTC())
+		return
+	}
 	can, signals := ProcessFrame(vehicleID, nodeID, canID, ts, data)
 	can.UploadKey = uploadKeyInt
 
