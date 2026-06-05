@@ -21,14 +21,16 @@ func main() {
 	config.Verify()
 	config.PrintStartupBanner()
 	kerbecs.Init(config.KerbecsEndpoint, config.KerbecsUser, config.KerbecsPassword)
-	database.Init()
+	if config.ClickhouseEnabled() {
+		database.Init()
+	}
 
-	// Wire the service-level side-channel hook into the job module. Has
-	// to happen before MQTT.Init so the hook is set by the time the
-	// subscriber callback starts firing.
+	// Wire hook + handler before mqtt.Init so neither races the first frame.
 	service.ShelterBatchHook = job.OnShelterBatchReceived
-
-	mqtt.Init(service.SubscribeTopics)
+	mqtt.SetMessageHandler(service.HandleInboundMessage)
+	if err := mqtt.Init(context.Background()); err != nil {
+		logger.SugarLogger.Fatalf("Failed to initialize MQTT: %v", err)
+	}
 
 	reg := worker.NewRegistry()
 	reg.Register("gr26.ingest_batch", job.IngestBatchHandler)

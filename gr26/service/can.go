@@ -16,32 +16,22 @@ import (
 	ulid "github.com/gaucho-racing/ulid-go"
 )
 
-// ErrNotFound is returned by the lookup helpers when no row matches. The
-// API layer maps it to a 404. (Replaces gorm.ErrRecordNotFound now that
-// gr26 reads from ClickHouse.)
+// ErrNotFound is mapped to 404 by the API layer.
 var ErrNotFound = errors.New("record not found")
 
+// MATERIALIZED columns are excluded from SELECT *, so we list explicitly.
 const canColumns = `id, vehicle_id, node_id, timestamp, can_id, bytes, upload_key, metadata, produced_at, created_at`
-
-// MATERIALIZED columns (produced_at) are excluded from `SELECT *`, so the
-// trace lookups list columns explicitly. canColumnsC is the same list
-// qualified to the join alias `c`.
 const canColumnsC = `c.id, c.vehicle_id, c.node_id, c.timestamp, c.can_id, c.bytes, c.upload_key, c.metadata, c.produced_at, c.created_at`
 
-// GetCAN looks up a stored CAN frame by its ulid. Returns ErrNotFound if
-// no row matches.
+// GetCAN looks up a stored CAN frame by ulid.
 func GetCAN(id string) (model.CAN, error) {
 	row := database.Conn.QueryRow(context.Background(),
 		"SELECT "+canColumns+" FROM gr26_can FINAL WHERE id = ? LIMIT 1", id)
 	return scanCANRow(row)
 }
 
-// GetCANForSignal looks up the CAN frame that produced a given signal by
-// joining on the natural keys (vehicle_id, timestamp, node_id) — node_id
-// is recovered from the signal name's prefix, since CreateSignals stamps
-// each signal with the node it was decoded from as `<node>_<short>`.
-// Returns ErrNotFound if no frame matches (e.g. the source frame was never
-// persisted, or the signal name doesn't follow the node-prefix convention).
+// GetCANForSignal joins back to the source CAN frame using the signal
+// name's `<node>_<short>` prefix to recover node_id.
 func GetCANForSignal(signalID string) (model.CAN, error) {
 	row := database.Conn.QueryRow(context.Background(), `
 		SELECT `+canColumnsC+`
@@ -55,9 +45,8 @@ func GetCANForSignal(signalID string) (model.CAN, error) {
 	return scanCANRow(row)
 }
 
-// GetSignalsForCAN returns every signal that was decoded from the given
-// CAN frame, joining on the natural keys (vehicle_id, timestamp, node_id).
-// Ordered by signal name so the response is stable and easy to scan.
+// GetSignalsForCAN returns every signal decoded from the given frame,
+// ordered by name for a stable response.
 func GetSignalsForCAN(canMessageID string) ([]mapache.Signal, error) {
 	rows, err := database.Conn.Query(context.Background(), `
 		SELECT s.id, s.timestamp, s.vehicle_id, s.name, s.value, s.raw_value, s.produced_at, s.created_at
@@ -97,15 +86,13 @@ func GetSignalsForCAN(canMessageID string) ([]mapache.Signal, error) {
 	return signals, rows.Err()
 }
 
-// CreateCAN inserts a CAN frame and returns it with the generated id
-// populated. Dedup on (vehicle_id, node_id, timestamp) is handled by the
-// ReplacingMergeTree engine (latest created_at wins on merge), so no
-// explicit conflict handling is needed.
+// Dedup on (vehicle_id, node_id, timestamp) is handled by the
+// ReplacingMergeTree engine — latest created_at wins on merge.
 const insertCANSQL = `INSERT INTO gr26_can (id, vehicle_id, node_id, timestamp, can_id, bytes, upload_key, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 func CreateCAN(can model.CAN) (model.CAN, error) {
 	can.ID = ulid.Make().Prefixed("can")
-	if !config.EnableSignalDB {
+	if !config.ClickhouseEnabled() {
 		return can, nil
 	}
 	ctx := database.InsertCtx(context.Background())

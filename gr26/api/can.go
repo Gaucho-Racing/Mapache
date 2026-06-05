@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/service"
 
@@ -15,9 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// canMessageResponse is the GET /gr26/messages/:id wire shape. We
-// hex-encode the bytes (rather than the default base64 for []byte) so the
-// dashboard can render the hex grid without re-encoding.
+// Bytes is hex-encoded (not the default base64) so the dashboard's hex grid
+// can render without re-encoding.
 type canMessageResponse struct {
 	ID         string                 `json:"id"`
 	VehicleID  string                 `json:"vehicle_id"`
@@ -33,9 +33,6 @@ type canMessageResponse struct {
 	Signals    []mapache.Signal       `json:"signals"`
 }
 
-// canFieldTrace describes one field of a decoded CAN frame: its byte
-// range within the frame, decoded raw value, and which signal names it
-// produces.
 type canFieldTrace struct {
 	Name        string   `json:"name"`
 	Offset      int      `json:"offset"`
@@ -57,10 +54,7 @@ func GetCANMessage(c *gin.Context) {
 }
 
 // GetCANBySignalID returns the same trace shape as GetCANMessage but
-// looks up the CAN frame by the signal id that came from it. Lets the
-// dashboard go straight from a streamed signal.id (which is just
-// mapache.Signal — no extra wire fields) to its source frame in one
-// call.
+// looks up the source CAN frame by signal id.
 func GetCANBySignalID(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
@@ -76,6 +70,10 @@ func respondWithCAN(
 	id string,
 	notFoundMsg string,
 ) {
+	if !config.ClickhouseEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "clickhouse disabled"})
+		return
+	}
 	can, err := lookup(id)
 	if err != nil {
 		if errors.Is(err, service.ErrNotFound) {
@@ -115,12 +113,8 @@ func respondWithCAN(
 	})
 }
 
-// decodeFieldTrace re-runs the gr26 decoder over the stored bytes so the
-// response carries per-field metadata (offset, size, sign, endian, the
-// bytes that contributed, the raw value, and the signal names produced).
-// Returns nil if the can id has no registered decoder or if the bytes
-// don't fit the field layout — both of those are already captured in
-// can.Metadata.
+// decodeFieldTrace re-runs the decoder to expose per-field metadata.
+// Returns nil for unknown can ids or decode failures (already in can.Metadata).
 func decodeFieldTrace(can model.CAN) []canFieldTrace {
 	messageStruct := model.GetMessage(can.CANID)
 	if messageStruct == nil {

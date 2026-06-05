@@ -12,9 +12,7 @@ type Client struct {
 	Send chan mapache.Signal
 }
 
-// WildcardSignal is the sentinel signal name that subscribes a client to every
-// signal for a vehicle. A client subscribed to "*" receives all signals
-// published for the vehicle in addition to any specific names it subscribed to.
+// WildcardSignal subscribes a client to every signal for a vehicle.
 const WildcardSignal = "*"
 
 type SignalHub struct {

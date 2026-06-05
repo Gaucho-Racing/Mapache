@@ -13,22 +13,14 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
-// ingestAllParams is the params shape for gr26.ingest_all_batches jobs.
-// Hours is how far back from "now" we look; a 24 means anything uploaded
-// in the last day. Reingest=true bypasses the standard idempotency key
-// so files that were previously ingested get queued again (the key is
-// scoped to this fan-out's parent job ID so the run stays internally
-// idempotent against worker retries).
+// Reingest=true scopes the idem key to this parent job so previously-ingested
+// files get re-processed, while worker retries of the parent still dedup.
 type ingestAllParams struct {
 	VehicleID string `json:"vehicle_id"`
 	Hours     int    `json:"hours"`
 	Reingest  bool   `json:"reingest,omitempty"`
 }
 
-// ingestAllResult is the json shape stored on foreman's job.result. The
-// per-file Entries list reflects every file the handler tried to enqueue
-// — including ones that 409'd because they were already enqueued under
-// the same idempotency key.
 type ingestAllResult struct {
 	VehicleID        string           `json:"vehicle_id"`
 	HoursBack        int              `json:"hours_back"`
@@ -47,20 +39,9 @@ type ingestAllEntry struct {
 	Error    string `json:"error,omitempty"`
 }
 
-// IngestAllBatchesHandler fans out: lists every shelter parquet for the
-// given vehicle, filters to those uploaded in the last `hours` hours,
-// and enqueues one gr26.ingest_batch job per file. Returns immediately
-// once enqueueing is done; the spawned ingests run independently and
-// show up as their own rows in /jobs.
-//
-// Default idempotency keys match the live-feed producer
-// (<vehicle>:<file_ulid>) so re-running this handler on the same window
-// is a no-op for already-known files.
-//
-// Reingest=true scopes the key to this fan-out's parent job ID
-// (reingest:<parent_id>:<vehicle>:<file_ulid>) so previously-ingested
-// files get re-processed, while a worker retry of this same parent
-// still collapses to one ingest per file.
+// IngestAllBatchesHandler fans out one gr26.ingest_batch per shelter
+// parquet uploaded in the last `hours` hours. Default idem key
+// (<vehicle>:<file_ulid>) makes re-runs on the same window a no-op.
 func IngestAllBatchesHandler(ctx context.Context, j *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")

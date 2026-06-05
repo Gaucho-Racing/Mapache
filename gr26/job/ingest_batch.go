@@ -1,7 +1,4 @@
-// Package job is the home for cross-cutting work that gr26 producers
-// or consumes via foreman. Today it's just shelter cold-storage ingest;
-// new job kinds belong here so the service package stays focused on
-// pure CAN-frame handling.
+// Package job holds foreman-driven work (currently shelter cold-storage ingest).
 package job
 
 import (
@@ -30,14 +27,9 @@ import (
 
 // ─── producer side: gr26.ingest_batch ───────────────────────────────────────
 
-// OnShelterBatchReceived is wired into service.ShelterBatchHook by
-// main.go. When a TCMShelterBatch CAN frame finishes processing in
-// HandleMessage, this fires, reads the parquet file's ULID out of the
-// trailing 16 bytes of the frame's data, and enqueues a foreman job
-// pointing at that exact file.
-//
-// idempotency_key is (vehicleID, file_ulid). ULIDs are globally unique
-// so retransmits collapse to a single foreman job.
+// OnShelterBatchReceived reads the parquet file ULID from the trailing
+// 16 bytes of a TCMShelterBatch frame and enqueues a foreman ingest job.
+// Idempotency key is (vehicleID, file_ulid) so retransmits collapse.
 func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 	if len(data) < 32 {
 		logger.SugarLogger.Warnf("[SHELTER] TCMShelterBatch frame too short (%d bytes, want 32) — ULID missing, not enqueuing", len(data))
@@ -47,9 +39,6 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 	copy(u[:], data[16:32])
 	fileULID := u.String()
 
-	// Foreman's unique index is (kind, idempotency_key), so the kind tag
-	// in the key would be redundant — scoping by (vehicle, file_ulid) is
-	// enough.
 	idem := fmt.Sprintf("%s:%s", vehicleID, fileULID)
 	params, _ := json.Marshal(shelterIngestParams{
 		VehicleID: vehicleID,
@@ -74,17 +63,13 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 
 // ─── consumer side: gr26.ingest_batch worker ────────────────────────────────
 
-// shelterIngestParams is what foreman jobs carry as Params. The producer
-// (OnShelterBatchReceived) writes it; the worker (IngestBatchHandler)
-// reads it. file_ulid names the exact parquet to fetch — no S3 scan, no
-// dedup table; foreman's idempotency key is our only dedup.
+// shelterIngestParams is the foreman job payload.
 type shelterIngestParams struct {
 	VehicleID string `json:"vehicle_id"`
 	FileULID  string `json:"file_ulid"`
 }
 
-// shelterRow mirrors the Parquet schema shelter writes to S3
-// (see TCM-26/shelter/model/message.py).
+// shelterRow mirrors the Parquet schema in TCM-26/shelter/model/message.py.
 type shelterRow struct {
 	Timestamp  int64  `parquet:"timestamp"`
 	VehicleID  string `parquet:"vehicle_id"`
@@ -94,14 +79,8 @@ type shelterRow struct {
 	TargetNode string `parquet:"target_node"`
 }
 
-// IngestBatchHandler is the worker entrypoint registered for
-// "gr26.ingest_batch" jobs. Params name the exact parquet file to
-// ingest, so this is a deterministic targeted fetch — no listing,
-// no "what's the next unprocessed" question.
-//
-// On retry (foreman re-claim after lease expiry / restart), the same
-// file gets reprocessed; the downstream upserts on gr26_can + signal
-// keep that safe.
+// IngestBatchHandler is the worker for "gr26.ingest_batch". Retries are
+// safe because the downstream ReplacingMergeTree dedups on natural keys.
 func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
@@ -141,9 +120,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	}
 	defer obj.Body.Close()
 
-	// Files are ~6 MB compressed at our current batch sizing — fine to
-	// pull fully into memory on a cloud server. If sizes ever push past
-	// a couple hundred MB we'd switch to a tempfile + io.ReaderAt.
+	// ~6 MB compressed today — fine to buffer fully in memory.
 	body, err := io.ReadAll(obj.Body)
 	if err != nil {
 		return ingestResult{}, fmt.Errorf("download: %w", err)
@@ -174,9 +151,7 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	}
 
 	duration := time.Since(start)
-	// Pin progress to (total, total) so the worker's final heartbeat
-	// flush stores a clean 100% reading instead of whatever the last
-	// in-flight tick caught.
+	// Pin to (total, total) so the final heartbeat stores a clean 100%.
 	progress.Set(totalRows, totalRows, "complete")
 	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d)",
 		key, total, duration, stats.decoded, stats.unknown, stats.decodeError)
@@ -192,8 +167,6 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *w
 	}, nil
 }
 
-// dispatchRow parses the topic out of one Parquet row and runs it
-// through replayFrame, threading the per-job stats accumulator.
 func dispatchRow(r shelterRow, stats *ingestStats) {
 	// Topic format: gr26/{vehicle}/{node}/0x{can_id_hex}
 	parts := strings.Split(r.Topic, "/")
@@ -209,16 +182,11 @@ func dispatchRow(r shelterRow, stats *ingestStats) {
 	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data, stats)
 }
 
-// replayFrame is the cold-storage decode-and-persist function. Shares
-// the pure decode step (service.ProcessFrame) with the live MQTT path;
-// the persistence side-effects diverge here — UploadKey stays 0 since
-// shelter-sourced frames don't carry one, no WS publish (data is
-// historical), no side-channel hook (would recursively re-enqueue
-// ingest jobs if the replayed frame is itself a TCMShelterBatch).
+// replayFrame is the cold-storage decode-and-persist path. UploadKey
+// stays 0 (bucket access is the trust boundary), and no WS/side-channel
+// firing — historical data, and we don't want to re-enqueue shelter batches.
 func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
 	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
-	// UploadKey left at 0 — bucket access is the trust boundary.
-
 	stats.record(canID, can.Metadata)
 
 	if _, err := service.CreateCAN(can); err != nil {
@@ -233,9 +201,6 @@ func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *in
 
 // ─── result reporting ───────────────────────────────────────────────────────
 
-// ingestStats accumulates per-canID outcomes as the parquet rows stream
-// through. Running totals (decoded/unknown/decodeError) are kept so we
-// don't have to re-sum the maps at the end.
 type ingestStats struct {
 	decoded        int
 	unknown        int
@@ -256,10 +221,6 @@ func newIngestStats() *ingestStats {
 	}
 }
 
-// record peeks at the metadata blob ProcessFrame just built to bucket
-// this row's outcome. Unknown statuses are silently ignored — they can
-// only happen if ProcessFrame grows a new status string without us
-// noticing, and counting them as "not decoded" would be misleading.
 func (s *ingestStats) record(canID int, metadata []byte) {
 	var meta struct {
 		Status string `json:"status"`
@@ -296,10 +257,7 @@ type errorBreakdownEntry struct {
 	SampleError string `json:"sample_error,omitempty"`
 }
 
-// ingestResult is the json shape stored on foreman's job.result column.
-// Top-N caps keep payload size bounded even on pathological batches.
-// FileULID is set by the handler after processFile returns — handy for
-// ingest_latest_batch where the file_ulid isn't in the job params.
+// ingestResult lands on foreman.job.result. Top-N caps bound payload size.
 type ingestResult struct {
 	FileULID             string                `json:"file_ulid,omitempty"`
 	TotalRows            int                   `json:"total_rows"`

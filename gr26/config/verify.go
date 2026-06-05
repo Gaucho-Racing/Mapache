@@ -15,24 +15,21 @@ func Verify() {
 		Port = "7005"
 		logger.SugarLogger.Infof("PORT is not set, defaulting to %s", Port)
 	}
-	if ClickhouseHost == "" {
-		ClickhouseHost = "localhost"
-		logger.SugarLogger.Infof("CLICKHOUSE_HOST is not set, defaulting to %s", ClickhouseHost)
-	}
-	if ClickhousePort == "" {
-		ClickhousePort = "9000"
-		logger.SugarLogger.Infof("CLICKHOUSE_PORT is not set, defaulting to %s", ClickhousePort)
-	}
-	if ClickhouseUser == "" {
-		ClickhouseUser = "default"
-		logger.SugarLogger.Infof("CLICKHOUSE_USER is not set, defaulting to %s", ClickhouseUser)
-	}
-	if ClickhousePassword == "" {
-		logger.SugarLogger.Infof("CLICKHOUSE_PASSWORD is not set, defaulting to empty")
-	}
-	if ClickhouseDatabase == "" {
-		ClickhouseDatabase = "mapache"
-		logger.SugarLogger.Infof("CLICKHOUSE_DATABASE is not set, defaulting to %s", ClickhouseDatabase)
+	if !ClickhouseEnabled() {
+		logger.SugarLogger.Infoln("CLICKHOUSE_HOST is not set, ClickHouse disabled")
+	} else {
+		if ClickhousePort == "" {
+			ClickhousePort = "9000"
+			logger.SugarLogger.Infof("CLICKHOUSE_PORT is not set, defaulting to %s", ClickhousePort)
+		}
+		if ClickhouseUser == "" {
+			ClickhouseUser = "default"
+			logger.SugarLogger.Infof("CLICKHOUSE_USER is not set, defaulting to %s", ClickhouseUser)
+		}
+		if ClickhouseDatabase == "" {
+			ClickhouseDatabase = "mapache"
+			logger.SugarLogger.Infof("CLICKHOUSE_DATABASE is not set, defaulting to %s", ClickhouseDatabase)
+		}
 	}
 	if MQTTHost == "" {
 		MQTTHost = "localhost"

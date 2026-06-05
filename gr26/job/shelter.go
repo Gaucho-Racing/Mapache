@@ -13,9 +13,6 @@ import (
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
 )
 
-// newS3Client builds an S3 client from the default credential chain +
-// configured region. Centralised so every shelter job uses identical
-// auth wiring.
 func newS3Client(ctx context.Context) (*s3.Client, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(gr26config.ShelterS3Region),
@@ -26,16 +23,13 @@ func newS3Client(ctx context.Context) (*s3.Client, error) {
 	return s3.NewFromConfig(cfg), nil
 }
 
-// shelterKey returns the canonical S3 key for a given vehicle + file ULID,
-// matching the layout TCM-26's shelter/service/upload.py writes to.
+// shelterKey matches TCM-26/shelter/service/upload.py's layout.
 func shelterKey(vehicleID, fileULID string) string {
 	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/")
 	return fmt.Sprintf("%s/%s/batch_%s.parquet", prefix, vehicleID, fileULID)
 }
 
-// extractFileULID parses the ULID out of a shelter S3 key. Returns the
-// empty string if the basename doesn't match the expected
-// "batch_<ulid>.parquet" shape — callers should treat that as a skip.
+// extractFileULID returns "" when the basename isn't batch_<ulid>.parquet.
 func extractFileULID(key string) string {
 	base := key
 	if i := strings.LastIndex(base, "/"); i >= 0 {
@@ -47,18 +41,13 @@ func extractFileULID(key string) string {
 	return strings.TrimSuffix(strings.TrimPrefix(base, "batch_"), ".parquet")
 }
 
-// shelterObject is the slim subset of an S3 ListObjectsV2 entry the
-// shelter jobs care about.
 type shelterObject struct {
 	Key          string
 	LastModified time.Time
 	SizeBytes    int64
 }
 
-// listShelterObjects pages through ListObjectsV2 under one vehicle's
-// shelter prefix and returns every batch_*.parquet object it sees. Non-
-// matching entries (e.g. anything not following the batch naming scheme)
-// are dropped.
+// listShelterObjects pages through every batch_*.parquet under the vehicle's prefix.
 func listShelterObjects(ctx context.Context, client *s3.Client, vehicleID string) ([]shelterObject, error) {
 	prefix := strings.TrimRight(gr26config.ShelterS3Prefix, "/") + "/" + vehicleID + "/"
 	var out []shelterObject
