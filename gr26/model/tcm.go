@@ -10,6 +10,7 @@ import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 //   connection_ok — TCM has general internet (DNS reachable)
 //   mqtt_ok       — cloud MQTT broker is connected
 //   mapache_ok    — cloud Mapache is responding (recent pong)
+//   clock_ok      — local clock past 2003-10-31 cutoff (RTC/NTP synced)
 //   mapache_ping  — RTT to Mapache in ms (from most recent pong)
 var TCMStatus = mp.Message{
 	mp.NewField("status_bits", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
@@ -17,6 +18,7 @@ var TCMStatus = mp.Message{
 			bit(f.Value, 0, "connection_ok"),
 			bit(f.Value, 1, "mqtt_ok"),
 			bit(f.Value, 2, "mapache_ok"),
+			bit(f.Value, 3, "clock_ok"),
 		}
 	}),
 	mp.NewField("mapache_ping", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
