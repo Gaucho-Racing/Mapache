@@ -37,3 +37,42 @@ type Signal struct {
 func (Signal) TableName() string {
 	return "signal"
 }
+
+// SignalClickHouseDDL is the ClickHouse table definition for Signal.
+//
+// Optimized for bursty vehicle telemetry where the dominant read pattern is:
+//   vehicle_id + small timestamp window + many signal names.
+//
+// Dedup key is (vehicle_id, timestamp, name), implemented via the
+// ReplacingMergeTree sorting key. created_at is the version column, so later
+// writes win during background merges.
+//
+// Note: ReplacingMergeTree deduplication is eventual; queries that require
+// immediate latest-row correctness should use FINAL or argMax-style reads.
+const SignalClickHouseDDL = `
+CREATE TABLE IF NOT EXISTS signal (
+    id          String CODEC(ZSTD(1)),
+
+    timestamp   Int64 CODEC(Delta, ZSTD(1)),
+
+    vehicle_id  LowCardinality(String),
+
+    name        LowCardinality(String),
+
+    value       Float64 CODEC(Gorilla, ZSTD(1)),
+
+    raw_value   Int64 CODEC(ZSTD(1)),
+
+    produced_at DateTime64(6, 'UTC')
+        MATERIALIZED fromUnixTimestamp64Micro(timestamp)
+        CODEC(Delta, ZSTD(1)),
+
+    created_at  DateTime64(6, 'UTC')
+        DEFAULT now64(6)
+        CODEC(Delta, ZSTD(1)),
+
+    INDEX idx_id id TYPE bloom_filter GRANULARITY 4
+)
+ENGINE = ReplacingMergeTree(created_at)
+PARTITION BY toYYYYMM(produced_at)
+ORDER BY (vehicle_id, timestamp, name)`
