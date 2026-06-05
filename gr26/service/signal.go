@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/database"
@@ -16,6 +17,12 @@ import (
 const insertSignalSQL = `INSERT INTO signal (id, timestamp, vehicle_id, name, value, raw_value) VALUES (?, ?, ?, ?, ?, ?)`
 
 func CreateSignals(signals []mapache.Signal) error {
+	// Stamp CreatedAt locally before any MQTT publish or CH insert so
+	// downstream consumers (live cache eviction, SSE Last-Event-ID) have
+	// a reliable wall-clock anchor independent of producer/CAN-frame clock
+	// skew. The CH insert omits the column so the server-side now64(6)
+	// default still wins for the persisted row.
+	now := time.Now().UTC()
 	for i := range signals {
 		if signals[i].Timestamp == 0 {
 			return fmt.Errorf("signal timestamp cannot be 0")
@@ -27,6 +34,7 @@ func CreateSignals(signals []mapache.Signal) error {
 			return fmt.Errorf("signal name cannot be empty")
 		}
 		signals[i].ID = ulid.Make().Prefixed("sgnl")
+		signals[i].CreatedAt = now
 	}
 	if !config.ClickhouseEnabled() {
 		return nil

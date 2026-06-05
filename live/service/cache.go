@@ -8,27 +8,22 @@ import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
-// Signal.Timestamp is microseconds since epoch (see mapache-go/signal.go and
-// the CH `fromUnixTimestamp64Micro` materialized column). Eviction and
-// backfill cursors are in the same unit.
-const microsPerSecond = 1_000_000
-
 // ringBuf is the per-(vehicle, signal) buffer. Stored signals are roughly
-// in arrival order; we don't enforce strict timestamp sort because
-// downstream snapshot does a final sort and out-of-order arrivals are rare.
+// in arrival order; we don't enforce strict sort because downstream
+// snapshot does a final sort and out-of-order arrivals are rare.
 type ringBuf struct {
 	mu  sync.Mutex
 	buf []mapache.Signal
 }
 
-func (r *ringBuf) put(s mapache.Signal, cutoffMicros int) {
+func (r *ringBuf) put(s mapache.Signal, cutoff time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	// Drop expired entries from the head. With in-order arrival this is
 	// O(1) amortized; with occasional out-of-order it's still bounded by
 	// the number of expired entries.
 	i := 0
-	for i < len(r.buf) && r.buf[i].Timestamp < cutoffMicros {
+	for i < len(r.buf) && r.buf[i].CreatedAt.Before(cutoff) {
 		i++
 	}
 	if i > 0 {
@@ -38,7 +33,7 @@ func (r *ringBuf) put(s mapache.Signal, cutoffMicros int) {
 	r.buf = append(r.buf, s)
 }
 
-func (r *ringBuf) snapshot(sinceMicros int) []mapache.Signal {
+func (r *ringBuf) snapshot(since time.Time) []mapache.Signal {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.buf) == 0 {
@@ -46,7 +41,7 @@ func (r *ringBuf) snapshot(sinceMicros int) []mapache.Signal {
 	}
 	out := make([]mapache.Signal, 0, len(r.buf))
 	for _, s := range r.buf {
-		if s.Timestamp >= sinceMicros {
+		if !s.CreatedAt.Before(since) {
 			out = append(out, s)
 		}
 	}
@@ -54,7 +49,9 @@ func (r *ringBuf) snapshot(sinceMicros int) []mapache.Signal {
 }
 
 // Cache is the package-global recent-signal cache. Per-(vehicle, signal)
-// ring buffers retain the last `window` seconds of history. Used to bridge
+// ring buffers retain the last `window` seconds of history, keyed by the
+// ingest-side CreatedAt wall clock (set in gr26 before MQTT publish, so
+// independent of producer/CAN-frame clock skew). Used to bridge
 // Clickhouse ingestion delay for newly-connecting clients.
 type Cache struct {
 	mu     sync.RWMutex
@@ -97,24 +94,22 @@ func (c *Cache) getOrCreate(vehicleID, name string) *ringBuf {
 }
 
 func (c *Cache) Put(s mapache.Signal) {
-	cutoff := time.Now().UnixMicro() - int64(c.window/time.Microsecond)
+	cutoff := time.Now().Add(-c.window)
 	rb := c.getOrCreate(s.VehicleID, s.Name)
-	rb.put(s, int(cutoff))
+	rb.put(s, cutoff)
 }
 
 // Snapshot returns all signals currently buffered for vehicleID whose name
-// matches any of subs (exact or glob) and whose timestamp is at or after
-// sinceMicros. Results are sorted by timestamp ascending so the transport
-// can stream them in order. sinceMicros == 0 means "everything in cache."
-func (c *Cache) Snapshot(vehicleID string, subs []string, sinceMicros int) []mapache.Signal {
+// matches any of subs (exact or glob) and whose CreatedAt is at or after
+// since. Results are sorted by CreatedAt ascending so the transport can
+// stream them in order. A zero `since` means "everything in cache."
+func (c *Cache) Snapshot(vehicleID string, subs []string, since time.Time) []mapache.Signal {
 	c.mu.RLock()
 	vm, ok := c.bufs[vehicleID]
 	if !ok {
 		c.mu.RUnlock()
 		return nil
 	}
-	// Collect candidate buffers under the top-level read lock, then
-	// release before snapshotting each to keep contention low.
 	candidates := make([]*ringBuf, 0, len(vm))
 	for name, rb := range vm {
 		if Matches(name, subs) {
@@ -125,10 +120,10 @@ func (c *Cache) Snapshot(vehicleID string, subs []string, sinceMicros int) []map
 
 	var out []mapache.Signal
 	for _, rb := range candidates {
-		out = append(out, rb.snapshot(sinceMicros)...)
+		out = append(out, rb.snapshot(since)...)
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Timestamp < out[j].Timestamp
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
 	return out
 }

@@ -23,8 +23,9 @@ var upgrader = websocket.Upgrader{
 }
 
 // StreamSignalsWS streams live signals over a WebSocket. Subscription is
-// fixed at connect time (URL params). Initial backfill is read from the
-// in-memory cache; live stream is then deduped against it per signal name.
+// fixed at connect time (URL params). The first frame is always a JSON
+// array of backfill signals (possibly empty); every subsequent frame is a
+// single Signal object — clients distinguish by Array.isArray.
 //
 //	GET /live/ws?vehicle_id=X&signals=motor_rpm,ecu_*&backfill=30&rate=10
 //
@@ -86,33 +87,37 @@ func StreamSignalsWS(c *gin.Context) {
 	streamWS(conn, client, suppress, rate, done)
 }
 
-// sendBackfillWS dumps the cache snapshot down the wire and returns the
-// suppress map (max-timestamp per signal name) for the live stream to
-// filter against.
-func sendBackfillWS(conn *websocket.Conn, vehicleID string, subs []string, backfillSec int) map[string]int {
-	if backfillSec <= 0 {
+// sendBackfillWS writes the snapshot as a single JSON array frame and
+// returns the suppress map (max CreatedAt per signal name) so the live
+// stream can drop entries the snapshot already covered. Always sends the
+// array, even empty — gives the client a deterministic boundary between
+// backfill and live.
+func sendBackfillWS(conn *websocket.Conn, vehicleID string, subs []string, backfillSec int) map[string]time.Time {
+	var snap []mapache.Signal
+	if backfillSec > 0 {
+		since := time.Now().Add(-time.Duration(backfillSec) * time.Second)
+		snap = service.Recent.Snapshot(vehicleID, subs, since)
+	}
+	if snap == nil {
+		snap = []mapache.Signal{}
+	}
+	if err := conn.WriteJSON(snap); err != nil {
 		return nil
 	}
-	sinceMicros := int(time.Now().UnixMicro()) - backfillSec*microsPerSecond
-	snap := service.Recent.Snapshot(vehicleID, subs, sinceMicros)
-	suppress := make(map[string]int, len(snap))
+	suppress := make(map[string]time.Time, len(snap))
 	for _, s := range snap {
-		if err := conn.WriteJSON(s); err != nil {
-			return suppress
-		}
-		if ts, ok := suppress[s.Name]; !ok || s.Timestamp > ts {
-			suppress[s.Name] = s.Timestamp
+		if t, ok := suppress[s.Name]; !ok || s.CreatedAt.After(t) {
+			suppress[s.Name] = s.CreatedAt
 		}
 	}
 	return suppress
 }
 
-func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]int, rate int, done <-chan struct{}) {
-	// Suppress signals already covered by the backfill snapshot. Strict
-	// `<` (not `<=`) so we may double-send at the boundary — clients
-	// dedup by signal ID — but never miss.
+func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]time.Time, rate int, done <-chan struct{}) {
+	// Strict Before (not BeforeOrEqual) — at the boundary we may
+	// double-send; clients dedup by signal ID. Better than dropping.
 	keep := func(s mapache.Signal) bool {
-		if max, ok := suppress[s.Name]; ok && s.Timestamp < max {
+		if max, ok := suppress[s.Name]; ok && s.CreatedAt.Before(max) {
 			return false
 		}
 		return true
@@ -164,8 +169,6 @@ func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]
 	}
 }
 
-const microsPerSecond = 1_000_000
-
 func parseSignals(raw string) []string {
 	if raw == "" {
 		return nil
@@ -204,4 +207,3 @@ func parseRate(raw string) int {
 	}
 	return n
 }
-
