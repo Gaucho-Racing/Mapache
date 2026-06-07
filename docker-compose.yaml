@@ -154,11 +154,13 @@ services:
     environment:
       ENV: "DEV"
       PORT: "7010"
-      DATABASE_HOST: ${DATABASE_HOST}
-      DATABASE_PORT: ${DATABASE_PORT}
-      DATABASE_NAME: ${DATABASE_NAME}
-      DATABASE_USER: ${DATABASE_USER}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      # Query reads telemetry + its own metadata tables from ClickHouse over the
+      # HTTP interface (clickhouse-connect), so port 8123 — gr26 uses native 9000.
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: "mapache"
       KERBECS_ENDPOINT: "http://kerbecs:10300"
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"

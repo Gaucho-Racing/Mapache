@@ -1,15 +1,14 @@
-from sqlalchemy import Column, String, DateTime
+from dataclasses import dataclass
 from datetime import datetime
-from datetime import timezone
-from query.model.base import Base
+from typing import Optional
 
-class QueryToken(Base):
-    __tablename__ = "query_token"
 
-    id = Column(String(255), primary_key=True)
-    user_id = Column(String(255))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    expires_at = Column(DateTime)
+@dataclass
+class QueryToken:
+    id: Optional[str] = None
+    user_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
 
     def to_dict(self):
         return {

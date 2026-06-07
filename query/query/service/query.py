@@ -1,37 +1,76 @@
 from loguru import logger
-from query.database.connection import get_db
+from query.database.connection import get_client
 import pandas as pd
-from sqlalchemy import bindparam, text
 from query.model.query import Metadata
 
 
-def query_signals(vehicle_id: str, signals: list[str], start: str | None = None, end: str | None = None) -> list[pd.DataFrame]:
+def _bucket_seconds(start: str | None, end: str | None, max_points: int) -> float | None:
+    """Bucket width (seconds) that yields at most ~`max_points` per signal over
+    [start, end], or None if the window is unknown/degenerate (no decimation).
+    """
+    if start is None or end is None or max_points <= 0:
+        return None
+    try:
+        span = (pd.to_datetime(end) - pd.to_datetime(start)).total_seconds()
+    except (ValueError, TypeError):
+        return None
+    if span <= 0:
+        return None
+    return span / max_points
+
+
+def query_signals(
+    vehicle_id: str,
+    signals: list[str],
+    start: str | None = None,
+    end: str | None = None,
+    max_points: int | None = None,
+) -> list[pd.DataFrame]:
     if not vehicle_id:
         raise ValueError("Vehicle ID is required")
 
-    params = {"vehicle_id": vehicle_id, "signals": list(signals)}
-    query_str = """
-    SELECT produced_at, name, value
-    FROM signal
-    WHERE name IN :signals AND vehicle_id = :vehicle_id"""
+    params: dict = {"vehicle_id": vehicle_id, "signals": list(signals)}
 
+    # When `max_points` is set and the window is known, decimate in SQL: bucket
+    # each signal's rows by time and keep one representative per bucket. This
+    # caps the rows transferred + pivoted + serialized at ~max_points per signal
+    # (the map doesn't need every sample), which is the main fix for the
+    # raw-data timeout on wide windows. Without it the query is full-resolution.
+    bucket = _bucket_seconds(start, end, max_points) if max_points else None
+
+    # `timestamp` is the raw Int64 microsecond column; bucketing on it integer-
+    # divided by the bucket width avoids EXTRACT(EPOCH ...) (not a ClickHouse
+    # function) and keeps the grouping exact.
+    bucket_expr = ""
+    if bucket is not None:
+        params["bm"] = max(int(bucket * 1_000_000), 1)
+        bucket_expr = "intDiv(timestamp, {bm:UInt64})"
+
+    where = ["name IN {signals:Array(String)}", "vehicle_id = {vehicle_id:String}"]
     if start is not None:
-        query_str += " AND produced_at > :start"
+        where.append("produced_at > parseDateTime64BestEffort({start:String}, 6, 'UTC')")
         params["start"] = start
     if end is not None:
-        query_str += " AND produced_at < :end"
+        where.append("produced_at < parseDateTime64BestEffort({end:String}, 6, 'UTC')")
         params["end"] = end
 
-    query_str += " ORDER BY produced_at ASC"
+    query_str = (
+        "SELECT produced_at, name, value FROM signal WHERE " + " AND ".join(where)
+    )
+
+    if bucket is not None:
+        # ClickHouse has no DISTINCT ON. `ORDER BY name, bucket, produced_at`
+        # then `LIMIT 1 BY name, bucket` keeps the earliest row per (signal,
+        # time bucket) — the same "one representative per bucket" semantics.
+        query_str += (
+            f" ORDER BY name ASC, {bucket_expr} ASC, produced_at ASC"
+            f" LIMIT 1 BY name, {bucket_expr}"
+        )
+    else:
+        query_str += " ORDER BY produced_at ASC"
     logger.info(f"Query: {query_str} | Params: {params}")
 
-    # `expanding=True` makes SQLAlchemy render the IN list as individual
-    # placeholders (... IN (:s_1, :s_2)) on every backend, instead of binding
-    # a single tuple param (which only works by accident on psycopg2).
-    stmt = text(query_str).bindparams(bindparam("signals", expanding=True))
-
-    with get_db() as db:
-        result = pd.read_sql(stmt.bindparams(**params), db.bind)
+    result = get_client().query_df(query_str, parameters=params)
 
     result["produced_at"] = pd.to_datetime(result["produced_at"], utc=True)
 

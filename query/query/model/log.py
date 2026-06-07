@@ -1,18 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from dataclasses import dataclass
 from datetime import datetime
-from datetime import timezone
-from query.model.base import Base
+from typing import Optional
 
-class QueryLog(Base):
-    __tablename__ = "query_log"
 
-    id = Column(String(255), primary_key=True)
-    user_id = Column(String(255))
-    parameters = Column(Text)
-    status_code = Column(Integer)
-    latency = Column(Integer)
-    error_message = Column(Text)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+@dataclass
+class QueryLog:
+    user_id: Optional[str] = None
+    parameters: Optional[str] = None
+    status_code: Optional[int] = None
+    latency: Optional[int] = None
+    error_message: Optional[str] = None
+    id: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
     def to_dict(self):
         return {

@@ -1,13 +1,13 @@
-from sqlalchemy import Column, String, Text
-from query.model.base import Base
+from dataclasses import dataclass
+from typing import Optional
 
-class SignalDefinition(Base):
-    __tablename__ = "signal_definition"
 
-    id = Column(String(255), primary_key=True)
-    vehicle_type = Column(String(255))
-    name = Column(String(255))
-    description = Column(Text)
+@dataclass
+class SignalDefinition:
+    id: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
 
     def to_dict(self):
         return {

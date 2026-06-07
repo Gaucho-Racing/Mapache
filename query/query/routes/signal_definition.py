@@ -37,11 +37,10 @@ async def get_signal_definitions(
             definitions = get_signal_definitions_by_vehicle_type(vehicle_type)
         else:
             definitions = get_all_signal_definitions()
-        return JSONResponse(
-            status_code=200,
-            content=[definition.to_dict() for definition in definitions]
-        )
-    
+        content = [definition.to_dict() for definition in definitions]
+
+        return JSONResponse(status_code=200, content=content)
+
     except Exception as e:
         logger.error(traceback.format_exc())
         return JSONResponse(

@@ -1,7 +1,5 @@
 import os
 
-from sqlalchemy import URL
-
 class Config:
     """Configuration settings for the application"""
 
@@ -9,12 +7,18 @@ class Config:
     VERSION: str = "3.3.0"
     PORT: int = int(os.getenv('PORT', 7000))
 
-    # Database settings
-    DATABASE_HOST: str = os.getenv('DATABASE_HOST')
-    DATABASE_PORT: int = int(os.getenv('DATABASE_PORT'))
-    DATABASE_USER: str = os.getenv('DATABASE_USER')
-    DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD')
-    DATABASE_NAME: str = os.getenv('DATABASE_NAME')
+    # ClickHouse settings. Telemetry (signal) plus the query service's own
+    # metadata tables (signal_definition, query_log, query_token) all live in
+    # ClickHouse now. The query service talks to it over the HTTP interface
+    # (port 8123) via clickhouse-connect — distinct from gr26, which uses the
+    # native protocol (9000) via clickhouse-go.
+    CLICKHOUSE_HOST: str = os.getenv('CLICKHOUSE_HOST')
+    CLICKHOUSE_PORT: int = int(os.getenv('CLICKHOUSE_PORT', 8123))
+    CLICKHOUSE_USER: str = os.getenv('CLICKHOUSE_USER')
+    CLICKHOUSE_PASSWORD: str = os.getenv('CLICKHOUSE_PASSWORD')
+    CLICKHOUSE_DATABASE: str = os.getenv('CLICKHOUSE_DATABASE')
+    # Set CLICKHOUSE_SECURE=true when the HTTP endpoint is TLS (port 8443).
+    CLICKHOUSE_SECURE: bool = os.getenv('CLICKHOUSE_SECURE', 'false').lower() == 'true'
 
     # Kerbecs admin endpoint — used to resolve service-to-service routes.
     KERBECS_ENDPOINT: str = os.getenv('KERBECS_ENDPOINT')
@@ -26,19 +30,3 @@ class Config:
     SENTINEL_URL: str = os.getenv('SENTINEL_URL')
     SENTINEL_JWKS_URL: str = os.getenv('SENTINEL_JWKS_URL')
     SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')
-
-    @staticmethod
-    def get_database_url() -> URL:
-        # Build via URL.create rather than an f-string so credentials with
-        # special characters (e.g. '@', '%', or non-ASCII bytes in the
-        # password) are escaped instead of corrupting the DSN — an unescaped
-        # '@' in the password otherwise bleeds into the host portion.
-        return URL.create(
-            "postgresql+psycopg2",
-            username=Config.DATABASE_USER,
-            password=Config.DATABASE_PASSWORD,
-            host=Config.DATABASE_HOST,
-            port=Config.DATABASE_PORT,
-            database=Config.DATABASE_NAME,
-        )
-
