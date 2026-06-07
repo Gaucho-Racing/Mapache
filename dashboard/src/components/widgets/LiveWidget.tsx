@@ -1,6 +1,6 @@
 import { LoadingComponent } from "@/components/Loading";
 import { Card } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BACKEND_WS_URL } from "@/consts/config";
 import { AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
@@ -26,6 +26,9 @@ interface LiveWidgetProps {
   ) => React.ReactNode;
 }
 
+// Coalesce rate in Hz — matches the debug page.
+const RATE_HZ = 5;
+
 export default function LiveWidget({
   vehicle_id,
   signals,
@@ -37,8 +40,22 @@ export default function LiveWidget({
   className,
   children,
 }: LiveWidgetProps) {
-  const [socketUrl, setSocketUrl] = useState(`${BACKEND_WS_URL}/gr25/live`);
-  const { lastMessage, readyState } = useWebSocket(socketUrl);
+  const vehicleList = useVehicleList();
+  const vehicleType = vehicleList.find((v) => v.id === vehicle_id)?.type;
+
+  const socketUrl =
+    vehicle_id && vehicleType && signals.length > 0
+      ? `${BACKEND_WS_URL}/live/ws?${new URLSearchParams({
+          vehicle_id,
+          signals: signals.join(","),
+          backfill: "30",
+          rate: String(RATE_HZ),
+        }).toString()}`
+      : null;
+
+  const { lastMessage, readyState } = useWebSocket(socketUrl, {
+    shouldReconnect: () => true,
+  });
 
   const [data, setData] = useState<Map<string, Signal[]>>(new Map());
   const [currentSignals, setCurrentSignals] = useState<Map<string, Signal>>(
@@ -46,33 +63,56 @@ export default function LiveWidget({
   );
   const [lastMessageTime, setLastMessageTime] = useState<number>(0);
 
-  const vehicleList = useVehicleList();
+  // Track backfill frame IDs so we can drop duplicates once the backfill
+  // has been applied and live stream starts.
+  const seenRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    connectWebsocket();
-  }, [vehicle_id, signals, vehicleList]);
+    // Reset on connection change
+    setData(new Map());
+    setCurrentSignals(new Map());
+    setLastMessageTime(0);
+    seenRef.current = new Set();
+  }, [socketUrl]);
 
   useEffect(() => {
-    if (lastMessage !== null) {
-      const message = JSON.parse(lastMessage.data) as Signal;
+    if (lastMessage === null) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(lastMessage.data);
+    } catch {
+      return;
+    }
+
+    // First frame is the backfill array; subsequent frames are single Signals.
+    // See live/api/stream_ws.go.
+    const items: Signal[] = Array.isArray(parsed) ? parsed : [parsed];
+
+    for (const sig of items) {
+      if (!sig.name) continue;
+
+      // Dedup against backfill IDs so we don't double-count the same record.
+      if (sig.id && seenRef.current.has(sig.id)) continue;
+      if (sig.id) seenRef.current.add(sig.id);
+
       setData((prev) => {
         const newData = new Map(prev);
-        const existingSignals = newData.get(message.name) || [];
-        const updatedSignals = [
-          message,
-          ...existingSignals.slice(0, dataLength - 1),
-        ];
-        newData.set(message.name, updatedSignals);
+        const existing = newData.get(sig.name) || [];
+        const updated = [sig, ...existing.slice(0, dataLength - 1)];
+        newData.set(sig.name, updated);
         return newData;
       });
       setCurrentSignals((prev) => {
-        const newSignals = new Map(prev);
-        newSignals.set(message.name, message);
-        return newSignals;
+        const newMap = new Map(prev);
+        newMap.set(sig.name, sig);
+        return newMap;
       });
-      setLastMessageTime(new Date(message.produced_at).getTime());
+      setLastMessageTime((prev) =>
+        Math.max(prev, new Date(sig.produced_at).getTime()),
+      );
     }
-  }, [lastMessage]);
+  }, [lastMessage, dataLength]);
 
   const connectionStatus = {
     [ReadyState.CONNECTING]: "Connecting",
@@ -81,24 +121,6 @@ export default function LiveWidget({
     [ReadyState.CLOSED]: "Closed",
     [ReadyState.UNINSTANTIATED]: "Uninstantiated",
   }[readyState];
-
-  const connectWebsocket = async () => {
-    const vehicleType = tryFindVehicleType(vehicle_id);
-    if (!vehicleType) return;
-
-    const params = new URLSearchParams();
-
-    params.append("signals", signals.join(","));
-    params.append("vehicle_id", vehicle_id);
-
-    setSocketUrl(`${BACKEND_WS_URL}/${vehicleType}/live?${params.toString()}`);
-  };
-
-  const tryFindVehicleType = (vehicle_id: string) => {
-    const vehicle = vehicleList.find((v) => v.id === vehicle_id);
-    if (!vehicle) return null;
-    return vehicle.type;
-  };
 
   const FailureCard = () => {
     return (
