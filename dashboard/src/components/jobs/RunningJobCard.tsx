@@ -20,10 +20,13 @@ export function RunningJobCard({ job: initial }: { job: Job }) {
   const active = !isTerminalStatus(job.status);
   const now = useTickingNow(500, active);
   const elapsed = elapsedMs(job, now);
-  const pct =
-    job.progress_total > 0
-      ? (job.progress_current / job.progress_total) * 100
-      : 0;
+
+  // Progress + worker live on the in-flight Run, not on the Job. The
+  // SSE event and any /jobs?include=current_run response carries it.
+  const run = job.current_run;
+  const total = run?.progress_total ?? 0;
+  const current = run?.progress_current ?? 0;
+  const pct = total > 0 ? (current / total) * 100 : 0;
 
   return (
     <Card
@@ -42,14 +45,13 @@ export function RunningJobCard({ job: initial }: { job: Job }) {
         />
         <div className="flex justify-between font-mono text-xs text-muted-foreground">
           <span>
-            {formatCount(job.progress_current)} /{" "}
-            {formatCount(job.progress_total)}
+            {formatCount(current)} / {formatCount(total)}
           </span>
           <span>{pct.toFixed(1)}%</span>
         </div>
-        {job.progress_message && (
+        {run?.progress_message && (
           <div className="truncate text-xs text-muted-foreground">
-            {job.progress_message}
+            {run.progress_message}
           </div>
         )}
         <Separator className="my-1" />
@@ -60,11 +62,11 @@ export function RunningJobCard({ job: initial }: { job: Job }) {
           </span>
           <span className="text-muted-foreground">attempt</span>
           <span className="text-right font-mono">
-            {job.attempt}/{job.max_attempts}
+            {job.attempt_count}/{job.max_attempts}
           </span>
           <span className="text-muted-foreground">worker</span>
           <span className="truncate text-right font-mono">
-            {job.worker_id || "—"}
+            {run?.worker_id || "—"}
           </span>
         </div>
       </div>

@@ -101,11 +101,11 @@ export function formatDurationMs(ms: number): string {
 }
 
 // elapsedMs computes the time the job has been running. Falls back to
-// `now` when the job hasn't reported a finished_at yet, so the display
+// `now` when the job hasn't reported a completed_at yet, so the display
 // keeps ticking while the job is live.
 export function elapsedMs(job: Job, now: number): number {
   if (!job.started_at) return 0;
   const start = new Date(job.started_at).getTime();
-  const end = job.finished_at ? new Date(job.finished_at).getTime() : now;
+  const end = job.completed_at ? new Date(job.completed_at).getTime() : now;
   return end - start;
 }

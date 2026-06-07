@@ -116,6 +116,10 @@ function JobHeader({ job, active }: { job: Job; active: boolean }) {
 
 function OverviewCard({ job, active }: { job: Job; active: boolean }) {
   const now = useTickingNow(500, active);
+  // Worker + lease live on the in-flight Run. Pending jobs (no claim
+  // yet) and terminal jobs (run finished, current_run null) both
+  // display "—".
+  const run = job.current_run;
   return (
     <Card className="p-4">
       <h4 className="mb-2">Overview</h4>
@@ -125,14 +129,14 @@ function OverviewCard({ job, active }: { job: Job; active: boolean }) {
           ["Queue", job.queue],
           ["Service", job.service || "—"],
           ["Priority", String(job.priority)],
-          ["Attempt", `${job.attempt} / ${job.max_attempts}`],
-          ["Worker", job.worker_id || "—"],
+          ["Attempt", `${job.attempt_count} / ${job.max_attempts}`],
+          ["Worker", run?.worker_id || "—"],
           ["Idempotency key", job.idempotency_key || "—"],
           ["Scheduled", fmtTime(job.scheduled_at)],
-          ["Created", fmtTime(job.created_at)],
+          ["Enqueued", fmtTime(job.enqueued_at)],
           ["Started", fmtTime(job.started_at)],
-          ["Finished", fmtTime(job.finished_at)],
-          ["Lease expires", fmtTime(job.lease_expires_at)],
+          ["Completed", fmtTime(job.completed_at)],
+          ["Lease expires", fmtTime(run?.lease_expires_at)],
           [
             active ? "Elapsed" : "Duration",
             job.started_at ? formatDurationMs(elapsedMs(job, now)) : "—",
@@ -144,27 +148,29 @@ function OverviewCard({ job, active }: { job: Job; active: boolean }) {
 }
 
 function ProgressCard({ job }: { job: Job }) {
-  const pct =
-    job.progress_total > 0
-      ? (job.progress_current / job.progress_total) * 100
-      : 0;
+  // Progress comes off the in-flight Run. Once the job terminalizes,
+  // current_run goes null — fine to show "No progress reported" then,
+  // since the result / error cards below carry the outcome.
+  const run = job.current_run;
+  const total = run?.progress_total ?? 0;
+  const current = run?.progress_current ?? 0;
+  const pct = total > 0 ? (current / total) * 100 : 0;
   return (
     <Card className="p-4">
       <h4 className="mb-2">Progress</h4>
       <Separator className="mb-3" />
-      {job.progress_total > 0 ? (
+      {total > 0 ? (
         <div className="flex flex-col gap-2">
           <Progress value={pct} indicatorClassName={PROGRESS_GRADIENT_CLASS} />
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>
-              {job.progress_current.toLocaleString()} /{" "}
-              {job.progress_total.toLocaleString()}
+              {current.toLocaleString()} / {total.toLocaleString()}
             </span>
             <span>{pct.toFixed(1)}%</span>
           </div>
-          {job.progress_message && (
+          {run?.progress_message && (
             <div className="text-sm text-muted-foreground">
-              {job.progress_message}
+              {run.progress_message}
             </div>
           )}
         </div>

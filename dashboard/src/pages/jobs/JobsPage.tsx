@@ -57,6 +57,11 @@ function JobsPage() {
       try {
         const params = new URLSearchParams();
         params.set("limit", String(PAGE_SIZE));
+        // Foreman v2: progress/worker/lease moved off Job onto the
+        // per-attempt Run. include=current_run folds the in-flight run
+        // into each row so the table can render progress without a
+        // second fetch per row.
+        params.set("include", "current_run");
         if (status) params.set("status", status);
         if (kind.trim()) params.set("kind", kind.trim());
         if (serviceName.trim()) params.set("service", serviceName.trim());
@@ -87,7 +92,7 @@ function JobsPage() {
   const fetchRunning = useCallback(async () => {
     try {
       const r = await axios.get(
-        `${BACKEND_URL}/foreman/jobs?status=running&limit=50`,
+        `${BACKEND_URL}/foreman/jobs?status=active&include=current_run&limit=50`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
@@ -162,7 +167,7 @@ function JobsPage() {
         />
 
         {runningJobs.length > 0 &&
-          (status === "" || status === "running") && (
+          (status === "" || status === "active") && (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-muted-foreground">
               Running ({runningJobs.length})
@@ -298,10 +303,13 @@ function FilterBar(props: FilterBarProps) {
 }
 
 function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
-  const pct =
-    job.progress_total > 0
-      ? (job.progress_current / job.progress_total) * 100
-      : 0;
+  // Progress lives on the in-flight Run (or the last run's snapshot,
+  // when included). Pending jobs that never claimed have no run yet —
+  // show "—" rather than a stale 0/0 bar.
+  const run = job.current_run;
+  const total = run?.progress_total ?? 0;
+  const current = run?.progress_current ?? 0;
+  const pct = total > 0 ? (current / total) * 100 : 0;
   return (
     <TableRow className="cursor-pointer" onClick={onClick}>
       <TableCell className="font-mono text-xs">{job.id.slice(-12)}</TableCell>
@@ -310,10 +318,10 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
         <JobStatusBadge status={job.status} />
       </TableCell>
       <TableCell>
-        {job.attempt}/{job.max_attempts}
+        {job.attempt_count}/{job.max_attempts}
       </TableCell>
       <TableCell className="w-[220px]">
-        {job.progress_total > 0 ? (
+        {total > 0 ? (
           <div className="flex items-center gap-2">
             <Progress
               value={pct}
@@ -321,8 +329,7 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
               indicatorClassName={progressBarClass(job.status)}
             />
             <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-              {formatCount(job.progress_current)}/
-              {formatCount(job.progress_total)}
+              {formatCount(current)}/{formatCount(total)}
             </span>
           </div>
         ) : (
@@ -333,7 +340,7 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
         {job.started_at ? formatDurationMs(elapsedMs(job, Date.now())) : "—"}
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
-        {new Date(job.created_at).toLocaleString()}
+        {new Date(job.enqueued_at).toLocaleString()}
       </TableCell>
     </TableRow>
   );
@@ -345,7 +352,7 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
 //                 that got reaped or failed; waiting to be re-claimed)
 //   - terminal  → white (frozen final reading)
 function progressBarClass(status: string): string {
-  if (status === "running") return PROGRESS_GRADIENT_CLASS;
+  if (status === "active") return PROGRESS_GRADIENT_CLASS;
   if (status === "pending") return "bg-neutral-500";
   return "bg-white";
 }
