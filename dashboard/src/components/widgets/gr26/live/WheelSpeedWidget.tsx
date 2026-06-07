@@ -9,7 +9,7 @@ interface WheelSpeedWidgetProps {
 
 // Conversion factor from dti_erpm to wheel speed.
 // ERPM → mechanical RPM (÷ pole pairs) → wheel RPM (÷ gear ratio) → speed (× wheel circumference)
-const ERPM_TO_WHEEL_SPEED = 0.00121429;
+const ERPM_TO_WHEEL_SPEED = 0.001706;
 
 export default function WheelSpeedWidget({
   vehicle_id,
