@@ -10,7 +10,6 @@ import (
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
 type ingestLatestParams struct {
@@ -19,7 +18,7 @@ type ingestLatestParams struct {
 
 // IngestLatestBatchHandler ingests the newest (by S3 LastModified) batch
 // for the vehicle, inline. file_ulid lands in the result.
-func IngestLatestBatchHandler(ctx context.Context, j *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
+func IngestLatestBatchHandler(ctx context.Context, j foreman.Job, progress *foreman.Progress) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}

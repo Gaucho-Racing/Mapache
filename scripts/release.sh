@@ -295,7 +295,7 @@ case "$TARGET" in
             exit 1
         fi
 
-        GO_CONFIG_SERVICES=("auth" "gr26" "live" "vehicle" "foreman")
+        GO_CONFIG_SERVICES=("auth" "gr26" "live" "vehicle")
         PY_SERVICES=("query")
         NODE_SERVICES=("dashboard")
         ALL_SERVICES=("${GO_CONFIG_SERVICES[@]}" "${PY_SERVICES[@]}" "${NODE_SERVICES[@]}")

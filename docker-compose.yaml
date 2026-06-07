@@ -169,15 +169,14 @@ services:
 
   foreman:
     container_name: mapache-foreman
-    build:
-      context: .
-      dockerfile: foreman/Dockerfile.dev
+    # Foreman lives in its own repo now (github.com/gaucho-racing/Foreman).
+    # Local dev pulls the same image prod runs. Bump in lockstep with the
+    # infra manifest; FOREMAN_TABLE_PREFIX defaults to "foreman_" so the
+    # tables don't collide with the host app's schema.
+    image: ghcr.io/gaucho-racing/foreman:2.0.0
     restart: unless-stopped
     ports:
       - "7011:7011"
-    volumes:
-      - ./foreman:/app/foreman
-      - foreman_go_cache:/go
     environment:
       ENV: "DEV"
       PORT: "7011"
@@ -186,10 +185,6 @@ services:
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      KERBECS_ENDPOINT: "http://kerbecs:10300"
-      KERBECS_USER: "admin"
-      KERBECS_PASSWORD: "admin"
-      SKIP_AUTH_CHECK: "true"
 
   dashboard:
     container_name: mapache-dashboard
@@ -258,5 +253,4 @@ volumes:
   vehicle_go_cache:
   gr26_go_cache:
   live_go_cache:
-  foreman_go_cache:
   dashboard_node_modules:

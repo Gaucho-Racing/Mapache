@@ -22,7 +22,6 @@ import (
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
-	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
 // ─── producer side: gr26.ingest_batch ───────────────────────────────────────
@@ -54,7 +53,7 @@ func OnShelterBatchReceived(vehicleID string, ts int, data []byte) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if _, err := foreman.Enqueue(ctx, req); err != nil {
+	if _, err := foreman.Default.Enqueue(ctx, req); err != nil {
 		logger.SugarLogger.Errorf("[SHELTER] failed to enqueue ingest job for %s/%s: %v", vehicleID, fileULID, err)
 		return
 	}
@@ -81,7 +80,7 @@ type shelterRow struct {
 
 // IngestBatchHandler is the worker for "gr26.ingest_batch". Retries are
 // safe because the downstream ReplacingMergeTree dedups on natural keys.
-func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
+func IngestBatchHandler(ctx context.Context, job foreman.Job, progress *foreman.Progress) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
@@ -106,7 +105,7 @@ func IngestBatchHandler(ctx context.Context, job *foreman.Job, progress *worker.
 	return json.Marshal(res)
 }
 
-func processFile(ctx context.Context, client *s3.Client, key string, progress *worker.ProgressReporter) (ingestResult, error) {
+func processFile(ctx context.Context, client *s3.Client, key string, progress *foreman.Progress) (ingestResult, error) {
 	start := time.Now()
 	logger.SugarLogger.Infof("[SHELTER] processing %s", key)
 	progress.Set(0, 0, "downloading parquet from s3")

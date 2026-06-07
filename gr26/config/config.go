@@ -53,8 +53,8 @@ var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 // enqueue calls entirely so the on-vehicle gr26 stays out of it.
 //
 // Service-to-service auth was removed for fast iteration; foreman
-// endpoints are public. Re-add ForemanToken + the X-Foreman-Token
-// header in pkg/foreman/client.go when locking back down.
+// endpoints are public. Re-add ForemanToken (and the corresponding
+// header in the Foreman client) when locking back down.
 var ForemanEndpoint = os.Getenv("FOREMAN_ENDPOINT")
 
 // NumWorkers is the size of the worker pool that claims foreman jobs.

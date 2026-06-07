@@ -10,7 +10,6 @@ import (
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/gr26/worker"
 )
 
 // Reingest=true scopes the idem key to this parent job so previously-ingested
@@ -42,7 +41,7 @@ type ingestAllEntry struct {
 // IngestAllBatchesHandler fans out one gr26.ingest_batch per shelter
 // parquet uploaded in the last `hours` hours. Default idem key
 // (<vehicle>:<file_ulid>) makes re-runs on the same window a no-op.
-func IngestAllBatchesHandler(ctx context.Context, j *foreman.Job, progress *worker.ProgressReporter) (json.RawMessage, error) {
+func IngestAllBatchesHandler(ctx context.Context, j foreman.Job, progress *foreman.Progress) (json.RawMessage, error) {
 	if gr26config.ShelterS3Bucket == "" {
 		return nil, errors.New("shelter ingest configured at foreman but SHELTER_S3_BUCKET is unset")
 	}
@@ -102,7 +101,7 @@ func IngestAllBatchesHandler(ctx context.Context, j *foreman.Job, progress *work
 			VehicleID: p.VehicleID,
 			FileULID:  fileULID,
 		})
-		out, err := foreman.Enqueue(ctx, foreman.EnqueueRequest{
+		out, err := foreman.Default.Enqueue(ctx, foreman.EnqueueRequest{
 			Kind:           "gr26.ingest_batch",
 			Service:        "gr26",
 			IdempotencyKey: &idem,
@@ -116,11 +115,11 @@ func IngestAllBatchesHandler(ctx context.Context, j *foreman.Job, progress *work
 			res.Failed++
 		case out.Created:
 			entry.Status = "enqueued"
-			entry.JobID = out.JobID
+			entry.JobID = out.Job.ID
 			res.Enqueued++
 		default:
 			entry.Status = "already_enqueued"
-			entry.JobID = out.JobID
+			entry.JobID = out.Job.ID
 			res.AlreadyEnqueued++
 		}
 		res.Entries = append(res.Entries, entry)
