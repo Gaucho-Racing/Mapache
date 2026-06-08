@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
@@ -16,19 +17,50 @@ import (
 type Client struct {
 	ID   string
 	Send chan mapache.Signal
+
+	// seq is the dispatch-dedup marker: Publish stamps it with the current
+	// publish epoch right before sending, so a client matching a signal via
+	// both an exact name and a pattern (or multiple patterns) receives it
+	// once. Touched only by Publish, which is serialized by Hub.pubMu, so it
+	// needs no atomic.
+	seq uint64
+}
+
+// patternBucket is one glob pattern and its (immutable) subscriber slice.
+type patternBucket struct {
+	pattern string
+	clients []*Client
+}
+
+// vehicleSnap is the immutable per-vehicle subscriber snapshot. Once stored in
+// the Hub it is never mutated; writers build a new one and swap it in. This is
+// what lets Publish read without locking against connection churn.
+type vehicleSnap struct {
+	// exact[signalName] = immutable subscriber slice
+	exact map[string][]*Client
+	// patterns holds raw glob buckets, matched with path.Match on each Publish.
+	patterns []patternBucket
 }
 
 // Hub is the package-global signal router. Transport handlers register
 // Clients with a vehicle + set of signal names/patterns; Publish routes
 // incoming signals to every matching client.
+//
+// Concurrency model:
+//   - vehicles holds an immutable snapshot map behind an atomic pointer.
+//     Publish loads it lock-free and never blocks, so connection churn cannot
+//     stall signal dispatch.
+//   - writeMu serializes Subscribe/Unsubscribe, which copy-on-write a new
+//     snapshot and swap it in. Writers pay an O(subscribers-on-the-affected-
+//     signal) copy, kept off the hot dispatch path.
+//   - pubMu serializes publishers so the per-Client seq dedup marker is safe.
+//     There is one publisher (the MQTT callback), so it is uncontended.
 type Hub struct {
-	mu sync.RWMutex
-	// exact[vehicleID][signalName] = subscriber set
-	exact map[string]map[string]map[*Client]struct{}
-	// patterns[vehicleID][rawPattern] = subscriber set. Patterns are
-	// raw glob strings (e.g. "ecu_*", "*_status", "*"); matched with
-	// path.Match on each Publish.
-	patterns map[string]map[string]map[*Client]struct{}
+	writeMu  sync.Mutex
+	vehicles atomic.Pointer[map[string]*vehicleSnap]
+
+	pubMu  sync.Mutex
+	pubSeq uint64
 }
 
 var Signals *Hub
@@ -38,10 +70,10 @@ func init() {
 }
 
 func NewHub() *Hub {
-	return &Hub{
-		exact:    make(map[string]map[string]map[*Client]struct{}),
-		patterns: make(map[string]map[string]map[*Client]struct{}),
-	}
+	h := &Hub{}
+	empty := make(map[string]*vehicleSnap)
+	h.vehicles.Store(&empty)
+	return h
 }
 
 // isPattern reports whether name contains a glob metacharacter. Anything
@@ -65,98 +97,179 @@ func ValidatePatterns(names []string) error {
 	return nil
 }
 
+// cloneVehicles shallow-copies the snapshot map. Entries (vehicleSnap
+// pointers) are shared; callers replace whole entries, never mutate them.
+func cloneVehicles(cur *map[string]*vehicleSnap) map[string]*vehicleSnap {
+	next := make(map[string]*vehicleSnap, len(*cur)+1)
+	for k, v := range *cur {
+		next[k] = v
+	}
+	return next
+}
+
+// cloneSnap copies a vehicleSnap's containers (exact map header + patterns
+// slice). The inner client slices are shared and treated as immutable —
+// modifications replace the whole slice via appendClient/removeClient.
+func cloneSnap(vs *vehicleSnap) *vehicleSnap {
+	n := &vehicleSnap{exact: make(map[string][]*Client)}
+	if vs != nil {
+		for k, v := range vs.exact {
+			n.exact[k] = v
+		}
+		n.patterns = append([]patternBucket(nil), vs.patterns...)
+	}
+	return n
+}
+
+// appendClient returns old with client added, copying so the original
+// (possibly published) slice is never mutated. A no-op if already present.
+func appendClient(old []*Client, client *Client) []*Client {
+	for _, c := range old {
+		if c == client {
+			return old
+		}
+	}
+	n := make([]*Client, len(old)+1)
+	copy(n, old)
+	n[len(old)] = client
+	return n
+}
+
+// removeClient returns old without client (copying) and whether it changed.
+func removeClient(old []*Client, client *Client) ([]*Client, bool) {
+	idx := -1
+	for i, c := range old {
+		if c == client {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return old, false
+	}
+	n := make([]*Client, 0, len(old)-1)
+	n = append(n, old[:idx]...)
+	n = append(n, old[idx+1:]...)
+	return n, true
+}
+
 func (h *Hub) Subscribe(vehicleID string, names []string, client *Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+
+	next := cloneVehicles(h.vehicles.Load())
+	vs := cloneSnap(next[vehicleID])
+
 	for _, name := range names {
 		if isPattern(name) {
-			if h.patterns[vehicleID] == nil {
-				h.patterns[vehicleID] = make(map[string]map[*Client]struct{})
+			found := false
+			for i := range vs.patterns {
+				if vs.patterns[i].pattern == name {
+					vs.patterns[i].clients = appendClient(vs.patterns[i].clients, client)
+					found = true
+					break
+				}
 			}
-			if h.patterns[vehicleID][name] == nil {
-				h.patterns[vehicleID][name] = make(map[*Client]struct{})
+			if !found {
+				vs.patterns = append(vs.patterns, patternBucket{
+					pattern: name,
+					clients: []*Client{client},
+				})
 			}
-			h.patterns[vehicleID][name][client] = struct{}{}
 			continue
 		}
-		if h.exact[vehicleID] == nil {
-			h.exact[vehicleID] = make(map[string]map[*Client]struct{})
-		}
-		if h.exact[vehicleID][name] == nil {
-			h.exact[vehicleID][name] = make(map[*Client]struct{})
-		}
-		h.exact[vehicleID][name][client] = struct{}{}
+		vs.exact[name] = appendClient(vs.exact[name], client)
 	}
+
+	next[vehicleID] = vs
+	h.vehicles.Store(&next)
 }
 
 func (h *Hub) Unsubscribe(vehicleID string, names []string, client *Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+
+	cur := h.vehicles.Load()
+	if (*cur)[vehicleID] == nil {
+		return
+	}
+	next := cloneVehicles(cur)
+	vs := cloneSnap(next[vehicleID])
+
 	for _, name := range names {
 		if isPattern(name) {
-			if pats, ok := h.patterns[vehicleID]; ok {
-				if set, ok := pats[name]; ok {
-					delete(set, client)
-					if len(set) == 0 {
-						delete(pats, name)
-					}
+			for i := range vs.patterns {
+				if vs.patterns[i].pattern != name {
+					continue
 				}
-				if len(pats) == 0 {
-					delete(h.patterns, vehicleID)
+				if remaining, _ := removeClient(vs.patterns[i].clients, client); len(remaining) == 0 {
+					vs.patterns = append(vs.patterns[:i], vs.patterns[i+1:]...)
+				} else {
+					vs.patterns[i].clients = remaining
 				}
+				break
 			}
 			continue
 		}
-		if ex, ok := h.exact[vehicleID]; ok {
-			if set, ok := ex[name]; ok {
-				delete(set, client)
-				if len(set) == 0 {
-					delete(ex, name)
-				}
-			}
-			if len(ex) == 0 {
-				delete(h.exact, vehicleID)
+		if remaining, changed := removeClient(vs.exact[name], client); changed {
+			if len(remaining) == 0 {
+				delete(vs.exact, name)
+			} else {
+				vs.exact[name] = remaining
 			}
 		}
 	}
+
+	if len(vs.exact) == 0 && len(vs.patterns) == 0 {
+		delete(next, vehicleID)
+	} else {
+		next[vehicleID] = vs
+	}
+	h.vehicles.Store(&next)
 }
 
 // Publish dispatches signal to every client subscribed to its vehicle that
 // either named it exactly or registered a matching glob pattern. The same
 // client receiving via both routes is deduped — it gets the signal once.
+//
+// Reads the subscriber snapshot lock-free, so it is never blocked by
+// connection churn. The non-blocking send drops for any client whose buffer
+// is full, so a slow consumer cannot backpressure the hub.
 func (h *Hub) Publish(signal mapache.Signal) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	vs := (*h.vehicles.Load())[signal.VehicleID]
+	if vs == nil {
+		return
+	}
 
-	sent := make(map[*Client]struct{})
-	dispatch := func(clients map[*Client]struct{}) {
-		for c := range clients {
-			if _, dup := sent[c]; dup {
-				continue
-			}
-			sent[c] = struct{}{}
-			select {
-			case c.Send <- signal:
-			default:
-			}
+	h.pubMu.Lock()
+	defer h.pubMu.Unlock()
+
+	// pubSeq is always >= 1, so a freshly created Client (seq == 0) is never
+	// mistaken for already-sent.
+	h.pubSeq++
+	seq := h.pubSeq
+
+	send := func(c *Client) {
+		if c.seq == seq {
+			return
+		}
+		c.seq = seq
+		select {
+		case c.Send <- signal:
+		default:
 		}
 	}
 
-	if ex, ok := h.exact[signal.VehicleID]; ok {
-		if clients, ok := ex[signal.Name]; ok {
-			dispatch(clients)
-		}
+	for _, c := range vs.exact[signal.Name] {
+		send(c)
 	}
-	if pats, ok := h.patterns[signal.VehicleID]; ok {
-		for pattern, clients := range pats {
-			// path.Match parses each call, but with realistic pattern
-			// counts (low tens) the cost is negligible vs the win of
-			// not having to maintain a compiled-matcher cache.
-			ok, err := path.Match(pattern, signal.Name)
-			if err != nil || !ok {
-				continue
-			}
-			dispatch(clients)
+	for i := range vs.patterns {
+		ok, err := path.Match(vs.patterns[i].pattern, signal.Name)
+		if err != nil || !ok {
+			continue
+		}
+		for _, c := range vs.patterns[i].clients {
+			send(c)
 		}
 	}
 }
@@ -179,22 +292,17 @@ func Matches(name string, subs []string) bool {
 }
 
 // Stats returns a coarse snapshot of subscription counts for /ping-style
-// observability. Cheap enough to call inline.
+// observability. Reads the snapshot lock-free.
 func (h *Hub) Stats() (vehicles, exactSubs, patternSubs int) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	seen := make(map[string]struct{})
-	for v, m := range h.exact {
-		seen[v] = struct{}{}
-		for _, set := range m {
+	m := *h.vehicles.Load()
+	for _, vs := range m {
+		vehicles++
+		for _, set := range vs.exact {
 			exactSubs += len(set)
 		}
-	}
-	for v, m := range h.patterns {
-		seen[v] = struct{}{}
-		for _, set := range m {
-			patternSubs += len(set)
+		for i := range vs.patterns {
+			patternSubs += len(vs.patterns[i].clients)
 		}
 	}
-	return len(seen), exactSubs, patternSubs
+	return vehicles, exactSubs, patternSubs
 }

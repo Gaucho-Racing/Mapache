@@ -7,11 +7,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gaucho-racing/mapache/live/config"
 	"github.com/gaucho-racing/mapache/live/service"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 )
+
+// sseKeepalive is how often a comment line is sent during signal lulls to
+// keep proxies open and let the write deadline reap dead connections.
+const sseKeepalive = 25 * time.Second
 
 // StreamSignalsSSE streams live signals over Server-Sent Events.
 //
@@ -56,6 +61,12 @@ func StreamSignalsSSE(c *gin.Context) {
 		since = time.Now().Add(-time.Duration(backfillSec) * time.Second)
 	}
 
+	if !streamGate.acquire() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "server at connection capacity"})
+		return
+	}
+	defer streamGate.release()
+
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -70,14 +81,34 @@ func StreamSignalsSSE(c *gin.Context) {
 	service.Signals.Subscribe(vehicleID, subs, client)
 	defer service.Signals.Unsubscribe(vehicleID, subs, client)
 
+	// http.ResponseController reaches the underlying conn (gin's
+	// ResponseWriter implements Unwrap) so we can bound each write with a
+	// deadline — a client that stops draining can't pin this goroutine.
+	rc := http.NewResponseController(c.Writer)
+	setDeadline := func() {
+		rc.SetWriteDeadline(time.Now().Add(time.Duration(config.WriteTimeoutSec) * time.Second))
+	}
+
+	setDeadline()
 	suppress := sendBackfillSSE(c, vehicleID, subs, since)
 	c.Writer.Flush()
+
+	// Keepalive comment so a half-open connection is detected (write deadline
+	// fires) even during signal lulls, and proxies keep the stream open.
+	ka := time.NewTicker(sseKeepalive)
+	defer ka.Stop()
 
 	ctx := c.Request.Context()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-ka.C:
+			setDeadline()
+			if _, err := fmt.Fprint(c.Writer, ": keepalive\n\n"); err != nil {
+				return
+			}
+			c.Writer.Flush()
 		case sig, ok := <-client.Send:
 			if !ok {
 				return
@@ -85,6 +116,7 @@ func StreamSignalsSSE(c *gin.Context) {
 			if max, ok := suppress[sig.Name]; ok && sig.CreatedAt.Before(max) {
 				continue
 			}
+			setDeadline()
 			if !writeSSESignal(c, sig) {
 				return
 			}

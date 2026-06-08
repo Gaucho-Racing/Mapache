@@ -22,6 +22,10 @@ func Stats(c *gin.Context) {
 			"exact":    exact,
 			"patterns": patterns,
 		},
+		"connections": gin.H{
+			"active": streamGate.count(),
+			"max":    config.MaxConnections,
+		},
 		"cache":   service.Recent.Stats(),
 		"latency": service.Latency.Stats(),
 	})
