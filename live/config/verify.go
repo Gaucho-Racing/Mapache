@@ -32,4 +32,20 @@ func Verify() {
 	} else {
 		CacheWindowSec = n
 	}
+	if n, err := strconv.Atoi(MaxConnectionsRaw); err != nil || n < 1 {
+		if MaxConnectionsRaw != "" {
+			logger.SugarLogger.Errorf("MAX_CONNECTIONS=%q is not a positive int, defaulting to 5000", MaxConnectionsRaw)
+		}
+		MaxConnections = 5000
+	} else {
+		MaxConnections = n
+	}
+	if n, err := strconv.Atoi(WriteTimeoutSecRaw); err != nil || n < 1 {
+		if WriteTimeoutSecRaw != "" {
+			logger.SugarLogger.Errorf("WRITE_TIMEOUT_SEC=%q is not a positive int, defaulting to 10", WriteTimeoutSecRaw)
+		}
+		WriteTimeoutSec = 10
+	} else {
+		WriteTimeoutSec = n
+	}
 }

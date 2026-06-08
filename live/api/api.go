@@ -32,7 +32,12 @@ func InitializeRouter() *gin.Engine {
 	return r
 }
 
+// streamGate bounds concurrent WS+SSE streams for this replica. Initialized
+// from config in InitializeRoutes, after config.Verify has run.
+var streamGate *connGate
+
 func InitializeRoutes(router *gin.Engine) {
+	streamGate = newConnGate(config.MaxConnections)
 	router.GET("/live/ping", Ping)
 	router.GET("/live/stats", Stats)
 	router.GET("/live/ws", StreamSignalsWS)

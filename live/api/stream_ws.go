@@ -22,6 +22,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+const (
+	// pongWait is how long we wait for a pong before declaring the connection
+	// dead and reaping it. pingPeriod must be comfortably less than pongWait.
+	pongWait   = 60 * time.Second
+	pingPeriod = (pongWait * 9) / 10
+)
+
 // StreamSignalsWS streams live signals over a WebSocket. Subscription is
 // fixed at connect time (URL params). The first frame is always a JSON
 // array of backfill signals (possibly empty); every subsequent frame is a
@@ -53,6 +60,12 @@ func StreamSignalsWS(c *gin.Context) {
 	backfillSec := parseBackfill(c.Query("backfill"))
 	rate := parseRate(c.Query("rate"))
 
+	if !streamGate.acquire() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "server at connection capacity"})
+		return
+	}
+	defer streamGate.release()
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
@@ -72,14 +85,37 @@ func StreamSignalsWS(c *gin.Context) {
 
 	suppress := sendBackfillWS(conn, vehicleID, subs, backfillSec)
 
-	// Reader goroutine — only purpose is detecting client disconnect.
-	// Anything the client sends is ignored (subs are fixed at connect).
+	// Reader goroutine — detects client disconnect and drives the heartbeat:
+	// each pong (and any client frame) extends the read deadline, so a
+	// half-open connection that stops responding is reaped after pongWait.
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		conn.SetPongHandler(func(string) error {
+			return conn.SetReadDeadline(time.Now().Add(pongWait))
+		})
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
 				return
+			}
+		}
+	}()
+
+	// Ping goroutine — keeps the connection live and surfaces dead peers.
+	// WriteControl is safe to call concurrently with the WriteJSON in streamWS.
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				deadline := time.Now().Add(time.Duration(config.WriteTimeoutSec) * time.Second)
+				if err := conn.WriteControl(websocket.PingMessage, nil, deadline); err != nil {
+					return
+				}
 			}
 		}
 	}()
@@ -101,6 +137,7 @@ func sendBackfillWS(conn *websocket.Conn, vehicleID string, subs []string, backf
 	if snap == nil {
 		snap = []mapache.Signal{}
 	}
+	conn.SetWriteDeadline(time.Now().Add(time.Duration(config.WriteTimeoutSec) * time.Second))
 	if err := conn.WriteJSON(snap); err != nil {
 		return nil
 	}
@@ -123,6 +160,13 @@ func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]
 		return true
 	}
 
+	// writeJSON bounds every frame with a write deadline so a client that
+	// stops draining its socket can't pin this goroutine forever.
+	writeJSON := func(v any) error {
+		conn.SetWriteDeadline(time.Now().Add(time.Duration(config.WriteTimeoutSec) * time.Second))
+		return conn.WriteJSON(v)
+	}
+
 	if rate <= 0 {
 		for {
 			select {
@@ -135,7 +179,7 @@ func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]
 				if !keep(sig) {
 					continue
 				}
-				if err := conn.WriteJSON(sig); err != nil {
+				if err := writeJSON(sig); err != nil {
 					return
 				}
 			}
@@ -160,7 +204,7 @@ func streamWS(conn *websocket.Conn, client *service.Client, suppress map[string]
 			pending[sig.Name] = sig
 		case <-ticker.C:
 			for _, s := range pending {
-				if err := conn.WriteJSON(s); err != nil {
+				if err := writeJSON(s); err != nil {
 					return
 				}
 			}
