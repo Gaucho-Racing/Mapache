@@ -173,7 +173,7 @@ services:
     # Local dev pulls the same image prod runs. Bump in lockstep with the
     # infra manifest; FOREMAN_TABLE_PREFIX defaults to "foreman_" so the
     # tables don't collide with the host app's schema.
-    image: ghcr.io/gaucho-racing/foreman:2.0.1
+    image: ghcr.io/gaucho-racing/foreman:2.0.2
     restart: unless-stopped
     ports:
       - "7011:7011"
