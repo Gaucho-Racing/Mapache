@@ -194,6 +194,22 @@ function VehicleDetailsPage() {
     }
   };
 
+  const deleteFlag = async (key: string) => {
+    if (!vehicle) return;
+    try {
+      const res = await axios.delete(
+        `${BACKEND_URL}/config/flags/${vehicle.type}/${key}`,
+        { headers: authHeader() },
+      );
+      if (res.status === 200) {
+        notify.success(`Flag ${key} deleted`);
+        reload();
+      }
+    } catch (error) {
+      notify.error(getAxiosErrorMessage(error));
+    }
+  };
+
   const deleteVehicle = async () => {
     if (!vehicle) return;
     try {
@@ -275,6 +291,7 @@ function VehicleDetailsPage() {
           overrideMap={overrideMap}
           onSet={setOverride}
           onClear={clearOverride}
+          onDelete={deleteFlag}
           onFlagsChanged={reload}
         />
       </div>
@@ -319,6 +336,7 @@ function ConfigSection({
   overrideMap,
   onSet,
   onClear,
+  onDelete,
   onFlagsChanged,
 }: {
   vehicle: Vehicle;
@@ -327,6 +345,7 @@ function ConfigSection({
   overrideMap: Map<string, string>;
   onSet: (key: string, encoded: string) => void;
   onClear: (key: string) => void;
+  onDelete: (key: string) => void;
   onFlagsChanged: () => void;
 }) {
   return (
@@ -350,6 +369,7 @@ function ConfigSection({
               override={overrideMap.get(flag.key)}
               onSet={onSet}
               onClear={onClear}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -364,12 +384,14 @@ function FlagRow({
   override,
   onSet,
   onClear,
+  onDelete,
 }: {
   flag: ConfigFlag;
   effective: unknown;
   override: string | undefined;
   onSet: (key: string, encoded: string) => void;
   onClear: (key: string) => void;
+  onDelete: (key: string) => void;
 }) {
   const overridden = override !== undefined;
   const [draft, setDraft] = useState(
@@ -399,9 +421,12 @@ function FlagRow({
             </Badge>
           )}
         </div>
-        <div className="text-sm">
-          <span className="text-muted-foreground">effective: </span>
-          <span className="font-mono">{fmtFlagValue(effective)}</span>
+        <div className="flex items-center gap-3">
+          <div className="text-sm">
+            <span className="text-muted-foreground">effective: </span>
+            <span className="font-mono">{fmtFlagValue(effective)}</span>
+          </div>
+          <DeleteFlagButton flagKey={flag.key} onConfirm={() => onDelete(flag.key)} />
         </div>
       </div>
 
@@ -456,6 +481,39 @@ function FlagRow({
         )}
       </div>
     </div>
+  );
+}
+
+function DeleteFlagButton({
+  flagKey,
+  onConfirm,
+}: {
+  flagKey: string;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete flag</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete flag "{flagKey}"?</DialogTitle>
+          <DialogDescription>
+            This removes the flag for all vehicles of this type and deletes every
+            per-vehicle override of it. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="destructive" onClick={onConfirm}>
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
