@@ -89,10 +89,9 @@ func ClearVehicleConfigOverride(c *gin.Context) {
 
 // ---- Snapshot (the car's poll endpoint) + status ----
 
-// GetVehicleConfig is the car's poll endpoint. It returns the effective
-// snapshot, sets an ETag so an unchanged poll can return 304, and records the
-// poll for liveness. The car echoes the version it last applied via
-// ?applied_version= so the server can track drift.
+// GetVehicleConfig is the car's poll endpoint: it returns the effective
+// snapshot and records the poll for liveness. The car echoes the version it
+// last applied via ?applied_version= so the server can track drift.
 func GetVehicleConfig(c *gin.Context) {
 	snap, err := service.BuildSnapshot(c.Param("vehicleID"))
 	if err != nil {
@@ -105,13 +104,6 @@ func GetVehicleConfig(c *gin.Context) {
 		logger.SugarLogger.Warnf("[config] record poll for %s failed: %v", snap.VehicleID, err)
 	}
 
-	etag := `"` + snap.Version + `"`
-	c.Header("ETag", etag)
-	c.Header("Cache-Control", "no-cache")
-	if match := c.GetHeader("If-None-Match"); match == etag {
-		c.Status(http.StatusNotModified)
-		return
-	}
 	c.JSON(http.StatusOK, snap)
 }
 
