@@ -129,7 +129,6 @@ func BuildSnapshot(vehicleID string) (model.ConfigSnapshot, error) {
 	}
 	return model.ConfigSnapshot{
 		VehicleID:   vehicleID,
-		Version:     model.SnapshotVersion(vehicleID, flags),
 		GeneratedAt: time.Now(),
 		Flags:       flags,
 	}, nil
@@ -160,20 +159,14 @@ func GetStatus(vehicleID string) model.VehicleConfigStatus {
 	return s
 }
 
-// RecordPoll updates liveness on every poll and, when the car reports the
-// version it applied, records that too. Upserts the status row.
-func RecordPoll(vehicleID, appliedVersion string) error {
+// RecordSync stamps the vehicle's last successful config fetch. Called only
+// when the car authenticates with its upload key, so it reflects the car
+// checking in — not a dashboard read. Upserts the status row.
+func RecordSync(vehicleID string) error {
 	now := time.Now()
-	status := model.VehicleConfigStatus{VehicleID: vehicleID, LastPolledAt: now}
-	updates := map[string]any{"last_polled_at": now}
-	if appliedVersion != "" {
-		status.AppliedVersion = appliedVersion
-		status.AppliedAt = now
-		updates["applied_version"] = appliedVersion
-		updates["applied_at"] = now
-	}
+	status := model.VehicleConfigStatus{VehicleID: vehicleID, LastSyncedAt: now}
 	return database.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "vehicle_id"}},
-		DoUpdates: clause.Assignments(updates),
+		DoUpdates: clause.Assignments(map[string]any{"last_synced_at": now}),
 	}).Create(&status).Error
 }

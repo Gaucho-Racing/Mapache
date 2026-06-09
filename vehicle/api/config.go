@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gaucho-racing/mapache/vehicle/model"
 	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
@@ -89,19 +90,28 @@ func ClearVehicleConfigOverride(c *gin.Context) {
 
 // ---- Snapshot (the car's poll endpoint) + status ----
 
-// GetVehicleConfig is the car's poll endpoint: it returns the effective
-// snapshot and records the poll for liveness. The car echoes the version it
-// last applied via ?applied_version= so the server can track drift.
+// GetVehicleConfig returns a vehicle's effective config. When the caller
+// supplies the vehicle's upload key (?upload_key=), it's treated as the car
+// checking in and the sync is recorded — the fetch is the ack. Reads without a
+// key (e.g. the dashboard) just return config and don't count as a sync.
 func GetVehicleConfig(c *gin.Context) {
-	snap, err := service.BuildSnapshot(c.Param("vehicleID"))
+	vehicleID := c.Param("vehicleID")
+	snap, err := service.BuildSnapshot(vehicleID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
 		return
 	}
 
-	// Best-effort poll accounting — never fail the poll over a status write.
-	if err := service.RecordPoll(snap.VehicleID, c.Query("applied_version")); err != nil {
-		logger.SugarLogger.Warnf("[config] record poll for %s failed: %v", snap.VehicleID, err)
+	if key := c.Query("upload_key"); key != "" {
+		v := service.GetVehicleByID(vehicleID)
+		if key != strconv.Itoa(v.UploadKey) {
+			c.JSON(http.StatusForbidden, gin.H{"message": "invalid upload key"})
+			return
+		}
+		// Best-effort — never fail the poll over a status write.
+		if err := service.RecordSync(vehicleID); err != nil {
+			logger.SugarLogger.Warnf("[config] record sync for %s failed: %v", vehicleID, err)
+		}
 	}
 
 	c.JSON(http.StatusOK, snap)
@@ -114,15 +124,14 @@ func GetVehicleConfigStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": service.ErrVehicleNotFound.Error()})
 		return
 	}
-	snap, _ := service.BuildSnapshot(vehicleID)
+	updatedAt := service.ConfigUpdatedAt(v.Type, vehicleID)
 	status := service.GetStatus(vehicleID)
+	// In sync when the car has synced at or after the last config change.
+	inSync := !status.LastSyncedAt.IsZero() && !status.LastSyncedAt.Before(updatedAt)
 	c.JSON(http.StatusOK, gin.H{
 		"vehicle_id":        vehicleID,
-		"desired_version":   snap.Version,
-		"applied_version":   status.AppliedVersion,
-		"in_sync":           status.AppliedVersion == snap.Version,
-		"config_updated_at": service.ConfigUpdatedAt(v.Type, vehicleID),
-		"applied_at":        status.AppliedAt,
-		"last_polled_at":    status.LastPolledAt,
+		"in_sync":           inSync,
+		"config_updated_at": updatedAt,
+		"last_synced_at":    status.LastSyncedAt,
 	})
 }

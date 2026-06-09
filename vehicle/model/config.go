@@ -1,8 +1,6 @@
 package model
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -51,47 +49,27 @@ type VehicleConfigOverride struct {
 
 func (VehicleConfigOverride) TableName() string { return "vehicle_config_override" }
 
-// VehicleConfigStatus records what version the car last reported applying and
-// when it last checked in. AppliedVersion + AppliedAt come from the version
-// the car echoes on its next poll; LastPolledAt is updated on every poll. The
-// desired version is computed on read (the current snapshot's content hash),
-// not stored — so there is no write-path bookkeeping to keep in sync, and a
-// flag deletion can't leave a stale counter behind. Drift = AppliedVersion !=
-// current version; a stale LastPolledAt means the car is offline.
+// VehicleConfigStatus records when the car last successfully synced its config.
+// LastSyncedAt is set when the car fetches config authenticated with its upload
+// key (the fetch is the ack). A vehicle is up to date when LastSyncedAt is at
+// or after the config's last change (see ConfigUpdatedAt); a stale LastSyncedAt
+// means the car is offline or hasn't picked up the latest change.
 type VehicleConfigStatus struct {
-	VehicleID      string    `json:"vehicle_id" gorm:"primaryKey"`
-	AppliedVersion string    `json:"applied_version"`
-	AppliedAt      time.Time `json:"applied_at" gorm:"precision:6"`
-	LastPolledAt   time.Time `json:"last_polled_at" gorm:"precision:6"`
-	UpdatedAt      time.Time `json:"updated_at" gorm:"autoUpdateTime;precision:6"`
+	VehicleID    string    `json:"vehicle_id" gorm:"primaryKey"`
+	LastSyncedAt time.Time `json:"last_synced_at" gorm:"precision:6"`
+	UpdatedAt    time.Time `json:"updated_at" gorm:"autoUpdateTime;precision:6"`
 }
 
 func (VehicleConfigStatus) TableName() string { return "vehicle_config_status" }
 
 // ConfigSnapshot is the full-state payload the car fetches from
-// GET /vehicles/{id}/config. The car applies it wholesale and echoes Version
-// back on its next poll. Full-state (not deltas) keeps application idempotent
-// and self-healing: a car that missed changes just converges to the latest.
-// Version is a content hash over the effective flags, so it doubles as the
-// HTTP ETag (unchanged poll → 304) and changes whenever the resolved config
-// changes — including on flag deletion.
+// GET /vehicles/{id}/config. The car applies it wholesale. Full-state (not
+// deltas) keeps application idempotent and self-healing: a car that missed
+// changes just converges to the latest.
 type ConfigSnapshot struct {
 	VehicleID   string         `json:"vehicle_id"`
-	Version     string         `json:"version"`
 	GeneratedAt time.Time      `json:"generated_at"`
 	Flags       map[string]any `json:"flags"`
-}
-
-// SnapshotVersion is the deterministic content hash of a vehicle's effective
-// flags. json.Marshal sorts map keys, so the encoding is canonical and the
-// hash is stable across processes for identical content.
-func SnapshotVersion(vehicleID string, flags map[string]any) string {
-	b, _ := json.Marshal(struct {
-		V string         `json:"v"`
-		F map[string]any `json:"f"`
-	}{vehicleID, flags})
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:8])
 }
 
 // DecodeScalar parses a JSON-encoded scalar into its typed Go value according

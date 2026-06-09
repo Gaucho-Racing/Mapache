@@ -74,34 +74,6 @@ func TestComputeFlagsBadOverrideFallsBackToDefault(t *testing.T) {
 	}
 }
 
-func TestSnapshotVersionStableAndSensitive(t *testing.T) {
-	a, _ := ComputeFlags(defs(), nil)
-	v1 := SnapshotVersion("gr26-01", a)
-
-	// Same content, rebuilt independently -> same hash (order-independent).
-	b, _ := ComputeFlags(defs(), nil)
-	if got := SnapshotVersion("gr26-01", b); got != v1 {
-		t.Fatalf("hash not stable for identical content: %s vs %s", v1, got)
-	}
-
-	// Different vehicle -> different hash.
-	if SnapshotVersion("gr26-02", a) == v1 {
-		t.Error("hash should incorporate vehicle id")
-	}
-
-	// Changed flag value -> different hash.
-	c, _ := ComputeFlags(defs(), []VehicleConfigOverride{{Key: "camera_enabled", Value: "true"}})
-	if SnapshotVersion("gr26-01", c) == v1 {
-		t.Error("hash should change when a flag value changes")
-	}
-
-	// Fewer flags (deletion) -> different hash.
-	d, _ := ComputeFlags(defs()[:3], nil)
-	if SnapshotVersion("gr26-01", d) == v1 {
-		t.Error("hash should change when a flag is removed")
-	}
-}
-
 func TestValidateValue(t *testing.T) {
 	cases := []struct {
 		t       ConfigValueType

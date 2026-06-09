@@ -266,7 +266,7 @@ function VehicleDetailsPage() {
           </div>
         </Card>
 
-        <ConfigStatusCard status={status} snapshot={snapshot} />
+        <ConfigStatusCard status={status} />
 
         <ConfigSection
           vehicle={vehicle}
@@ -282,13 +282,7 @@ function VehicleDetailsPage() {
   );
 }
 
-function ConfigStatusCard({
-  status,
-  snapshot,
-}: {
-  status: ConfigStatus | null;
-  snapshot: ConfigSnapshot | null;
-}) {
+function ConfigStatusCard({ status }: { status: ConfigStatus | null }) {
   return (
     <Card className="p-4">
       <div className="mb-2 flex items-center justify-between">
@@ -306,10 +300,7 @@ function ConfigStatusCard({
       <dl className="grid grid-cols-[180px_1fr] gap-y-1.5 text-sm">
         {[
           ["Config last updated", fmtTime(status?.config_updated_at)],
-          ["Last pulled by vehicle", fmtTime(status?.last_polled_at)],
-          ["Vehicle applied at", fmtTime(status?.applied_at)],
-          ["Desired version", snapshot?.version ?? "—"],
-          ["Applied version", status?.applied_version || "—"],
+          ["Last synced by vehicle", fmtTime(status?.last_synced_at)],
         ].map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-muted-foreground">{k}</dt>

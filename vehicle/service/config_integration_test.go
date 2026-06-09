@@ -55,16 +55,12 @@ func TestConfigFlowEndToEnd(t *testing.T) {
 	if snap.Flags["mqtt_publish_enabled"] != true || snap.Flags["camera_enabled"] != false {
 		t.Fatalf("type defaults wrong: %+v", snap.Flags)
 	}
-	v1 := snap.Version
 
-	// Per-vehicle override wins and changes the version.
+	// Per-vehicle override wins.
 	must(t, SetOverride("test-car-1", "camera_enabled", "true"))
 	snap2, _ := BuildSnapshot("test-car-1")
 	if snap2.Flags["camera_enabled"] != true {
 		t.Fatal("override not applied")
-	}
-	if snap2.Version == v1 {
-		t.Fatal("version should change after override")
 	}
 
 	// Invalid value and unknown-flag overrides are rejected.
@@ -75,14 +71,15 @@ func TestConfigFlowEndToEnd(t *testing.T) {
 		t.Fatal("expected unknown flag rejection")
 	}
 
-	// Poll accounting.
-	must(t, RecordPoll("test-car-1", snap2.Version))
-	st := GetStatus("test-car-1")
-	if st.AppliedVersion != snap2.Version {
-		t.Fatalf("applied version not recorded: %q", st.AppliedVersion)
+	// Sync accounting: a change leaves the car out of sync until it syncs.
+	updated := ConfigUpdatedAt("gr26", "test-car-1")
+	if updated.IsZero() {
+		t.Fatal("config_updated_at should be set after flag/override writes")
 	}
-	if st.LastPolledAt.IsZero() {
-		t.Fatal("last polled not set")
+	must(t, RecordSync("test-car-1"))
+	st := GetStatus("test-car-1")
+	if st.LastSyncedAt.Before(updated) {
+		t.Fatalf("last_synced_at (%v) should be >= config_updated_at (%v)", st.LastSyncedAt, updated)
 	}
 
 	// Deleting the flag cascades to the vehicle override and drops it from the snapshot.
