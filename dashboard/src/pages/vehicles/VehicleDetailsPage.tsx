@@ -337,7 +337,7 @@ function ConfigSection({
         <CreateFlagDialog vehicleType={vehicle.type} onCreated={onFlagsChanged} />
       </div>
       <Separator className="mb-3" />
-      <dl className="mb-4 grid grid-cols-[180px_1fr] gap-y-1.5 text-sm">
+      <dl className="mb-5 grid grid-cols-[180px_1fr] gap-y-1.5 text-sm">
         {[
           ["Config last updated", fmtTime(status?.config_updated_at)],
           ["Last synced by vehicle", fmtTime(status?.last_synced_at)],
@@ -348,7 +348,6 @@ function ConfigSection({
           </div>
         ))}
       </dl>
-      <Separator className="mb-3" />
       {flags.length === 0 ? (
         <div className="text-sm text-muted-foreground">
           No flags defined for {vehicle.type} yet.
