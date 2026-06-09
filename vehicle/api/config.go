@@ -12,25 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// noStore marks a response uncacheable. Config + flag data must always be
-// served fresh — a cached/revalidated (304) flag could hand back a stale value,
-// which for a kill switch is unacceptable — and it stops intermediaries from
-// turning these reads into conditional 304s.
-func noStore(c *gin.Context) {
-	c.Header("Cache-Control", "no-store")
-}
-
 // GetVehicleTypes exposes the canonical vehicle-type list so the frontend's
 // create-vehicle and flag dialogs don't hardcode it.
 func GetVehicleTypes(c *gin.Context) {
-	noStore(c)
 	c.JSON(http.StatusOK, model.VehicleTypeOptions())
 }
 
 // ---- Flag definitions ----
 
 func GetAllConfigFlags(c *gin.Context) {
-	noStore(c)
 	if t := c.Query("vehicle_type"); t != "" {
 		c.JSON(http.StatusOK, service.GetFlagsForType(t))
 		return
@@ -66,7 +56,6 @@ func DeleteConfigFlag(c *gin.Context) {
 // ---- Per-vehicle overrides ----
 
 func GetVehicleConfigOverrides(c *gin.Context) {
-	noStore(c)
 	c.JSON(http.StatusOK, service.GetOverrides(c.Param("vehicleID")))
 }
 
@@ -106,7 +95,6 @@ func ClearVehicleConfigOverride(c *gin.Context) {
 // checking in and the sync is recorded — the fetch is the ack. Reads without a
 // key (e.g. the dashboard) just return config and don't count as a sync.
 func GetVehicleConfig(c *gin.Context) {
-	noStore(c)
 	vehicleID := c.Param("vehicleID")
 	snap, err := service.BuildSnapshot(vehicleID)
 	if err != nil {
@@ -130,7 +118,6 @@ func GetVehicleConfig(c *gin.Context) {
 }
 
 func GetVehicleConfigStatus(c *gin.Context) {
-	noStore(c)
 	vehicleID := c.Param("vehicleID")
 	v := service.GetVehicleByID(vehicleID)
 	if v.ID == "" {
