@@ -14,6 +14,7 @@ import QueryPage from "@/pages/query/QueryPage.tsx";
 
 import SettingsPage from "@/pages/settings/SettingsPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
+import VehicleDetailsPage from "@/pages/vehicles/VehicleDetailsPage.tsx";
 import TripsPage from "@/pages/trips/TripsPage.tsx";
 import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
 import JobsPage from "@/pages/jobs/JobsPage.tsx";
@@ -54,6 +55,10 @@ const router = createBrowserRouter([
   {
     path: "/vehicles",
     element: <VehiclesPage />,
+  },
+  {
+    path: "/vehicles/:id",
+    element: <VehicleDetailsPage />,
   },
   {
     path: "/jobs",

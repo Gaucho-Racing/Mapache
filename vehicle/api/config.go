@@ -117,18 +117,20 @@ func GetVehicleConfig(c *gin.Context) {
 
 func GetVehicleConfigStatus(c *gin.Context) {
 	vehicleID := c.Param("vehicleID")
-	snap, err := service.BuildSnapshot(vehicleID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": err.Error()})
+	v := service.GetVehicleByID(vehicleID)
+	if v.ID == "" {
+		c.JSON(http.StatusNotFound, gin.H{"message": service.ErrVehicleNotFound.Error()})
 		return
 	}
+	snap, _ := service.BuildSnapshot(vehicleID)
 	status := service.GetStatus(vehicleID)
 	c.JSON(http.StatusOK, gin.H{
-		"vehicle_id":      vehicleID,
-		"desired_version": snap.Version,
-		"applied_version": status.AppliedVersion,
-		"in_sync":         status.AppliedVersion == snap.Version,
-		"applied_at":      status.AppliedAt,
-		"last_polled_at":  status.LastPolledAt,
+		"vehicle_id":        vehicleID,
+		"desired_version":   snap.Version,
+		"applied_version":   status.AppliedVersion,
+		"in_sync":           status.AppliedVersion == snap.Version,
+		"config_updated_at": service.ConfigUpdatedAt(v.Type, vehicleID),
+		"applied_at":        status.AppliedAt,
+		"last_polled_at":    status.LastPolledAt,
 	})
 }

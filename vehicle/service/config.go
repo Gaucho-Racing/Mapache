@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -132,6 +133,25 @@ func BuildSnapshot(vehicleID string) (model.ConfigSnapshot, error) {
 		GeneratedAt: time.Now(),
 		Flags:       flags,
 	}, nil
+}
+
+// ConfigUpdatedAt is when the vehicle's effective config last changed: the
+// most recent update across its type's flag definitions and its own overrides.
+// Zero time if the vehicle has no config at all.
+func ConfigUpdatedAt(vehicleType, vehicleID string) time.Time {
+	var flagT, ovrT sql.NullTime
+	database.DB.Model(&model.ConfigFlag{}).Where("vehicle_type = ?", vehicleType).
+		Select("max(updated_at)").Scan(&flagT)
+	database.DB.Model(&model.VehicleConfigOverride{}).Where("vehicle_id = ?", vehicleID).
+		Select("max(updated_at)").Scan(&ovrT)
+	out := time.Time{}
+	if flagT.Valid {
+		out = flagT.Time
+	}
+	if ovrT.Valid && ovrT.Time.After(out) {
+		out = ovrT.Time
+	}
+	return out
 }
 
 func GetStatus(vehicleID string) model.VehicleConfigStatus {
