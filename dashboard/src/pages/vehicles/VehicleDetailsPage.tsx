@@ -83,7 +83,8 @@ function fmtFlagValue(v: unknown): string {
 function fmtTime(s?: string): string {
   if (!s) return "—";
   const d = new Date(s);
-  if (isNaN(d.getTime()) || d.getTime() === 0) return "—";
+  // Treats both epoch-0 and Go's zero time (0001-01-01) as "never".
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000) return "—";
   return d.toLocaleString();
 }
 
@@ -282,10 +283,9 @@ function VehicleDetailsPage() {
           </div>
         </Card>
 
-        <ConfigStatusCard status={status} />
-
         <ConfigSection
           vehicle={vehicle}
+          status={status}
           flags={flags}
           snapshot={snapshot}
           overrideMap={overrideMap}
@@ -299,38 +299,9 @@ function VehicleDetailsPage() {
   );
 }
 
-function ConfigStatusCard({ status }: { status: ConfigStatus | null }) {
-  return (
-    <Card className="p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h4>Config Status</h4>
-        {status &&
-          (status.in_sync ? (
-            <Badge className="bg-green-600 hover:bg-green-600">In sync</Badge>
-          ) : (
-            <Badge className="bg-yellow-600 hover:bg-yellow-600">
-              Pending sync
-            </Badge>
-          ))}
-      </div>
-      <Separator className="mb-3" />
-      <dl className="grid grid-cols-[180px_1fr] gap-y-1.5 text-sm">
-        {[
-          ["Config last updated", fmtTime(status?.config_updated_at)],
-          ["Last synced by vehicle", fmtTime(status?.last_synced_at)],
-        ].map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="break-all font-mono text-xs">{v}</dd>
-          </div>
-        ))}
-      </dl>
-    </Card>
-  );
-}
-
 function ConfigSection({
   vehicle,
+  status,
   flags,
   snapshot,
   overrideMap,
@@ -340,6 +311,7 @@ function ConfigSection({
   onFlagsChanged,
 }: {
   vehicle: Vehicle;
+  status: ConfigStatus | null;
   flags: ConfigFlag[];
   snapshot: ConfigSnapshot | null;
   overrideMap: Map<string, string>;
@@ -351,9 +323,31 @@ function ConfigSection({
   return (
     <Card className="p-4">
       <div className="mb-2 flex items-center justify-between">
-        <h4>Config Flags ({vehicle.type})</h4>
+        <div className="flex items-center gap-3">
+          <h4>Config ({vehicle.type})</h4>
+          {status &&
+            (status.in_sync ? (
+              <Badge className="bg-green-600 hover:bg-green-600">In sync</Badge>
+            ) : (
+              <Badge className="bg-yellow-600 hover:bg-yellow-600">
+                Pending sync
+              </Badge>
+            ))}
+        </div>
         <CreateFlagDialog vehicleType={vehicle.type} onCreated={onFlagsChanged} />
       </div>
+      <Separator className="mb-3" />
+      <dl className="mb-4 grid grid-cols-[180px_1fr] gap-y-1.5 text-sm">
+        {[
+          ["Config last updated", fmtTime(status?.config_updated_at)],
+          ["Last synced by vehicle", fmtTime(status?.last_synced_at)],
+        ].map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="break-all font-mono text-xs">{v}</dd>
+          </div>
+        ))}
+      </dl>
       <Separator className="mb-3" />
       {flags.length === 0 ? (
         <div className="text-sm text-muted-foreground">
