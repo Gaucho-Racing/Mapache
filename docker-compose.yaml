@@ -147,6 +147,8 @@ services:
       context: .
       dockerfile: query/Dockerfile.dev
     restart: unless-stopped
+    depends_on:
+      - clickhouse
     ports:
       - "7010:7010"
     volumes:
@@ -159,6 +161,11 @@ services:
       DATABASE_NAME: ${DATABASE_NAME}
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE}
       KERBECS_ENDPOINT: "http://kerbecs:10300"
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"

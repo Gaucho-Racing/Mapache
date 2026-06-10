@@ -6,15 +6,23 @@ class Config:
     """Configuration settings for the application"""
 
     # Server settings
-    VERSION: str = "3.3.0"
+    VERSION: str = "4.0.0"
     PORT: int = int(os.getenv('PORT', 7000))
 
-    # Database settings
+    # Postgres (operational tables: signal_definition, token, log, etc.)
     DATABASE_HOST: str = os.getenv('DATABASE_HOST')
     DATABASE_PORT: int = int(os.getenv('DATABASE_PORT'))
     DATABASE_USER: str = os.getenv('DATABASE_USER')
     DATABASE_PASSWORD: str = os.getenv('DATABASE_PASSWORD')
     DATABASE_NAME: str = os.getenv('DATABASE_NAME')
+
+    # ClickHouse (data tables: signal, gr26_can, ping, etc.). HTTP port (8123)
+    # is what clickhouse-connect uses — distinct from gr26's native 9000.
+    CLICKHOUSE_HOST: str = os.getenv('CLICKHOUSE_HOST')
+    CLICKHOUSE_PORT: int = int(os.getenv('CLICKHOUSE_PORT', 8123))
+    CLICKHOUSE_USER: str = os.getenv('CLICKHOUSE_USER', 'default')
+    CLICKHOUSE_PASSWORD: str = os.getenv('CLICKHOUSE_PASSWORD', '')
+    CLICKHOUSE_DATABASE: str = os.getenv('CLICKHOUSE_DATABASE', 'mapache')
 
     # Kerbecs admin endpoint — used to resolve service-to-service routes.
     KERBECS_ENDPOINT: str = os.getenv('KERBECS_ENDPOINT')
@@ -41,4 +49,3 @@ class Config:
             port=Config.DATABASE_PORT,
             database=Config.DATABASE_NAME,
         )
-

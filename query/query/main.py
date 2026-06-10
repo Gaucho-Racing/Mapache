@@ -1,18 +1,22 @@
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
-import uvicorn
+
 from query.config.config import Config
+from query.database.clickhouse import init_clickhouse
 from query.database.connection import init_db
-from query.routes import ping, query, signal_definition, token
+from query.routes import ping, query_run, signal_definition, signals, token
 from query.service.auth import AuthService
 from query.service.kerbecs import init as init_kerbecs
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    init_clickhouse()
     init_kerbecs(Config.KERBECS_ENDPOINT, Config.KERBECS_USER, Config.KERBECS_PASSWORD)
     if Config.SKIP_AUTH_CHECK:
         logger.warning("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
@@ -20,9 +24,10 @@ async def lifespan(app: FastAPI):
         AuthService.configure(
             jwks_url=Config.SENTINEL_JWKS_URL,
             issuer="https://sso.gauchoracing.com",
-            audience=Config.SENTINEL_CLIENT_ID
+            audience=Config.SENTINEL_CLIENT_ID,
         )
     yield
+
 
 def create_app():
     app = FastAPI(
@@ -31,7 +36,7 @@ def create_app():
         version=Config.VERSION,
         docs_url="/query/docs",
         redoc_url="/query/redoc",
-        lifespan=lifespan
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -42,35 +47,19 @@ def create_app():
         allow_headers=["*"],
     )
 
-    app.include_router(
-        ping.router,
-        prefix="/query",
-        tags=["Ping"]
-    )
-
-    app.include_router(
-        query.router,
-        prefix="/query",
-        tags=["Query"]
-    )
-
-    app.include_router(
-        signal_definition.router,
-        prefix="/query",
-        tags=["Signal Definition"]
-    )
-
-    app.include_router(
-        token.router,
-        prefix="/query",
-        tags=["Token"]
-    )
+    app.include_router(ping.router, prefix="/query", tags=["Ping"])
+    app.include_router(query_run.router, prefix="/query", tags=["Query"])
+    app.include_router(signals.router, prefix="/query", tags=["Signals"])
+    app.include_router(signal_definition.router, prefix="/query", tags=["Signal Definition"])
+    app.include_router(token.router, prefix="/query", tags=["Token"])
 
     return app
+
 
 def main():
     app = create_app()
     uvicorn.run(app, host="0.0.0.0", port=Config.PORT)
+
 
 if __name__ == "__main__":
     main()
