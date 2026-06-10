@@ -8,14 +8,13 @@ import {
   useVehicleList,
 } from "@/lib/store";
 import {
+  Activity,
   Briefcase,
   Bug,
   CarFront,
   ChevronsUpDown,
   LayoutDashboard,
   LucideIcon,
-  MapPinned,
-  SearchCode,
   Settings,
 } from "lucide-react";
 import {
@@ -285,29 +284,15 @@ const Sidebar = (props: SidebarProps) => {
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <SidebarItem
-            icon={SearchCode}
-            text="Query"
-            link={`/query?vid=${currentVehicle.id}`}
-            isSelected={props.selectedPage === "query"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
-          <SidebarItem
-            icon={Bug}
-            text="Debug"
-            link={`/debug?vid=${currentVehicle.id}`}
-            isSelected={props.selectedPage === "debug"}
+            icon={Activity}
+            text="Signals"
+            link={`/signals?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "signals"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">
             <Separator />
           </div>
-          <SidebarItem
-            icon={MapPinned}
-            text="Trips"
-            link={`/trips?vid=${currentVehicle.id}`}
-            isSelected={props.selectedPage === "trips"}
-            isSidebarExpanded={props.isSidebarExpanded}
-          />
           <SidebarItem
             icon={CarFront}
             text="Vehicles"
@@ -325,6 +310,13 @@ const Sidebar = (props: SidebarProps) => {
           <div className="px-4 py-2">
             <Separator />
           </div>
+          <SidebarItem
+            icon={Bug}
+            text="Debug"
+            link={`/debug?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "debug"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
           <SidebarItem
             icon={Settings}
             text="Settings"
