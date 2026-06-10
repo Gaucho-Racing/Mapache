@@ -6,6 +6,7 @@ import (
 
 	"github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/config"
+	"github.com/gaucho-racing/mapache/vehicle/model"
 	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
 
 	"gorm.io/driver/postgres"
@@ -30,7 +31,8 @@ func Init() {
 		}
 	} else {
 		logger.SugarLogger.Infoln("Connected to database")
-		db.AutoMigrate(&mapache.Vehicle{}, &mapache.Session{}, &mapache.Marker{})
+		db.AutoMigrate(&mapache.Vehicle{}, &mapache.Session{}, &mapache.Marker{},
+			&model.ConfigFlag{}, &model.VehicleConfigOverride{}, &model.VehicleConfigStatus{})
 		logger.SugarLogger.Infoln("AutoMigration complete")
 		DB = db
 	}

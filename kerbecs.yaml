@@ -131,6 +131,22 @@ routes:
       strip_prefix: /api
     envelope: default
 
+  - name: vehicle-types
+    match:
+      path: /api/vehicle-types
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: config
+    match:
+      path: /api/config/*
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
   - name: gr26-live
     match:
       path: /api/gr26/live

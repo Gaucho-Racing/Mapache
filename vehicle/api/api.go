@@ -50,6 +50,20 @@ func InitializeRoutes(router *gin.Engine) {
 	router.DELETE("/sessions/:sessionID", DeleteSession)
 	router.POST("/sessions/:sessionID/markers", CreateMarker)
 	router.DELETE("/sessions/:sessionID/markers/:markerID", DeleteMarker)
+
+	router.GET("/vehicle-types", GetVehicleTypes)
+
+	// Config flag definitions (per vehicle type).
+	router.GET("/config/flags", GetAllConfigFlags)
+	router.POST("/config/flags", UpsertConfigFlag)
+	router.DELETE("/config/flags/:vehicleType/:key", DeleteConfigFlag)
+
+	// Per-vehicle config: snapshot (car poll), status, and overrides.
+	router.GET("/vehicles/:vehicleID/config", GetVehicleConfig)
+	router.GET("/vehicles/:vehicleID/config/status", GetVehicleConfigStatus)
+	router.GET("/vehicles/:vehicleID/config/overrides", GetVehicleConfigOverrides)
+	router.PUT("/vehicles/:vehicleID/config/overrides/:key", SetVehicleConfigOverride)
+	router.DELETE("/vehicles/:vehicleID/config/overrides/:key", ClearVehicleConfigOverride)
 }
 
 func UnauthorizedPanicHandler() gin.HandlerFunc {

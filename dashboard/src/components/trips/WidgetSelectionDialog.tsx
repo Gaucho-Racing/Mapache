@@ -116,6 +116,7 @@ export const WidgetSelectionDialog = ({
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
+                                  style={provided.draggableProps.style as React.CSSProperties}
                                 >
                                   <div className="flex flex-row items-center justify-between p-2">
                                     <div className="flex items-center">
