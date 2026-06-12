@@ -10,13 +10,11 @@ import "@xyflow/react/dist/style.css";
 import { Toaster } from "./components/ui/sonner.tsx";
 import App from "./App.tsx";
 import LoginPage from "@/pages/auth/LoginPage.tsx";
-import QueryPage from "@/pages/query/QueryPage.tsx";
+import SignalsPage from "@/pages/signals/SignalsPage.tsx";
 
 import SettingsPage from "@/pages/settings/SettingsPage.tsx";
 import VehiclesPage from "@/pages/vehicles/VehiclesPage.tsx";
 import VehicleDetailsPage from "@/pages/vehicles/VehicleDetailsPage.tsx";
-import TripsPage from "@/pages/trips/TripsPage.tsx";
-import TripDetailsPage from "@/pages/trips/TripDetailsPage.tsx";
 import JobsPage from "@/pages/jobs/JobsPage.tsx";
 import JobDetailsPage from "@/pages/jobs/JobDetailsPage.tsx";
 import DebugPage from "@/pages/debug/DebugPage.tsx";
@@ -37,20 +35,12 @@ const router = createBrowserRouter([
     element: <App />,
   },
   {
-    path: "/query",
-    element: <QueryPage />,
+    path: "/signals",
+    element: <SignalsPage />,
   },
   {
     path: "/settings",
     element: <SettingsPage />,
-  },
-  {
-    path: "/trips",
-    element: <TripsPage />,
-  },
-  {
-    path: "/trips/:id",
-    element: <TripDetailsPage />,
   },
   {
     path: "/vehicles",

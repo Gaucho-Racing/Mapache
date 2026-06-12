@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Query, Response, Header
-from typing import Annotated
+from fastapi import APIRouter, Header
 from loguru import logger
 from fastapi.responses import JSONResponse
-import pandas as pd
 from query.config.config import Config
 from query.service.auth import AuthService
 import traceback

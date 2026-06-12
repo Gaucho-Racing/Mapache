@@ -1,11 +1,10 @@
 package service
 
 import (
-	"strings"
-
 	"github.com/gaucho-racing/mapache/vehicle/database"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	"gorm.io/gorm/clause"
 )
 
 func GetAllVehicles() []mapache.Vehicle {
@@ -20,14 +19,16 @@ func GetVehicleByID(id string) mapache.Vehicle {
 	return vehicle
 }
 
+// CreateVehicle upserts on the primary key. The previous implementation
+// caught duplicate-key errors by matching the literal string "Duplicate
+// entry" — that's MySQL's wording; Postgres uses "duplicate key value
+// violates unique constraint", so the update fallback never fired and
+// every edit surfaced SQLSTATE 23505 to the user.
 func CreateVehicle(vehicle mapache.Vehicle) error {
-	result := database.DB.Create(&vehicle)
-	if result.Error != nil {
-		if strings.Contains(result.Error.Error(), "Duplicate entry") {
-			result = database.DB.Where("id = ?", vehicle.ID).Updates(&vehicle)
-		}
-	}
-	return result.Error
+	return database.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "description", "type", "upload_key"}),
+	}).Create(&vehicle).Error
 }
 
 func DeleteVehicle(vehicleID string) error {
