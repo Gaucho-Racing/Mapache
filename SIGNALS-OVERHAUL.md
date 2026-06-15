@@ -31,6 +31,7 @@ After `/clear`: read this file, then run
 | T6 | Highlight regions / boxes (frontend compute) | done | e83a1ea | per-widget/local; expr.ts gained == != > >= < <= (bare = ok) + and/or; shared compileAgainstSeries backs traces+highlights; new Highlights.tsx; __highlight__ markArea separate from __brush__. tsc/eslint clean. Needs browser smoke test |
 | T7 | Export (CSV data + PNG chart) | done | 3f97aa1 | per-widget CSV (plotted series, true values) + PNG via getDataURL@2x; new lib/export.ts; wrapped onReady keeps page group-zoom. tsc/eslint clean. Needs browser smoke test |
 | T10 | Collapse normalize/derived/highlights into an "Advanced options" disclosure | todo | — | declutter the widget; editors hidden by default behind a toggle |
+| T11 | Per-trace visibility toggle (hide a fetched signal from the chart while keeping it for derived traces / highlights) | done | 92efee3 | eye toggle in TraceAxisControls row next to normalize/group; optional `hidden` on AxisSetting; chart/axisConfig/colors/export use a `visibleSeries` filter; derived+highlights unaffected (read base `series`). tsc/eslint clean. Needs browser smoke test |
 
 ## Task detail
 
