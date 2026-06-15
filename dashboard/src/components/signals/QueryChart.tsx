@@ -86,6 +86,16 @@ const PALETTE = [
 
 const OTHER_KEY = "__other__";
 
+// Tag key marking a series as a user-defined derived/expression trace. The
+// chart renders these as standalone (non-stacked) lines and never rolls them
+// into the top-K "other" bucket — they're explicit additions by the user.
+// The tag value is the trace's display label.
+export const DERIVED_KEY = "__derived__";
+
+function isDerived(s: Series): boolean {
+  return DERIVED_KEY in s.tags;
+}
+
 function formatBucketTick(iso: string, intervalSec: number): string {
   const d = new Date(iso);
   if (intervalSec >= 24 * 60 * 60) {
@@ -133,8 +143,12 @@ function formatCount(n: number): string {
 }
 
 /** Make a stable label for a series from its tag values. Empty tags →
- *  "value" so the single-series legend reads naturally. */
-function seriesLabel(tags: Record<string, string | null>): string {
+ *  "value" so the single-series legend reads naturally. Derived traces carry
+ *  their display label directly in the reserved tag. Exported so the widget
+ *  can build matching variable aliases (`current_ac` from a `current_ac`
+ *  series) for the derived-trace expression evaluator. */
+export function seriesLabel(tags: Record<string, string | null>): string {
+  if (DERIVED_KEY in tags) return tags[DERIVED_KEY] ?? "derived";
   const entries = Object.entries(tags);
   if (entries.length === 0) return "value";
   return entries.map(([, v]) => v ?? "—").join(" · ");
@@ -148,10 +162,14 @@ function seriesTotal(s: Series): number {
 }
 
 /** Roll any series past `max` into a single "other" bucket so the chart
- *  stays readable when a query produces hundreds of groups. */
+ *  stays readable when a query produces hundreds of groups. Derived traces
+ *  are exempt — the user added them explicitly, so they always survive and
+ *  only the raw base series participate in the top-K ranking/rollup. */
 function topK(series: Series[], max: number): { kept: Series[]; otherCount: number } {
-  if (series.length <= max) return { kept: series, otherCount: 0 };
-  const sorted = [...series].sort((a, b) => seriesTotal(b) - seriesTotal(a));
+  const derived = series.filter(isDerived);
+  const base = series.filter((s) => !isDerived(s));
+  if (base.length <= max) return { kept: [...base, ...derived], otherCount: 0 };
+  const sorted = [...base].sort((a, b) => seriesTotal(b) - seriesTotal(a));
   const kept = sorted.slice(0, max);
   const tail = sorted.slice(max);
   // Build the "other" series by summing point-by-point across the tail.
@@ -164,7 +182,8 @@ function topK(series: Series[], max: number): { kept: Series[]; otherCount: numb
     return { bucket: p.bucket, value: sum };
   });
   kept.push({ tags: { [OTHER_KEY]: `+${tail.length} other` }, points: otherPoints });
-  return { kept, otherCount: tail.length };
+  // Derived traces ride along untouched after the rollup.
+  return { kept: [...kept, ...derived], otherCount: tail.length };
 }
 
 /** Resolve an HSL CSS custom property (stored as "H S% L%") to an
@@ -201,6 +220,10 @@ export function QueryChart({
       key: `s${i}`,
       label: seriesLabel(s.tags),
       color: PALETTE[i % PALETTE.length],
+      // Derived/expression traces render as standalone lines and never join
+      // the stacked bar/area group (a series and its square stacking on top
+      // of each other would be misleading).
+      derived: isDerived(s),
       // Nulls render as 0, matching the old recharts behavior (it coerced
       // null → 0 in the pivot).
       values: buckets.map((_, bi) => s.points[bi]?.value ?? 0),
@@ -208,10 +231,10 @@ export function QueryChart({
     return { buckets, plotSeries };
   }, [kept]);
 
-  const isMulti = plotSeries.length > 1;
-  // Bar/area stack by default in multi-series; line doesn't (lines stacked
-  // on top of each other are unreadable). Single-series never stacks.
-  const stack = isMulti && type !== "line" ? "stack" : undefined;
+  // Stacking is decided per-series below; the group is only meaningful when
+  // there are 2+ *base* (non-derived) series and the chart type stacks.
+  const baseCount = plotSeries.filter((s) => !s.derived).length;
+  const stackBase = baseCount > 1 && type !== "line" ? "stack" : undefined;
 
   const chartRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ECharts | null>(null);
@@ -244,12 +267,27 @@ export function QueryChart({
     const splitLineColor = cssHsl("--border", "#27272a");
 
     const echartsSeries = plotSeries.map((s) => {
+      // Derived traces ignore the widget's chart type and stacking entirely:
+      // always a clean, unstacked line so they read as an overlay on top of
+      // the raw series.
+      if (s.derived) {
+        return {
+          id: s.key,
+          name: s.label,
+          data: s.values,
+          type: "line" as const,
+          smooth: true,
+          showSymbol: false,
+          itemStyle: { color: s.color },
+          lineStyle: { width: 2, color: s.color },
+        };
+      }
       const base = {
         id: s.key,
         name: s.label,
         data: s.values,
         itemStyle: { color: s.color },
-        ...(stack ? { stack } : {}),
+        ...(stackBase ? { stack: stackBase } : {}),
       };
       if (type === "bar") {
         return {
@@ -361,7 +399,7 @@ export function QueryChart({
       ],
       series: echartsSeries,
     };
-  }, [plotSeries, buckets, type, stack, intervalSec]);
+  }, [plotSeries, buckets, type, stackBase, intervalSec]);
 
   // Initialize the instance once.
   useEffect(() => {

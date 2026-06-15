@@ -4,6 +4,12 @@ import {
 } from "@/components/signals/ChartTypeToggle";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
 import { QueryChart, type Series } from "@/components/signals/QueryChart";
+import {
+  buildSeriesVariables,
+  computeDerivedSeries,
+  DerivedTraces,
+} from "@/components/signals/DerivedTraces";
+import type { DerivedTrace } from "@/lib/expr";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
@@ -121,6 +127,9 @@ export function SignalWidget({
   const [queryAst, setQueryAst] = useState<Query>(DEFAULT_QUERY);
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [series, setSeries] = useState<Series[]>([]);
+  // User-defined derived/expression traces, evaluated in-browser over the
+  // fetched series (T5). Empty by default — zero-cost when unused.
+  const [derivedTraces, setDerivedTraces] = useState<DerivedTrace[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [seriesMs, setSeriesMs] = useState<number | null>(null);
   const [queryError, setQueryError] = useState<
@@ -201,16 +210,58 @@ export function SignalWidget({
     return acc;
   }, [series]);
 
+  // Variable hint table (s0 = current_ac, …) shown in the derived-traces UI.
+  const seriesVariables = useMemo(
+    () => buildSeriesVariables(series),
+    [series],
+  );
+
+  // Evaluate every derived trace against the fetched series. Returns the
+  // computed Series alongside any per-trace parse/eval error. Recomputes only
+  // when the data or the trace definitions change.
+  const derivedResults = useMemo(
+    () => computeDerivedSeries(series, derivedTraces),
+    [series, derivedTraces],
+  );
+
+  // Split the results: successful series get appended to the chart input;
+  // errors are surfaced inline under their row.
+  const derivedSeries = useMemo(
+    () =>
+      derivedResults
+        .map((r) => r.series)
+        .filter((s): s is Series => s !== undefined),
+    [derivedResults],
+  );
+
+  const derivedErrors = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const r of derivedResults) if (r.error) out[r.id] = r.error;
+    return out;
+  }, [derivedResults]);
+
+  // Base series plus any derived traces — what actually gets plotted.
+  const plottedSeries = useMemo(
+    () => [...series, ...derivedSeries],
+    [series, derivedSeries],
+  );
+
   return (
     <Card>
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
+          <div className="flex flex-1 flex-col gap-3">
             <QueryBuilder
               value={queryAst}
               onChange={setQueryAst}
               signalNames={signalNames}
               error={queryError}
+            />
+            <DerivedTraces
+              traces={derivedTraces}
+              onChange={setDerivedTraces}
+              variables={seriesVariables}
+              errors={derivedErrors}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -264,7 +315,7 @@ export function SignalWidget({
             </div>
           ) : (
             <QueryChart
-              series={series}
+              series={plottedSeries}
               type={chartType}
               intervalSec={intervalSec}
               groupId={groupId}
