@@ -25,6 +25,11 @@ import {
   type Highlight,
 } from "@/components/signals/Highlights";
 import type { DerivedTrace } from "@/lib/expr";
+import {
+  downloadChartPng,
+  downloadText,
+  seriesToCsv,
+} from "@/lib/export";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
@@ -37,8 +42,8 @@ import {
   serializeQuery,
 } from "@/lib/query";
 import axios from "axios";
-import { Eye, EyeOff, Loader2, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Download, Eye, EyeOff, Image, Loader2, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Same as `Rollup` — kept as a separate alias so future "interval" usage
 // (e.g. backend response metadata typing) stays expressive.
@@ -313,6 +318,28 @@ export function SignalWidget({
       [label]: { ...axisSettingFor(prev, label), ...patch },
     }));
 
+  // Keep a local handle on this widget's ECharts instance for PNG export,
+  // while still forwarding to the page's group-zoom registry. The chart hands
+  // us `null` on teardown.
+  const chartInstance = useRef<ECharts | null>(null);
+  const handleChartReady = (instance: ECharts | null) => {
+    chartInstance.current = instance;
+    onChartReady?.(instance);
+  };
+
+  // Whether there's anything to export — the export controls hide entirely
+  // when the widget has no fetched data, so they never produce an empty file.
+  const hasData = plottedSeries.length > 0;
+
+  // Export the plotted series (base + derived traces) as CSV, and the live
+  // chart as a 2x PNG. Both pull from exactly what's on screen.
+  const exportCsv = () =>
+    downloadText(seriesToCsv(plottedSeries), "signals.csv", "text/csv");
+  const exportPng = () => {
+    const inst = chartInstance.current;
+    if (inst) downloadChartPng(inst, "signals.png");
+  };
+
   return (
     <Card>
       <CardHeader className="gap-3">
@@ -345,6 +372,32 @@ export function SignalWidget({
           </div>
           <div className="flex items-center gap-2">
             <ChartTypeToggle value={chartType} onChange={setChartType} />
+            {/* Export the underlying data (CSV) and the chart image (PNG).
+                Hidden when there's nothing plotted so we never export an empty
+                file. PNG needs a live instance, so it's gated on the chart
+                being visible (not collapsed). */}
+            {hasData && (
+              <>
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  title="Export data as CSV"
+                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                {!hidden && (
+                  <button
+                    type="button"
+                    onClick={exportPng}
+                    title="Export chart as PNG"
+                    className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <Image className="h-4 w-4" />
+                  </button>
+                )}
+              </>
+            )}
             <button
               type="button"
               onClick={onToggleHide}
@@ -399,7 +452,7 @@ export function SignalWidget({
               intervalSec={intervalSec}
               groupId={groupId}
               onBrushSelect={onBrushSelect}
-              onReady={onChartReady}
+              onReady={handleChartReady}
               axisConfig={axisConfig}
               highlights={highlightRanges}
             />
