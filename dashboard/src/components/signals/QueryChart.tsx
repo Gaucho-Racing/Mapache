@@ -47,6 +47,11 @@ interface QueryChartProps {
   /** If set, click-and-drag on the chart highlights a range and commits
    *  it on mouse-up. Receives the [start, end) of the brushed window. */
   onBrushSelect?: (start: Date, end: Date) => void;
+  /** If set, joins this chart to an ECharts connection group (via
+   *  `inst.group = groupId` + `echarts.connect`) so the axisPointer cursor
+   *  and tooltip sync across every chart sharing the same id. Additive —
+   *  when absent the chart behaves exactly as before. */
+  groupId?: string;
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
@@ -168,6 +173,7 @@ export function QueryChart({
   intervalSec,
   maxSeries = 10,
   onBrushSelect,
+  groupId,
 }: QueryChartProps) {
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
@@ -196,6 +202,10 @@ export function QueryChart({
 
   const chartRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ECharts | null>(null);
+  // groupId is read inside the once-only init effect via a ref so the
+  // effect's empty dep array stays honest.
+  const groupIdRef = useRef(groupId);
+  groupIdRef.current = groupId;
   // Brush drag state lives in refs so the native zrender mouse handlers
   // (registered once) always read the latest values without re-binding.
   const brushRef = useRef<{ startIdx: number | null; curIdx: number | null }>({
@@ -257,6 +267,11 @@ export function QueryChart({
       grid: { top: 8, right: 8, bottom: 24, left: 56, containLabel: false },
       tooltip: {
         trigger: "axis",
+        // A shared axisPointer is what `echarts.connect` actually syncs
+        // across grouped charts (it broadcasts the updateAxisPointer
+        // action). Harmless for a standalone chart — it just draws the
+        // hover line that the axis-triggered tooltip already implies.
+        axisPointer: { type: "line" },
         // ECharts handles dark backgrounds itself; nudge styling toward the
         // shadcn tooltip look.
         backgroundColor: cssHsl("--popover", "#18181b"),
@@ -316,6 +331,16 @@ export function QueryChart({
       renderer: "canvas",
     });
     instanceRef.current = inst;
+
+    // Join the sync group (additive — only when a groupId is provided).
+    // `echarts.connect` is idempotent per group id and links axisPointer +
+    // tooltip across every instance sharing the group, so hovering one
+    // panel draws the cursor on all of them. Reading from the closure is
+    // safe: groupId is fixed for the chart's lifetime on the page.
+    if (groupIdRef.current) {
+      inst.group = groupIdRef.current;
+      echarts.connect(groupIdRef.current);
+    }
 
     const ro = new ResizeObserver(() => inst.resize());
     ro.observe(chartRef.current);

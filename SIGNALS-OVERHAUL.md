@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T3 — Stacked multi-widget layout, shared time axis** (next `todo`)
+➡️ **T9 — Zoom out / reset window** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -23,9 +23,11 @@ After `/clear`: read this file, then run
 | T0 | Branch + tracking scaffold | done | 5453ffe | branch `feat/signals-overhaul` created |
 | T1 | Sub-second binning (backend + frontend mirror) | done | 0cc4601 | added 16/50/100/500ms; ms-based steps; native CH MILLISECOND interval. Needs live-CH smoke test |
 | T2 | Swap Recharts → ECharts in chart component | done | 1660347 | echarts core (canvas), brush via zrender, top-K/stack/tooltip preserved, 20k gate removed; empty-state made overlay so init is robust for T3 |
-| T3 | Stacked multi-widget layout, shared time axis | todo | — | |
-| T4 | Cleaner chip query builder | done | _pending_ | sentence-style clauses (Show…of…where…grouped by…every…), same MQL AST, sub-second rollups reachable |
+| T3 | Stacked multi-widget layout, shared time axis | done | _pending_ | new SignalWidget.tsx (owns query/chart-type/fetch); page holds widgetIds+hiddenIds, add/delete/hide; synced cursor via echarts.connect group "signals-page" (additive groupId prop on QueryChart); brush bubbles to shared timeframe |
+| T4 | Cleaner chip query builder | done | 94458f6 | sentence-style clauses (Show…of…where…grouped by…every…), same MQL AST, sub-second rollups reachable |
+| T9 | Zoom out / reset window (in-chart, no requery) | todo | — | builds on T3 shared axis (dataZoom) |
 | T5 | Derived/expression traces (frontend compute) | todo | — | |
+| T8 | Per-trace normalization w/ shared-scale groups | todo | — | multi-y-axis; builds on T3/T5 trace model |
 | T6 | Highlight regions / boxes (frontend compute) | todo | — | |
 | T7 | Export (CSV data + PNG chart) | todo | — | |
 
@@ -72,3 +74,23 @@ in-browser (reuses T5 evaluator to threshold). Boxes span the stacked panels.
 CSV of underlying series points + PNG via ECharts `getDataURL`. Export control on
 widget/page.
 **Check:** CSV columns correct; PNG matches on-screen chart.
+
+### T8 — Per-trace normalization with shared-scale groups (frontend)
+Let a trace be **normalized-to-fit** (opt-in per trace) so e.g. a boolean `drive_enable`
+(0/1) is rescaled so its `1` reaches the top of the plot, while same-unit traces keep a
+shared real scale relative to each other. Concretely: assign traces to a y-scale group;
+a "normalize" trace is min/max-rescaled to span a reference group's range, while members
+of a native-unit group (e.g. three °C temps) share one axis and are NOT rescaled against
+each other. Implement with ECharts multiple `yAxis` + per-trace data scaling; tooltip
+should still show the true (un-normalized) value. Builds on the T3/T5 trace model.
+**Check:** drive_enable's 1 reaches the top of a plot shared with motor/accumulator/
+controller temps; the three temps stay on one shared °C axis, un-rescaled vs each other;
+tooltip shows real values.
+
+### T9 — Zoom out / reset window (frontend)
+In-chart zoom (ECharts `dataZoom`, inside + optional slider) with an easy way to **step
+back out** and **reset** to the originally-queried window — without a full requery. Synced
+across the stacked shared-axis panels (T3). Full reset is best-effort (user can always
+re-query a wider range); the priority is jumping back out after zooming too far in.
+**Check:** zoom into a window on one panel, all panels follow; "zoom out"/"reset"
+returns to the queried range; no network requery fired.
