@@ -42,7 +42,16 @@ import {
   serializeQuery,
 } from "@/lib/query";
 import axios from "axios";
-import { Download, Eye, EyeOff, Image, Loader2, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Eye,
+  EyeOff,
+  Image,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 // Same as `Rollup` — kept as a separate alias so future "interval" usage
@@ -163,6 +172,11 @@ export function SignalWidget({
   // default — zero-cost and visually identical to today when unused. Local to
   // this widget; never broadcast across panels.
   const [highlights, setHighlights] = useState<Highlight[]>([]);
+  // Whether the Advanced options disclosure (derived traces, y-axis scaling +
+  // visibility, highlights) is expanded (T10). Collapsed by default and local
+  // to this widget, so a plain count() query is just builder + chart until the
+  // user opts into the extra controls.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [seriesMs, setSeriesMs] = useState<number | null>(null);
   const [queryError, setQueryError] = useState<
@@ -325,6 +339,25 @@ export function SignalWidget({
     [visibleSeries],
   );
 
+  // How many advanced editors are actually configured — shown as a badge on the
+  // Advanced options toggle (T10) so collapsing the disclosure never hides
+  // active state silently. Counts non-empty derived traces + highlights, plus
+  // any *currently plotted* trace whose y-axis setting differs from the default
+  // (normalized, hidden, or moved off group "1"). Dormant settings for labels
+  // no longer present don't count.
+  const advancedCount = useMemo(() => {
+    const traces = derivedTraces.filter(
+      (t) => t.expression.trim() !== "",
+    ).length;
+    const bands = highlights.filter((h) => h.expression.trim() !== "").length;
+    let axes = 0;
+    for (const s of plottedSeries) {
+      const st = axisSettings[seriesLabel(s.tags)];
+      if (st && (st.normalize || st.hidden || st.axisGroup !== "1")) axes++;
+    }
+    return traces + bands + axes;
+  }, [derivedTraces, highlights, axisSettings, plottedSeries]);
+
   // Patch one label's setting (merging over its current/default value).
   const updateAxisSetting = (label: string, patch: Partial<AxisSetting>) =>
     setAxisSettings((prev) => ({
@@ -367,24 +400,52 @@ export function SignalWidget({
               signalNames={signalNames}
               error={queryError}
             />
-            <DerivedTraces
-              traces={derivedTraces}
-              onChange={setDerivedTraces}
-              variables={seriesVariables}
-              errors={derivedErrors}
-            />
-            <TraceAxisControls
-              series={plottedSeries}
-              colors={seriesColors}
-              settings={axisSettings}
-              onChange={updateAxisSetting}
-            />
-            <Highlights
-              highlights={highlights}
-              onChange={setHighlights}
-              variables={seriesVariables}
-              errors={highlightErrors}
-            />
+            {/* Advanced options (T10): derived traces, per-trace y-axis
+                scaling + visibility, and highlight bands — tucked behind one
+                collapsed-by-default disclosure so the default widget is just
+                the builder + chart. The badge surfaces how many editors are
+                configured so collapsing never hides active state silently. */}
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen((o) => !o)}
+                className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {advancedOpen ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" />
+                )}
+                Advanced options
+                {advancedCount > 0 && (
+                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
+                    {advancedCount}
+                  </span>
+                )}
+              </button>
+              {advancedOpen && (
+                <div className="flex flex-col gap-3">
+                  <DerivedTraces
+                    traces={derivedTraces}
+                    onChange={setDerivedTraces}
+                    variables={seriesVariables}
+                    errors={derivedErrors}
+                  />
+                  <TraceAxisControls
+                    series={plottedSeries}
+                    colors={seriesColors}
+                    settings={axisSettings}
+                    onChange={updateAxisSetting}
+                  />
+                  <Highlights
+                    highlights={highlights}
+                    onChange={setHighlights}
+                    variables={seriesVariables}
+                    errors={highlightErrors}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <ChartTypeToggle value={chartType} onChange={setChartType} />
