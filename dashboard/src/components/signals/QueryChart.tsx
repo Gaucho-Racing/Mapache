@@ -1,25 +1,37 @@
-import { Button } from "@/components/ui/button";
+import * as echarts from "echarts/core";
+import { BarChart, LineChart } from "echarts/charts";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { AlertTriangle } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceArea,
-  XAxis,
-  YAxis,
-} from "recharts";
+  GridComponent,
+  TooltipComponent,
+  MarkAreaComponent,
+  DataZoomInsideComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type {
+  ECharts,
+  EChartsCoreOption,
+  ElementEvent,
+} from "echarts/core";
+import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
+
+// Canvas renderer only — that's the whole point of moving off recharts.
+// One <canvas> for the entire plot means a >20k-point query draws without
+// hanging the tab, so there's no longer a "render anyway" confirm gate.
+echarts.use([
+  BarChart,
+  LineChart,
+  GridComponent,
+  TooltipComponent,
+  MarkAreaComponent,
+  // `inside` dataZoom only — mouse-wheel zoom over the (already-fetched)
+  // category axis. This is purely client-side magnification and never
+  // triggers a requery; the brush (zrender left-drag) is what sets the
+  // page timeframe and refetches. We deliberately skip the slider
+  // component to keep the gesture surface clear of the left-drag brush.
+  DataZoomInsideComponent,
+  CanvasRenderer,
+]);
 
 export interface SeriesPoint {
   bucket: string;
@@ -29,6 +41,27 @@ export interface SeriesPoint {
 export interface Series {
   tags: Record<string, string | null>;
   points: SeriesPoint[];
+}
+
+/** Per-trace y-scaling behavior (T8), keyed by `seriesLabel(tags)` in the
+ *  widget's settings map. Two mutually-exclusive modes:
+ *   - native: the trace plots on the real-value axis for `axisGroup`; every
+ *     trace sharing a group shares one axis and keeps its true relative
+ *     height (not rescaled against the others).
+ *   - normalize: the trace is min/max-rescaled to [0,1] onto a shared hidden
+ *     axis so its peak reaches the top of the plot regardless of magnitude.
+ *  Default for any unconfigured label = group "1", un-normalized → today's
+ *  exact single-axis behavior.
+ *
+ *  `hidden` (T11) drops the trace from the chart while it stays fetched, so a
+ *  signal needed only to feed a derived trace or highlight condition can be
+ *  kept out of the plot. The chart never sees hidden series (the widget filters
+ *  them before passing `series`); this flag lives here only so it persists in
+ *  the same per-label settings map as the scaling choices. */
+export interface AxisSetting {
+  axisGroup: string;
+  normalize: boolean;
+  hidden?: boolean;
 }
 
 interface QueryChartProps {
@@ -42,12 +75,34 @@ interface QueryChartProps {
   /** If set, click-and-drag on the chart highlights a range and commits
    *  it on mouse-up. Receives the [start, end) of the brushed window. */
   onBrushSelect?: (start: Date, end: Date) => void;
+  /** If set, joins this chart to an ECharts connection group (via
+   *  `inst.group = groupId` + `echarts.connect`) so the axisPointer cursor
+   *  and tooltip sync across every chart sharing the same id. Additive —
+   *  when absent the chart behaves exactly as before. */
+  groupId?: string;
+  /** Called once with the ECharts instance after init (and with `null` on
+   *  teardown). Lets the page dispatch group-wide dataZoom actions (zoom
+   *  out / reset) through any one panel — the `connect` group rebroadcasts
+   *  to the rest. Additive; standalone charts simply omit it. */
+  onReady?: (instance: ECharts | null) => void;
+  /** Per-series y-scaling settings (T8), keyed by series label. Sparse —
+   *  any label absent here falls back to the default (group "1", native).
+   *  When every plotted label is default, the chart collapses to exactly its
+   *  prior single-axis, single-stack rendering. */
+  axisConfig?: Record<string, AxisSetting>;
+  /** Highlight bands (T6): translucent vertical regions over the bucket index
+   *  ranges where a per-widget condition holds. Each range is an inclusive
+   *  `[loIdx, hiIdx]` over the shared category axis. Rendered as a dedicated,
+   *  silent `__highlight__` markArea series that sits behind the data and never
+   *  interferes with the transient `__brush__` selection. Absent/empty → the
+   *  chart renders exactly as today. */
+  highlights?: { id: string; color: string; ranges: [number, number][] }[];
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
 // dark backgrounds — first slot deliberately matches our existing gr-pink
 // so single-series bars don't change color when you flip into multi-series.
-const PALETTE = [
+export const PALETTE = [
   "#e105a3",
   "#8412fc",
   "#10b981",
@@ -63,6 +118,16 @@ const PALETTE = [
 ];
 
 const OTHER_KEY = "__other__";
+
+// Tag key marking a series as a user-defined derived/expression trace. The
+// chart renders these as standalone (non-stacked) lines and never rolls them
+// into the top-K "other" bucket — they're explicit additions by the user.
+// The tag value is the trace's display label.
+export const DERIVED_KEY = "__derived__";
+
+function isDerived(s: Series): boolean {
+  return DERIVED_KEY in s.tags;
+}
 
 function formatBucketTick(iso: string, intervalSec: number): string {
   const d = new Date(iso);
@@ -82,6 +147,18 @@ function formatBucketTick(iso: string, intervalSec: number): string {
       minute: "2-digit",
     });
   }
+  // Sub-second buckets need millisecond precision — otherwise every tick
+  // in a 50ms rollup reads the same "1:23:45 PM" and they're
+  // indistinguishable. Append the zero-padded milliseconds.
+  if (intervalSec < 1) {
+    const base = d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const ms = d.getMilliseconds().toString().padStart(3, "0");
+    return `${base}.${ms}`;
+  }
   // Sub-minute buckets need seconds — otherwise every tick reads the
   // same "1:23 PM" and the user can't tell them apart.
   return d.toLocaleTimeString(undefined, {
@@ -99,8 +176,12 @@ function formatCount(n: number): string {
 }
 
 /** Make a stable label for a series from its tag values. Empty tags →
- *  "value" so the single-series legend reads naturally. */
-function seriesLabel(tags: Record<string, string | null>): string {
+ *  "value" so the single-series legend reads naturally. Derived traces carry
+ *  their display label directly in the reserved tag. Exported so the widget
+ *  can build matching variable aliases (`current_ac` from a `current_ac`
+ *  series) for the derived-trace expression evaluator. */
+export function seriesLabel(tags: Record<string, string | null>): string {
+  if (DERIVED_KEY in tags) return tags[DERIVED_KEY] ?? "derived";
   const entries = Object.entries(tags);
   if (entries.length === 0) return "value";
   return entries.map(([, v]) => v ?? "—").join(" · ");
@@ -114,10 +195,14 @@ function seriesTotal(s: Series): number {
 }
 
 /** Roll any series past `max` into a single "other" bucket so the chart
- *  stays readable when a query produces hundreds of groups. */
+ *  stays readable when a query produces hundreds of groups. Derived traces
+ *  are exempt — the user added them explicitly, so they always survive and
+ *  only the raw base series participate in the top-K ranking/rollup. */
 function topK(series: Series[], max: number): { kept: Series[]; otherCount: number } {
-  if (series.length <= max) return { kept: series, otherCount: 0 };
-  const sorted = [...series].sort((a, b) => seriesTotal(b) - seriesTotal(a));
+  const derived = series.filter(isDerived);
+  const base = series.filter((s) => !isDerived(s));
+  if (base.length <= max) return { kept: [...base, ...derived], otherCount: 0 };
+  const sorted = [...base].sort((a, b) => seriesTotal(b) - seriesTotal(a));
   const kept = sorted.slice(0, max);
   const tail = sorted.slice(max);
   // Build the "other" series by summing point-by-point across the tail.
@@ -130,7 +215,50 @@ function topK(series: Series[], max: number): { kept: Series[]; otherCount: numb
     return { bucket: p.bucket, value: sum };
   });
   kept.push({ tags: { [OTHER_KEY]: `+${tail.length} other` }, points: otherPoints });
-  return { kept, otherCount: tail.length };
+  // Derived traces ride along untouched after the rollup.
+  return { kept: [...kept, ...derived], otherCount: tail.length };
+}
+
+/** Map each plotted series' label to the palette color the chart actually
+ *  renders it with — applying the SAME top-K reordering used below — so
+ *  external UI (the axis-controls swatches) matches the on-screen line
+ *  colors. Series folded into the "+N other" rollup aren't individually
+ *  colored and are omitted; callers should fall back to a neutral swatch. */
+export function seriesColorMap(
+  series: Series[],
+  maxSeries = 10,
+): Map<string, string> {
+  const { kept } = topK(series, maxSeries);
+  const map = new Map<string, string>();
+  kept.forEach((s, i) => {
+    // The synthetic "+N other" series isn't a configurable trace — skip it,
+    // but keep `i` so every real series keeps its rendered color index.
+    if (OTHER_KEY in s.tags) return;
+    map.set(seriesLabel(s.tags), PALETTE[i % PALETTE.length]);
+  });
+  return map;
+}
+
+/** Resolve an HSL CSS custom property (stored as "H S% L%") to an
+ *  `hsl(...)` string ECharts can consume, with an optional alpha. Falls
+ *  back to a sane dark-theme grey if the var is missing (e.g. SSR). */
+function cssHsl(varName: string, fallback: string, alpha = 1): string {
+  if (typeof window === "undefined") return fallback;
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim();
+  if (!raw) return fallback;
+  return alpha === 1 ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
+}
+
+/** Default y-scaling for an unconfigured series label — a single shared
+ *  native group, never normalized. Keeping this in one place guarantees the
+ *  "zero config behaves exactly as today" contract. */
+function settingFor(
+  axisConfig: Record<string, AxisSetting> | undefined,
+  label: string,
+): AxisSetting {
+  return axisConfig?.[label] ?? { axisGroup: "1", normalize: false };
 }
 
 export function QueryChart({
@@ -139,240 +267,550 @@ export function QueryChart({
   intervalSec,
   maxSeries = 10,
   onBrushSelect,
+  groupId,
+  onReady,
+  axisConfig,
+  highlights,
 }: QueryChartProps) {
-  // Brush state. `start` is fixed on mousedown; `current` follows the
-  // mouse and renders the live highlight. We commit on mouseup when the
-  // two are distinct buckets — a same-bucket release is treated as a
-  // click (tooltip), not a selection, so single clicks keep working.
-  const [brushStart, setBrushStart] = useState<string | null>(null);
-  const [brushCurrent, setBrushCurrent] = useState<string | null>(null);
-
-  type ChartMouseEvent = { activeLabel?: string | number | null };
-  const handleMouseDown = onBrushSelect
-    ? (e: ChartMouseEvent | null) => {
-        const label = e?.activeLabel;
-        if (typeof label === "string") {
-          setBrushStart(label);
-          setBrushCurrent(label);
-        }
-      }
-    : undefined;
-  const handleMouseMove = onBrushSelect
-    ? (e: ChartMouseEvent | null) => {
-        if (brushStart === null) return;
-        const label = e?.activeLabel;
-        if (typeof label === "string") setBrushCurrent(label);
-      }
-    : undefined;
-  const handleMouseUp = onBrushSelect
-    ? () => {
-        if (brushStart !== null && brushCurrent !== null && brushStart !== brushCurrent) {
-          const a = new Date(brushStart);
-          const b = new Date(brushCurrent);
-          const [start, end] = a < b ? [a, b] : [b, a];
-          // Extend `end` to the *end* of its bucket so a brush that
-          // visually covers a bar actually includes that bar's data.
-          // intervalSec is the bucket width in seconds.
-          onBrushSelect(
-            start,
-            new Date(end.getTime() + intervalSec * 1000),
-          );
-        }
-        setBrushStart(null);
-        setBrushCurrent(null);
-      }
-    : undefined;
-  // Cancel an in-progress drag if the cursor leaves the chart — avoids
-  // a stuck highlight when the user releases the button off-chart.
-  const handleMouseLeave = onBrushSelect
-    ? () => {
-        setBrushStart(null);
-        setBrushCurrent(null);
-      }
-    : undefined;
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
   const { kept } = useMemo(() => topK(series, maxSeries), [series, maxSeries]);
 
-  // Pivot tall → wide so recharts can render multiple series from one
-  // dataset. Each row: { bucket, [seriesKey1]: value1, [seriesKey2]: ... }.
-  // Series keys are array indices ("s0", "s1", ...) so we never collide on
-  // user-provided values like "name".
-  const { data, seriesKeys, config } = useMemo(() => {
-    const seriesKeys: { key: string; label: string; color: string }[] = kept.map(
-      (s, i) => ({
-        key: `s${i}`,
-        label: seriesLabel(s.tags),
-        color: PALETTE[i % PALETTE.length],
-      }),
-    );
-    const config: ChartConfig = Object.fromEntries(
-      seriesKeys.map(({ key, label, color }) => [key, { label, color }]),
-    );
+  // Shape into the columnar form ECharts wants: a shared category axis of
+  // bucket ISO strings plus one value array per series. Series keys mirror
+  // the old "s0", "s1", ... indexing so colors stay stable by position.
+  const { buckets, plotSeries } = useMemo(() => {
     const buckets = kept[0]?.points.map((p) => p.bucket) ?? [];
-    const data = buckets.map((bucket, i) => {
-      const row: Record<string, string | number | null> = { bucket };
-      kept.forEach((s, sIdx) => {
-        row[`s${sIdx}`] = s.points[i]?.value ?? 0;
-      });
-      return row;
+    const plotSeries = kept.map((s, i) => {
+      const label = seriesLabel(s.tags);
+      const setting = settingFor(axisConfig, label);
+      // Raw (true) values — what the tooltip must always show, and what a
+      // native series plots directly. Nulls render as 0, matching the old
+      // recharts behavior (it coerced null → 0 in the pivot).
+      const raw = buckets.map((_, bi) => s.points[bi]?.value ?? 0);
+      return {
+        key: `s${i}`,
+        label,
+        color: PALETTE[i % PALETTE.length],
+        // Derived/expression traces render as standalone lines and never join
+        // the stacked bar/area group (a series and its square stacking on top
+        // of each other would be misleading).
+        derived: isDerived(s),
+        normalize: setting.normalize,
+        axisGroup: setting.axisGroup,
+        raw,
+      };
     });
-    return { data, seriesKeys, config };
-  }, [kept]);
+    return { buckets, plotSeries };
+  }, [kept, axisConfig]);
 
-  const isMulti = seriesKeys.length > 1;
-  // Bar/area stack by default in multi-series; line doesn't (lines stacked
-  // on top of each other are unreadable). Single-series ignores stackId.
-  const stackId = isMulti && type !== "line" ? "stack" : undefined;
+  // Distinct native (un-normalized) axis groups, in first-seen order. The
+  // first such group renders visible axis labels/line; any additional groups
+  // get an independent scale but hidden decorations to avoid clutter. A
+  // separate hidden [0,1] axis is appended for normalized traces when any
+  // exist. This collapses to a single y-axis when nothing is grouped or
+  // normalized, preserving today's rendering exactly.
+  const { nativeGroups, hasNormalized } = useMemo(() => {
+    const order: string[] = [];
+    let anyNorm = false;
+    for (const s of plotSeries) {
+      if (s.normalize) {
+        anyNorm = true;
+      } else if (!order.includes(s.axisGroup)) {
+        order.push(s.axisGroup);
+      }
+    }
+    // Guarantee at least one native axis even if every series is normalized,
+    // so the grid always has a y-axis to render against.
+    if (order.length === 0) order.push("1");
+    return { nativeGroups: order, hasNormalized: anyNorm };
+  }, [plotSeries]);
 
-  // Safety rail. Recharts is SVG-based — each bucket × series renders a
-  // DOM element, and the browser starts choking past ~20k of them. Bar
-  // charts hit this hardest (one <rect> per bar); line charts only render
-  // one <path> per series so they're cheap. We treat any chart type the
-  // same here for simplicity — if 20k is too conservative for line later,
-  // we can split the threshold by type.
-  const RENDER_LIMIT = 20_000;
-  const renderElementCount = data.length * Math.max(1, seriesKeys.length);
-  const renderSig = `${data.length}x${seriesKeys.length}`;
-  const [confirmedSig, setConfirmedSig] = useState<string | null>(null);
-  const needsConfirm =
-    renderElementCount > RENDER_LIMIT && confirmedSig !== renderSig;
+  // The hidden normalized axis (if present) sits after every native axis.
+  const normalizedAxisIndex = hasNormalized ? nativeGroups.length : -1;
 
-  if (data.length === 0) {
-    return (
-      <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-        No data in this window
-      </div>
+  // Stacking only makes sense within ONE shared native axis. To stay simple
+  // and safe we only stack when ALL base (non-derived, non-normalized) series
+  // live in a single native group; any grouping or normalization splits the
+  // scales and we fall back to unstacked. (Stacking across independent scales
+  // would be visually meaningless, and normalized traces never stack.)
+  const stackableBase = plotSeries.filter((s) => !s.derived && !s.normalize);
+  const singleNativeGroup =
+    stackableBase.length > 0 &&
+    stackableBase.every((s) => s.axisGroup === stackableBase[0].axisGroup);
+  const stackBase =
+    stackableBase.length > 1 && singleNativeGroup && type !== "line"
+      ? "stack"
+      : undefined;
+
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const instanceRef = useRef<ECharts | null>(null);
+  // groupId is read inside the once-only init effect via a ref so the
+  // effect's empty dep array stays honest.
+  const groupIdRef = useRef(groupId);
+  groupIdRef.current = groupId;
+  // Same once-only-effect treatment for onReady: read the latest via a ref
+  // so the init/teardown can notify the page without re-binding.
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  // Brush drag state lives in refs so the native zrender mouse handlers
+  // (registered once) always read the latest values without re-binding.
+  const brushRef = useRef<{ startIdx: number | null; curIdx: number | null }>({
+    startIdx: null,
+    curIdx: null,
+  });
+  // Keep the latest props the handlers need without re-creating handlers.
+  const cbRef = useRef<{
+    onBrushSelect?: (start: Date, end: Date) => void;
+    buckets: string[];
+    intervalSec: number;
+  }>({ onBrushSelect, buckets, intervalSec });
+  cbRef.current = { onBrushSelect, buckets, intervalSec };
+
+  // Build the ECharts option. Memoized so we only recompute on real input
+  // changes; the brush markArea is layered on separately during a drag.
+  const option = useMemo<EChartsCoreOption>(() => {
+    const axisLabelColor = cssHsl("--muted-foreground", "#a1a1aa");
+    const splitLineColor = cssHsl("--border", "#27272a");
+
+    const echartsSeries = plotSeries.map((s) => {
+      // Resolve which y-axis this series binds to, and the data it actually
+      // plots. Native series plot raw numbers on their group's axis. A
+      // normalized series is min/max-rescaled to [0,1] on the hidden
+      // normalized axis, emitting `{ value, raw }` objects so the tooltip can
+      // still recover the true value (see the tooltip formatter below).
+      const yAxisIndex = s.normalize
+        ? normalizedAxisIndex
+        : nativeGroups.indexOf(s.axisGroup);
+      let data: Array<number | { value: number; raw: number }> = s.raw;
+      if (s.normalize) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const v of s.raw) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        const span = max - min;
+        data = s.raw.map((v) => ({
+          // When the trace is flat (max === min) the [0,1] rescale is
+          // undefined; park it mid-plot (0.5) so a constant line is visible
+          // rather than pinned to an edge. Otherwise standard min/max scaling.
+          value: span === 0 ? 0.5 : (v - min) / span,
+          raw: v,
+        }));
+      }
+
+      // Derived traces ignore the widget's chart type and stacking entirely:
+      // always a clean, unstacked line so they read as an overlay on top of
+      // the raw series.
+      if (s.derived) {
+        return {
+          id: s.key,
+          name: s.label,
+          data,
+          yAxisIndex,
+          type: "line" as const,
+          smooth: true,
+          showSymbol: false,
+          itemStyle: { color: s.color },
+          lineStyle: { width: 2, color: s.color },
+        };
+      }
+      const base = {
+        id: s.key,
+        name: s.label,
+        data,
+        yAxisIndex,
+        itemStyle: { color: s.color },
+        ...(stackBase ? { stack: stackBase } : {}),
+      };
+      if (type === "bar") {
+        return {
+          ...base,
+          type: "bar" as const,
+          // Match recharts' rounded top corners.
+          itemStyle: { color: s.color, borderRadius: [2, 2, 0, 0] },
+        };
+      }
+      if (type === "line") {
+        return {
+          ...base,
+          type: "line" as const,
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 2, color: s.color },
+        };
+      }
+      // area
+      return {
+        ...base,
+        type: "line" as const,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 2, color: s.color },
+        areaStyle: { color: s.color, opacity: 0.25 },
+      };
+    });
+
+    // Highlight bands (T6) live on their own dedicated, silent series id —
+    // `__highlight__` — kept entirely separate from the transient `__brush__`
+    // markArea so brush-to-select and condition bands never clobber each other.
+    // Each `[lo, hi]` index range becomes one markArea band; every range across
+    // every highlight is flattened into this single series' data, each carrying
+    // its own translucent color via per-item `itemStyle`. With no highlights the
+    // series carries empty data and is visually inert. `silent: true` keeps it
+    // from intercepting the zrender brush mouse handlers, and `z: 0` parks it
+    // behind the data lines/bars.
+    const highlightAreas = (highlights ?? []).flatMap((h) =>
+      h.ranges.map(([lo, hi]) => [
+        { xAxis: lo, itemStyle: { color: h.color } },
+        { xAxis: hi },
+      ]),
     );
-  }
+    const highlightSeries = {
+      id: "__highlight__",
+      type: "line" as const,
+      data: [],
+      silent: true,
+      z: 0,
+      markArea: {
+        silent: true,
+        // Default color is a no-op — every band overrides it per-item above —
+        // but ECharts wants an itemStyle present.
+        itemStyle: { color: "transparent" },
+        data: highlightAreas,
+      },
+    };
 
-  if (needsConfirm) {
-    return (
-      <div className="flex h-[260px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-6 text-center">
-        <AlertTriangle className="h-6 w-6 text-amber-500" />
-        <div>
-          <p className="text-sm font-medium">
-            Large render &mdash;{" "}
-            {data.length.toLocaleString()} buckets &times;{" "}
-            {seriesKeys.length} series ={" "}
-            {renderElementCount.toLocaleString()} elements
-          </p>
-          <p className="mt-1 max-w-md text-xs text-muted-foreground">
-            Past about {RENDER_LIMIT.toLocaleString()} SVG elements the browser
-            tab can hang. Pick a coarser rollup or a narrower timeframe, or
-            render anyway.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmedSig(renderSig)}
-        >
-          Render anyway
-        </Button>
-      </div>
+    return {
+      animation: false,
+      grid: { top: 8, right: 8, bottom: 24, left: 56, containLabel: false },
+      tooltip: {
+        trigger: "axis",
+        // A shared axisPointer is what `echarts.connect` actually syncs
+        // across grouped charts (it broadcasts the updateAxisPointer
+        // action). Harmless for a standalone chart — it just draws the
+        // hover line that the axis-triggered tooltip already implies.
+        axisPointer: { type: "line" },
+        // ECharts handles dark backgrounds itself; nudge styling toward the
+        // shadcn tooltip look.
+        backgroundColor: cssHsl("--popover", "#18181b"),
+        borderColor: splitLineColor,
+        textStyle: { color: cssHsl("--popover-foreground", "#fafafa") },
+        formatter: (params: unknown) => {
+          const arr = Array.isArray(params) ? params : [params];
+          if (arr.length === 0) return "";
+          const iso = buckets[(arr[0] as { dataIndex: number }).dataIndex];
+          const header = iso ? new Date(iso).toLocaleString() : "";
+          const rows = (
+            arr as Array<{
+              seriesName: string;
+              value: number;
+              marker: string;
+              // Normalized series emit `{ value, raw }` objects; `data` carries
+              // the true (un-rescaled) value so the tooltip never shows the
+              // display-scaled number.
+              data: number | { value: number; raw: number } | null;
+            }>
+          )
+            .map((p) => {
+              const trueValue =
+                p.data !== null &&
+                typeof p.data === "object" &&
+                "raw" in p.data
+                  ? p.data.raw
+                  : p.value;
+              return (
+                `<div style="display:flex;justify-content:space-between;gap:12px">` +
+                `<span>${p.marker}${p.seriesName}</span>` +
+                `<span style="font-variant-numeric:tabular-nums">${formatCount(
+                  trueValue,
+                )}</span></div>`
+              );
+            })
+            .join("");
+          return `<div style="font-weight:500;margin-bottom:4px">${header}</div>${rows}`;
+        },
+      },
+      xAxis: {
+        type: "category" as const,
+        data: buckets,
+        boundaryGap: type === "bar",
+        axisTick: { show: false },
+        axisLine: { show: false },
+        axisLabel: {
+          color: axisLabelColor,
+          hideOverlap: true,
+          formatter: (v: string) => formatBucketTick(v, intervalSec),
+        },
+      },
+      // One value axis per native group plus (when needed) a hidden [0,1]
+      // axis for normalized traces. The FIRST native axis keeps today's full
+      // decoration (labels, split lines); additional native axes get an
+      // independent scale but hidden labels/line so the plot doesn't fill with
+      // competing tick columns. With no grouping/normalization this is a
+      // single-element array identical to the old single `yAxis`.
+      yAxis: [
+        ...nativeGroups.map((_, gi) => {
+          const primary = gi === 0;
+          return {
+            type: "value" as const,
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: primary
+              ? { color: axisLabelColor, formatter: formatCount }
+              : { show: false },
+            splitLine: primary
+              ? { lineStyle: { color: splitLineColor, type: "dashed" } }
+              : { show: false },
+          };
+        }),
+        ...(hasNormalized
+          ? [
+              {
+                // Shared normalized axis: fixed [0,1] so every normalized
+                // trace's own max pins to the top of the plot. Fully hidden —
+                // its tick values are meaningless next to native units.
+                type: "value" as const,
+                min: 0,
+                max: 1,
+                axisTick: { show: false },
+                axisLine: { show: false },
+                axisLabel: { show: false },
+                splitLine: { show: false },
+              },
+            ]
+          : []),
+      ],
+      // Client-side zoom over the category (bucket) axis. Mouse-wheel only:
+      // the left-drag is owned by the brush-to-select-timeframe handlers, so
+      // we turn off drag-panning (`moveOnMouseMove: false`) to avoid stealing
+      // it. Zooming never refetches — it just magnifies the buckets we
+      // already have. Because every widget shares the `connect` group,
+      // ECharts broadcasts the dataZoom action so all panels zoom together;
+      // a standalone chart (no groupId) still zooms, just unsynced.
+      dataZoom: [
+        {
+          id: "__inside_zoom__",
+          type: "inside",
+          xAxisIndex: 0,
+          zoomOnMouseWheel: true,
+          moveOnMouseWheel: false,
+          moveOnMouseMove: false,
+          // Preserve the current zoom window across option pushes (data
+          // refreshes) instead of snapping back to the full range.
+          // `filterMode: "none"` keeps out-of-window points so lines/areas
+          // don't get clipped to abrupt edges.
+          filterMode: "none",
+        },
+      ],
+      series: [...echartsSeries, highlightSeries],
+    };
+  }, [
+    plotSeries,
+    buckets,
+    type,
+    stackBase,
+    intervalSec,
+    nativeGroups,
+    hasNormalized,
+    normalizedAxisIndex,
+    highlights,
+  ]);
+
+  // Initialize the instance once.
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const inst = echarts.init(chartRef.current, undefined, {
+      renderer: "canvas",
+    });
+    instanceRef.current = inst;
+
+    // Join the sync group (additive — only when a groupId is provided).
+    // `echarts.connect` is idempotent per group id and links axisPointer +
+    // tooltip across every instance sharing the group, so hovering one
+    // panel draws the cursor on all of them. Reading from the closure is
+    // safe: groupId is fixed for the chart's lifetime on the page.
+    if (groupIdRef.current) {
+      inst.group = groupIdRef.current;
+      echarts.connect(groupIdRef.current);
+    }
+
+    // Hand the instance to the page so it can drive group-wide dataZoom.
+    onReadyRef.current?.(inst);
+
+    const ro = new ResizeObserver(() => inst.resize());
+    ro.observe(chartRef.current);
+
+    // --- Brush-to-select-timeframe ---
+    // Reproduces the old recharts behavior on canvas: on mousedown we record
+    // the bucket under the cursor; on mousemove we draw a translucent
+    // markArea highlight between start and current; on mouseup we commit
+    // [start, end) — but only if start and current land on *different*
+    // buckets (a same-bucket release is a click, not a selection). The end
+    // is extended by one bucket width (intervalSec) so the brush includes
+    // the bar it visually covers.
+    const zr = inst.getZr();
+
+    // Map a pixel x within the grid to the nearest category index. Returns
+    // null if the point is outside the plot area.
+    const pixelToIndex = (event: ElementEvent): number | null => {
+      const x = event.offsetX;
+      const y = event.offsetY;
+      if (!inst.containPixel({ gridIndex: 0 }, [x, y])) return null;
+      const val = inst.convertFromPixel({ gridIndex: 0 }, [x, y]);
+      const idx = Array.isArray(val) ? Math.round(val[0] as number) : null;
+      if (idx === null) return null;
+      const len = cbRef.current.buckets.length;
+      if (idx < 0 || idx >= len) return null;
+      return idx;
+    };
+
+    const renderHighlight = () => {
+      const { startIdx, curIdx } = brushRef.current;
+      if (startIdx === null || curIdx === null || startIdx === curIdx) {
+        inst.setOption({ series: [{ id: "__brush__", markArea: { data: [] } }] });
+        return;
+      }
+      const lo = Math.min(startIdx, curIdx);
+      const hi = Math.max(startIdx, curIdx);
+      inst.setOption({
+        series: [
+          {
+            id: "__brush__",
+            type: "line",
+            data: [],
+            silent: true,
+            markArea: {
+              itemStyle: { color: cssHsl("--foreground", "#fafafa", 0.12) },
+              data: [[{ xAxis: lo }, { xAxis: hi }]],
+            },
+          },
+        ],
+      });
+    };
+
+    const onDown = (event: ElementEvent) => {
+      if (!cbRef.current.onBrushSelect) return;
+      const idx = pixelToIndex(event);
+      if (idx === null) return;
+      brushRef.current = { startIdx: idx, curIdx: idx };
+    };
+    const onMove = (event: ElementEvent) => {
+      if (!cbRef.current.onBrushSelect) return;
+      if (brushRef.current.startIdx === null) return;
+      const idx = pixelToIndex(event);
+      if (idx === null) return;
+      brushRef.current.curIdx = idx;
+      renderHighlight();
+    };
+    const commit = () => {
+      const { onBrushSelect: cb, buckets: bkts, intervalSec: iv } =
+        cbRef.current;
+      const { startIdx, curIdx } = brushRef.current;
+      brushRef.current = { startIdx: null, curIdx: null };
+      renderHighlight();
+      if (
+        cb &&
+        startIdx !== null &&
+        curIdx !== null &&
+        startIdx !== curIdx
+      ) {
+        const lo = Math.min(startIdx, curIdx);
+        const hi = Math.max(startIdx, curIdx);
+        const startIso = bkts[lo];
+        const endIso = bkts[hi];
+        if (startIso && endIso) {
+          const start = new Date(startIso);
+          // Extend `end` to the end of its bucket so a brush that visually
+          // covers a bar actually includes that bar's data.
+          const end = new Date(new Date(endIso).getTime() + iv * 1000);
+          cb(start, end);
+        }
+      }
+    };
+
+    zr.on("mousedown", onDown);
+    zr.on("mousemove", onMove);
+    zr.on("mouseup", commit);
+    // Cancel an in-progress drag if the cursor leaves the canvas — avoids a
+    // stuck highlight when the button is released off-chart.
+    zr.on("globalout", () => {
+      if (brushRef.current.startIdx !== null) {
+        brushRef.current = { startIdx: null, curIdx: null };
+        renderHighlight();
+      }
+    });
+
+    return () => {
+      ro.disconnect();
+      zr.off("mousedown", onDown);
+      zr.off("mousemove", onMove);
+      zr.off("mouseup", commit);
+      onReadyRef.current?.(null);
+      inst.dispose();
+      instanceRef.current = null;
+    };
+  }, []);
+
+  // Push option changes. `notMerge: false` so the persistent "__brush__"
+  // markArea series isn't clobbered by data updates, but we must include a
+  // placeholder brush series so ECharts keeps its id slot stable.
+  useEffect(() => {
+    const inst = instanceRef.current;
+    if (!inst) return;
+    // Capture the live zoom window so a `notMerge` rebuild (e.g. a chart-type
+    // toggle) doesn't snap the view back to the full range. Pure zoom
+    // interactions don't run this effect — `option` is referentially stable
+    // unless real inputs change — so this only matters on data/type updates.
+    // `getOption()` returns undefined until the first `setOption`, so guard
+    // it — on the initial mount there's no prior zoom window to preserve.
+    const prevOption = inst.getOption() as
+      | { dataZoom?: Array<{ start?: number; end?: number }> }
+      | undefined;
+    const curZoom = prevOption?.dataZoom?.[0];
+    const opt = option as {
+      series: unknown[];
+      dataZoom: Array<Record<string, unknown>>;
+    };
+    const dataZoom =
+      curZoom &&
+      typeof curZoom.start === "number" &&
+      typeof curZoom.end === "number"
+        ? [{ ...opt.dataZoom[0], start: curZoom.start, end: curZoom.end }]
+        : opt.dataZoom;
+    inst.setOption(
+      {
+        ...opt,
+        dataZoom,
+        series: [...opt.series, { id: "__brush__", type: "line", data: [] }],
+      },
+      { notMerge: true },
     );
-  }
+  }, [option]);
 
-  const commonAxes = (
-    <>
-      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-      <XAxis
-        dataKey="bucket"
-        tickFormatter={(v) => formatBucketTick(v, intervalSec)}
-        tickLine={false}
-        axisLine={false}
-        minTickGap={32}
-      />
-      <YAxis
-        tickFormatter={formatCount}
-        tickLine={false}
-        axisLine={false}
-        width={48}
-      />
-      <ChartTooltip
-        content={
-          <ChartTooltipContent
-            labelFormatter={(v) => new Date(v as string).toLocaleString()}
-          />
+  // Always keep the chart container (and its ref) mounted so the one-time
+  // init effect has a node even when the first render has no data — the
+  // empty state is an overlay, not an early return. Otherwise a mount with
+  // empty series followed by data arriving would never initialize the
+  // instance (the `[]`-deps effect won't re-run). The empty overlay sits on
+  // top of an empty canvas.
+  return (
+    <div className="relative h-[260px] w-full">
+      <div
+        ref={chartRef}
+        className="h-full w-full"
+        style={
+          onBrushSelect
+            ? { userSelect: "none", cursor: "crosshair" }
+            : undefined
         }
       />
-    </>
-  );
-
-  // Shared props for whichever chart variant we render below.
-  const chartProps = {
-    data,
-    margin: { top: 8, right: 8, left: -16, bottom: 0 },
-    onMouseDown: handleMouseDown,
-    onMouseMove: handleMouseMove,
-    onMouseUp: handleMouseUp,
-    onMouseLeave: handleMouseLeave,
-    // Drag-to-select feels wrong with text selection happening underneath.
-    style: onBrushSelect ? { userSelect: "none" as const, cursor: "crosshair" as const } : undefined,
-  };
-
-  const brushHighlight =
-    brushStart !== null && brushCurrent !== null && brushStart !== brushCurrent ? (
-      <ReferenceArea
-        x1={brushStart}
-        x2={brushCurrent}
-        strokeOpacity={0}
-        fill="currentColor"
-        fillOpacity={0.12}
-      />
-    ) : null;
-
-  return (
-    <ChartContainer config={config} className="h-[260px] w-full">
-      {type === "bar" ? (
-        <BarChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Bar
-              key={key}
-              dataKey={key}
-              fill={`var(--color-${key})`}
-              stackId={stackId}
-              radius={[2, 2, 0, 0]}
-            />
-          ))}
-          {brushHighlight}
-        </BarChart>
-      ) : type === "line" ? (
-        <LineChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Line
-              key={key}
-              type="monotone"
-              dataKey={key}
-              stroke={`var(--color-${key})`}
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          ))}
-          {brushHighlight}
-        </LineChart>
-      ) : (
-        <AreaChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Area
-              key={key}
-              type="monotone"
-              dataKey={key}
-              stroke={`var(--color-${key})`}
-              fill={`var(--color-${key})`}
-              fillOpacity={0.25}
-              stackId={stackId}
-              isAnimationActive={false}
-            />
-          ))}
-          {brushHighlight}
-        </AreaChart>
+      {buckets.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          No data in this window
+        </div>
       )}
-    </ChartContainer>
+    </div>
   );
 }

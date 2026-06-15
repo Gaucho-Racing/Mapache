@@ -95,7 +95,7 @@ def run_query(
             f"must be one of {list(INTERVALS)}"
         )
 
-    interval_expr, step_seconds = INTERVALS[effective_interval]
+    interval_expr, step_ms = INTERVALS[effective_interval]
 
     agg_sql = _FN_SQL[q.fn].format(field=q.field)
 
@@ -136,7 +136,7 @@ def run_query(
         group_by=q.group_by,
         start=start,
         end=end,
-        step_seconds=step_seconds,
+        step_ms=step_ms,
     )
     return {"series": series, "interval": effective_interval}
 
@@ -146,7 +146,7 @@ def _shape_response(
     group_by: tuple[str, ...],
     start: datetime,
     end: datetime,
-    step_seconds: int,
+    step_ms: int,
 ) -> list[dict[str, Any]]:
     """Pivot ClickHouse rows into the multi-series response shape.
 
@@ -158,7 +158,7 @@ def _shape_response(
     """
     # Quantize start/end to bucket boundaries so the fill axis lines up
     # with whatever ClickHouse returned.
-    expected_buckets = _bucket_axis(start, end, step_seconds)
+    expected_buckets = _bucket_axis(start, end, step_ms)
 
     # Group rows by their series tags
     by_series: dict[tuple, dict[datetime, float]] = {}
@@ -194,15 +194,18 @@ def _shape_response(
 
 
 def _bucket_axis(
-    start: datetime, end: datetime, step_seconds: int
+    start: datetime, end: datetime, step_ms: int
 ) -> list[datetime]:
-    step = timedelta(seconds=step_seconds)
+    # Work in integer milliseconds since the epoch so sub-second steps
+    # (down to 16 ms) stay exact — float seconds would drift and collapse
+    # adjacent buckets. This mirrors toStartOfInterval's flooring.
+    step = timedelta(milliseconds=step_ms)
+    epoch = datetime(1970, 1, 1, tzinfo=start.tzinfo)
     # Round `start` down to the nearest bucket boundary so the first
     # bucket in our axis matches what ClickHouse produced.
-    epoch = datetime(1970, 1, 1, tzinfo=start.tzinfo)
-    offset = (start - epoch).total_seconds()
-    aligned_offset = int(offset // step_seconds) * step_seconds
-    aligned = epoch + timedelta(seconds=aligned_offset)
+    offset_ms = (start - epoch).total_seconds() * 1000
+    aligned_offset_ms = (int(offset_ms) // step_ms) * step_ms
+    aligned = epoch + timedelta(milliseconds=aligned_offset_ms)
 
     buckets: list[datetime] = []
     t = aligned

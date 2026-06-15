@@ -1,15 +1,11 @@
 import Layout from "@/components/Layout";
-import {
-  ChartTypeToggle,
-  type ChartType,
-} from "@/components/signals/ChartTypeToggle";
-import { QueryBuilder } from "@/components/signals/QueryBuilder";
-import { QueryChart, type Series } from "@/components/signals/QueryChart";
+import { SignalWidget } from "@/components/signals/SignalWidget";
 import {
   defaultTimeframe,
   type Timeframe,
   TimeframePicker,
 } from "@/components/signals/TimeframePicker";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,22 +19,21 @@ import {
 import { BACKEND_URL } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 import { notify } from "@/lib/notify";
-import {
-  DEFAULT_QUERY,
-  type Query,
-  type Rollup,
-  serializeQuery,
-} from "@/lib/query";
 import { useVehicle } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import type { ECharts } from "echarts/core";
 import Fuse from "fuse.js";
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-
-// Same as `Rollup` — kept as a separate alias so future "interval" usage
-// (e.g. backend response metadata typing) stays expressive.
-type Interval = Rollup;
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Loader2,
+  Plus,
+  Search,
+  ZoomOut,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SortKey = "name" | "count" | "first_seen" | "last_seen";
 type SortDir = "asc" | "desc";
@@ -51,19 +46,6 @@ const DEFAULT_DIR: Record<SortKey, SortDir> = {
   first_seen: "desc",
   last_seen: "desc",
 };
-
-// Auto-pick a bucket width based on the selected range. Targets roughly
-// 24–168 bars so the chart stays legible whether the user picks 15min or
-// 1 week. Backend's INTERVALS dict caps us at 1m on the small end and 1d
-// on the large end.
-function autoInterval(rangeSeconds: number): Interval {
-  if (rangeSeconds <= 60 * 60)          return "1m";   // ≤ 1h     → 60 bars
-  if (rangeSeconds <= 4 * 60 * 60)      return "5m";   // ≤ 4h     → 48 bars
-  if (rangeSeconds <= 24 * 60 * 60)     return "15m";  // ≤ 1d     → 96 bars
-  if (rangeSeconds <= 3 * 24 * 60 * 60) return "1h";   // ≤ 3d     → 72 bars
-  if (rangeSeconds <= 7 * 24 * 60 * 60) return "2h";   // ≤ 1w     → 84 bars
-  return "1d";
-}
 
 interface SignalRow {
   name: string;
@@ -78,31 +60,10 @@ function authHeader() {
   };
 }
 
-function intervalToSeconds(i: Interval): number {
-  switch (i) {
-    case "1s":  return 1;
-    case "10s": return 10;
-    case "30s": return 30;
-    case "1m":  return 60;
-    case "5m":  return 5 * 60;
-    case "15m": return 15 * 60;
-    case "30m": return 30 * 60;
-    case "1h":  return 60 * 60;
-    case "2h":  return 2 * 60 * 60;
-    case "6h":  return 6 * 60 * 60;
-    case "1d":  return 24 * 60 * 60;
-  }
-}
-
 function formatCount(n: number): string {
   if (n < 1_000) return n.toString();
   if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
   return `${(n / 1_000_000).toFixed(2)}M`;
-}
-
-function formatLatency(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }
 
 function formatAbsolute(iso: string | null): string {
@@ -168,39 +129,104 @@ function SignalsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Chart-side state: the structured query AST, the result series, the
-  // chosen chart type, and a query-execution error surfaced under the
-  // builder.
-  const [queryAst, setQueryAst] = useState<Query>(DEFAULT_QUERY);
-  const [chartType, setChartType] = useState<ChartType>("bar");
-  const [series, setSeries] = useState<Series[]>([]);
-  const [loadingSeries, setLoadingSeries] = useState(false);
-  const [seriesMs, setSeriesMs] = useState<number | null>(null);
-  const [queryError, setQueryError] = useState<
-    { message: string; position?: number } | null
-  >(null);
+  // Stacked chart widgets. Each descriptor is just an identity — all of
+  // the per-chart state (query AST, chart type, fetched series, loading /
+  // error / latency) lives inside the SignalWidget component. Seed with one
+  // so the page opens to exactly the old single-chart experience.
+  const [widgetIds, setWidgetIds] = useState<number[]>(() => [0]);
+  const [hiddenIds, setHiddenIds] = useState<Set<number>>(() => new Set());
+  // Monotonic counter for stable widget keys across add/delete. A ref (not
+  // state) so it never goes stale within a render and double-clicks can't
+  // mint the same id.
+  const nextWidgetId = useRef(1);
 
-  // Don't fire a request while a filter chip is still empty — the
-  // serialized query (`... where name = ""`) is technically valid but
-  // returns nothing useful, and it bombards the backend on every
-  // chip-add. Skip until every filter has a value.
-  const queryIsRunnable =
-    queryAst.filters.every((f) => f.value.trim() !== "");
+  // Single ECharts connection group shared by every widget on the page —
+  // joining it syncs the hover cursor + tooltip across all panels.
+  const SYNC_GROUP_ID = "signals-page";
 
-  const serializedQuery = useMemo(() => serializeQuery(queryAst), [queryAst]);
+  // Live chart instances, keyed by their DOM id so add/hide/delete keep the
+  // set accurate. We dispatch group-wide dataZoom (zoom out / reset) through
+  // any one of them — `echarts.connect` rebroadcasts the action to the rest,
+  // so a single dispatch zooms every synced panel. Purely client-side: it
+  // magnifies the already-fetched buckets and fires no `/query/run`.
+  const chartInstances = useRef<Set<ECharts>>(new Set());
+
+  const onChartReady = useCallback((inst: ECharts | null) => {
+    // QueryChart calls this with the instance on init; we can't get `null`
+    // back with the same reference on teardown, so each chart re-registers
+    // on mount and we prune disposed instances at dispatch time.
+    if (inst) chartInstances.current.add(inst);
+  }, []);
+
+  // Read the current zoom window from any live chart. All synced panels share
+  // the same window, so the first non-disposed instance is authoritative.
+  const liveInstance = (): ECharts | null => {
+    for (const inst of chartInstances.current) {
+      if (inst.isDisposed()) {
+        chartInstances.current.delete(inst);
+        continue;
+      }
+      return inst;
+    }
+    return null;
+  };
+
+  // Dispatch a dataZoom window [start, end] (percent 0–100) to the group.
+  // One dispatchAction on any grouped instance is rebroadcast to all.
+  const dispatchZoom = (start: number, end: number) => {
+    const inst = liveInstance();
+    if (!inst) return;
+    inst.dispatchAction({ type: "dataZoom", start, end });
+  };
+
+  // Step the window back out: widen the current [start, end] by 2x around its
+  // center, clamped to [0, 100]. Repeated clicks walk all the way back out.
+  const zoomOut = () => {
+    const inst = liveInstance();
+    if (!inst) return;
+    const dz = (
+      inst.getOption() as {
+        dataZoom?: Array<{ start?: number; end?: number }>;
+      }
+    ).dataZoom?.[0];
+    const start = typeof dz?.start === "number" ? dz.start : 0;
+    const end = typeof dz?.end === "number" ? dz.end : 100;
+    const center = (start + end) / 2;
+    const halfWidth = (end - start) / 2;
+    const newHalf = Math.min(halfWidth * 2, 50);
+    const newStart = Math.max(0, center - newHalf);
+    const newEnd = Math.min(100, center + newHalf);
+    dispatchZoom(newStart, newEnd);
+  };
+
+  // Snap back to the full fetched window.
+  const resetZoom = () => dispatchZoom(0, 100);
+
+  const addWidget = () => {
+    setWidgetIds((prev) => [...prev, nextWidgetId.current++]);
+  };
+
+  const deleteWidget = (id: number) => {
+    setWidgetIds((prev) => prev.filter((w) => w !== id));
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleHide = (id: number) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const rangeSeconds = useMemo(
     () => (timeframe.end.getTime() - timeframe.start.getTime()) / 1000,
     [timeframe],
-  );
-  // Effective interval = explicit rollup on the AST if present, else
-  // auto-picked from the timeframe width. The backend honors the same
-  // precedence; we mirror it client-side so the bucket label in the
-  // subtitle and the x-axis formatting are right *before* the response
-  // arrives (avoids a one-render flicker on rollup changes).
-  const interval = useMemo(
-    () => queryAst.rollup ?? autoInterval(rangeSeconds),
-    [queryAst.rollup, rangeSeconds],
   );
 
   // ISO strings drive the fetch effects; deriving via Date.getTime() means
@@ -209,27 +235,20 @@ function SignalsPage() {
   const startIso = useMemo(() => timeframe.start.toISOString(), [timeframe]);
   const endIso = useMemo(() => timeframe.end.toISOString(), [timeframe]);
 
-  // Brush-select callback for the chart. Always lands as "Custom" since
-  // the user drew it themselves; presets re-snap to now when clicked.
+  // Brush-select callback shared by every widget's chart. Whichever panel
+  // the user drags on sets the page timeframe and all widgets refetch.
+  // Always lands as "Custom" since the user drew it themselves; presets
+  // re-snap to now when clicked.
   const onBrushSelect = (start: Date, end: Date) => {
     setTimeframe({ start, end, label: "Custom" });
   };
 
-  // Two independent effects so the table doesn't refetch every time the
-  // user iterates on the query or scrubs the timeframe.
+  // The table doesn't refetch every time the user iterates on a query or
+  // scrubs the timeframe — only on vehicle change.
   useEffect(() => {
     if (!vehicle.id) return;
     fetchSignals();
   }, [vehicle.id, vehicle.type]);
-
-  useEffect(() => {
-    if (!vehicle.id) return;
-    if (!queryIsRunnable) return;
-    runQuery();
-    // Serialized form is the wire representation; depending on it (rather
-    // than the AST object) means the effect only fires when the query
-    // actually changes, not on every reference identity change.
-  }, [vehicle.id, vehicle.type, rangeSeconds, serializedQuery, queryIsRunnable]);
 
   // Kerbecs wraps every upstream response in
   //   { status, ping, gateway, service, timestamp, data: <upstream-body> }
@@ -254,52 +273,6 @@ function SignalsPage() {
       setLoadingSignals(false);
     }
   };
-
-  const runQuery = async () => {
-    setLoadingSeries(true);
-    // performance.now() is monotonic and sub-ms — accurate for short
-    // requests where Date.now()'s 1ms quantization would round to 0.
-    const startedAt = performance.now();
-    try {
-      const res = await axios.post(
-        `${BACKEND_URL}/query/run`,
-        {
-          query: serializedQuery,
-          vehicle_id: vehicle.id,
-          start: startIso,
-          end: endIso,
-          interval,
-        },
-        { headers: authHeader() },
-      );
-      setSeries(res.data.data?.series ?? []);
-      setSeriesMs(Math.round(performance.now() - startedAt));
-      setQueryError(null);
-    } catch (e) {
-      // Parser errors come back 400 with {message, position}; surface them
-      // under the query field and leave the previous series visible so the
-      // user can compare iterations.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: any = (e as any)?.response?.data?.data;
-      if (body && typeof body.message === "string") {
-        setQueryError({ message: body.message, position: body.position });
-      } else {
-        notify.error(getAxiosErrorMessage(e));
-        setQueryError({ message: getAxiosErrorMessage(e) });
-      }
-      setSeriesMs(null);
-    } finally {
-      setLoadingSeries(false);
-    }
-  };
-
-  const intervalSec = intervalToSeconds(interval);
-
-  const totalSeriesValue = useMemo(() => {
-    let acc = 0;
-    for (const s of series) for (const p of s.points) acc += p.value ?? 0;
-    return acc;
-  }, [series]);
 
   // Rebuild the Fuse index only when the signal list changes — searching
   // is cheap, indexing isn't. Threshold 0.3 forgives typos and missing
@@ -369,56 +342,56 @@ function SignalsPage() {
               selected timeframe.
             </p>
           </div>
-          <TimeframePicker value={timeframe} onChange={setTimeframe} />
+          <div className="flex items-center gap-2">
+            {/* Client-side zoom controls. These magnify the already-fetched
+                buckets via ECharts dataZoom across every synced panel — no
+                requery. The brush (drag on a chart) still sets the timeframe
+                and refetches for true resolution. */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={zoomOut}
+              title="Zoom out (widen the current view)"
+            >
+              <ZoomOut className="mr-2 h-4 w-4" />
+              Zoom out
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetZoom}
+              title="Reset zoom to the full queried window"
+            >
+              Reset zoom
+            </Button>
+            <TimeframePicker value={timeframe} onChange={setTimeframe} />
+          </div>
         </div>
 
-        <Card>
-          <CardHeader className="gap-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <QueryBuilder
-                  value={queryAst}
-                  onChange={setQueryAst}
-                  signalNames={signals.map((s) => s.name)}
-                  error={queryError}
-                />
-              </div>
-              <ChartTypeToggle value={chartType} onChange={setChartType} />
-            </div>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                {series.length > 1
-                  ? `${series.length} series`
-                  : "Query result"}
-              </CardTitle>
-              <div className="text-sm text-muted-foreground">
-                {loadingSeries
-                  ? "Loading…"
-                  : [
-                      `${formatCount(totalSeriesValue)} total`,
-                      `${interval} buckets`,
-                      seriesMs !== null && formatLatency(seriesMs),
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loadingSeries ? (
-              <div className="flex h-[260px] items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <QueryChart
-                series={series}
-                type={chartType}
-                intervalSec={intervalSec}
-                onBrushSelect={onBrushSelect}
-              />
-            )}
-          </CardContent>
-        </Card>
+        {widgetIds.map((id) => (
+          <SignalWidget
+            key={id}
+            vehicleId={vehicle.id}
+            vehicleType={vehicle.type}
+            signalNames={signals.map((s) => s.name)}
+            startIso={startIso}
+            endIso={endIso}
+            rangeSeconds={rangeSeconds}
+            groupId={SYNC_GROUP_ID}
+            hidden={hiddenIds.has(id)}
+            onToggleHide={() => toggleHide(id)}
+            onDelete={() => deleteWidget(id)}
+            onBrushSelect={onBrushSelect}
+            onChartReady={onChartReady}
+          />
+        ))}
+
+        <div>
+          <Button variant="outline" onClick={addWidget}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add widget
+          </Button>
+        </div>
 
         <Card>
           <CardHeader>

@@ -46,6 +46,7 @@ export type GroupColumn = (typeof GROUPABLE_COLUMNS)[number];
 /** Allowed `.rollup(<interval>)` values — mirror of ROLLUP_INTERVALS in
  *  the Python parser. Order is the display order in the builder dropdown. */
 export const ROLLUP_INTERVALS = [
+  "16ms", "50ms", "100ms", "500ms",
   "1s", "10s", "30s",
   "1m", "5m", "15m", "30m",
   "1h", "2h", "6h",

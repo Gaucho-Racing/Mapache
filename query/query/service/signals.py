@@ -34,20 +34,33 @@ def utc_iso(dt: datetime | None) -> str | None:
 # Bucket widths offered by /signals/counts. The value is the ClickHouse
 # INTERVAL spec that's plugged into both toStartOfInterval and toInterval*.
 # Picking a sensible default for a given timeframe is the caller's job.
+#
+# Step is stored in *milliseconds* (int) rather than seconds so sub-second
+# rollups (down to one 60 Hz sample, ~16 ms) stay exact integers — a float
+# `step_seconds` would round-trip badly through the WITH FILL step and the
+# Python zero-fill axis. Consumers that want seconds divide by 1000.0.
+#
+# produced_at is DateTime64(6, 'UTC') (microsecond precision), so
+# toStartOfInterval(produced_at, INTERVAL n MILLISECOND) buckets at
+# sub-second resolution natively — no intDiv-on-epoch fallback needed.
 INTERVALS: dict[str, tuple[str, int]] = {
-    # name: (INTERVAL clause, step seconds). Order is significant — used
-    # by the frontend to render the rollup dropdown in ascending order.
-    "1s":  ("INTERVAL 1 SECOND",   1),
-    "10s": ("INTERVAL 10 SECOND",  10),
-    "30s": ("INTERVAL 30 SECOND",  30),
-    "1m":  ("INTERVAL 1 MINUTE",   60),
-    "5m":  ("INTERVAL 5 MINUTE",   5 * 60),
-    "15m": ("INTERVAL 15 MINUTE",  15 * 60),
-    "30m": ("INTERVAL 30 MINUTE",  30 * 60),
-    "1h":  ("INTERVAL 1 HOUR",     60 * 60),
-    "2h":  ("INTERVAL 2 HOUR",     2 * 60 * 60),
-    "6h":  ("INTERVAL 6 HOUR",     6 * 60 * 60),
-    "1d":  ("INTERVAL 1 DAY",      24 * 60 * 60),
+    # name: (INTERVAL clause, step milliseconds). Order is significant —
+    # used by the frontend to render the rollup dropdown in ascending order.
+    "16ms":  ("INTERVAL 16 MILLISECOND",  16),
+    "50ms":  ("INTERVAL 50 MILLISECOND",  50),
+    "100ms": ("INTERVAL 100 MILLISECOND", 100),
+    "500ms": ("INTERVAL 500 MILLISECOND", 500),
+    "1s":  ("INTERVAL 1 SECOND",   1_000),
+    "10s": ("INTERVAL 10 SECOND",  10_000),
+    "30s": ("INTERVAL 30 SECOND",  30_000),
+    "1m":  ("INTERVAL 1 MINUTE",   60_000),
+    "5m":  ("INTERVAL 5 MINUTE",   5 * 60_000),
+    "15m": ("INTERVAL 15 MINUTE",  15 * 60_000),
+    "30m": ("INTERVAL 30 MINUTE",  30 * 60_000),
+    "1h":  ("INTERVAL 1 HOUR",     60 * 60_000),
+    "2h":  ("INTERVAL 2 HOUR",     2 * 60 * 60_000),
+    "6h":  ("INTERVAL 6 HOUR",     6 * 60 * 60_000),
+    "1d":  ("INTERVAL 1 DAY",      24 * 60 * 60_000),
 }
 
 
@@ -107,7 +120,7 @@ def signal_counts(
             f"invalid interval '{interval}', must be one of {list(INTERVALS)}"
         )
 
-    interval_expr, step_seconds = INTERVALS[interval]
+    interval_expr, step_ms = INTERVALS[interval]
     where = [
         "vehicle_id = {vehicle_id:String}",
         "produced_at >= {start:DateTime64(6)}",
@@ -132,7 +145,7 @@ def signal_counts(
         ORDER BY bucket WITH FILL
             FROM toStartOfInterval({{start:DateTime64(6)}}, {interval_expr})
             TO   toStartOfInterval({{end:DateTime64(6)}},   {interval_expr})
-            STEP toIntervalSecond({step_seconds})
+            STEP toIntervalMillisecond({step_ms})
     """
     result = get_clickhouse().query(sql, parameters=params)
     return [

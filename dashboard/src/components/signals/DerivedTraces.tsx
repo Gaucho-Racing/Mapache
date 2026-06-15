@@ -1,0 +1,297 @@
+import { Input } from "@/components/ui/input";
+import { DERIVED_KEY, seriesLabel, type Series } from "./QueryChart";
+import { compileExpression, type DerivedTrace } from "@/lib/expr";
+import { cn } from "@/lib/utils";
+import { Plus, X } from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Variable model
+//
+// Each fetched base series becomes a variable the expression can reference.
+// Two aliases are exposed per series:
+//   - a positional alias `s0, s1, …` (always available, stable by index), and
+//   - a friendly alias derived from the series label (`current_ac`) *when*
+//     that label sanitizes to a valid, unique identifier.
+// The friendly alias is what makes an expression read naturally
+// (`current_ac^2`); the positional alias is the always-there fallback.
+// ---------------------------------------------------------------------------
+
+export interface SeriesVariable {
+  /** Positional alias — always present. */
+  index: string;
+  /** Friendly alias from the series label, or null if it didn't sanitize to
+   *  a valid/unique identifier. */
+  friendly: string | null;
+  /** Human label of the underlying series (for the hint UI). */
+  label: string;
+}
+
+/** Sanitize a series label to a candidate identifier: lowercase, collapse
+ *  runs of non-`[a-z0-9_]` to `_`, trim leading/trailing underscores. Returns
+ *  null when nothing valid survives or the result starts with a digit (we
+ *  prefix-guard rather than mangle further). */
+function sanitizeIdent(label: string): string | null {
+  const cleaned = label
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (cleaned === "") return null;
+  if (/^[0-9]/.test(cleaned)) return null;
+  return cleaned;
+}
+
+/** Build the variable table for a set of base series. Friendly aliases are
+ *  only assigned when unique across the set *and* not colliding with a
+ *  positional alias (`s0, s1, …`); on any collision we drop the friendly
+ *  alias for the affected series and the user falls back to `sN`. */
+export function buildSeriesVariables(series: Series[]): SeriesVariable[] {
+  // First pass: tally candidate friendly idents so we can detect dupes.
+  const candidates = series.map((s) => sanitizeIdent(seriesLabel(s.tags)));
+  const counts = new Map<string, number>();
+  for (const c of candidates) {
+    if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  const positional = new Set(series.map((_, i) => `s${i}`));
+
+  return series.map((s, i) => {
+    const cand = candidates[i];
+    const unique = cand !== null && counts.get(cand) === 1 && !positional.has(cand);
+    return {
+      index: `s${i}`,
+      friendly: unique ? cand : null,
+      label: seriesLabel(s.tags),
+    };
+  });
+}
+
+/** Compile an expression against a set of base series, sharing the variable
+ *  model (positional `sN` + friendly aliases) and up-front unknown-variable
+ *  validation used by BOTH derived traces and highlights. On success returns a
+ *  per-bucket evaluator `evalAt(i)` that builds the variable map for bucket
+ *  index `i` (each base series' value, null → 0, under both its aliases) and
+ *  evaluates the compiled expression — yielding NaN for non-finite results.
+ *  This is the single code path so the two features can't drift apart. */
+export interface SeriesEvaluator {
+  ok: boolean;
+  /** Present when `!ok` — already formatted for inline display. */
+  error?: string;
+  /** Present when `ok`. Evaluate the expression at a given bucket index. */
+  evalAt?: (bucketIndex: number) => number;
+}
+
+export function compileAgainstSeries(
+  expression: string,
+  series: Series[],
+): SeriesEvaluator {
+  const result = compileExpression(expression);
+  if (!result.ok || !result.compiled) {
+    const err = result.error;
+    return {
+      ok: false,
+      error: err
+        ? `${err.message} (col ${err.position + 1})`
+        : "Invalid expression",
+    };
+  }
+
+  const variables = buildSeriesVariables(series);
+
+  // Validate referenced variables up-front so a typo'd alias is a clear
+  // message instead of a silently flat (all-zero) line / empty highlight.
+  const known = new Set<string>();
+  for (const v of variables) {
+    known.add(v.index);
+    if (v.friendly) known.add(v.friendly);
+  }
+  const unknown = result.compiled.variables.filter((v) => !known.has(v));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      error: `Unknown variable${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,
+    };
+  }
+
+  const compiled = result.compiled;
+  const evalAt = (i: number): number => {
+    // Build the per-bucket variable map: each base series contributes its
+    // value at index `i` under both its positional and friendly aliases.
+    const vars: Record<string, number> = {};
+    for (let si = 0; si < series.length; si++) {
+      const value = series[si].points[i]?.value ?? 0;
+      vars[`s${si}`] = value;
+      const friendly = variables[si].friendly;
+      if (friendly) vars[friendly] = value;
+    }
+    return compiled.evaluate(vars);
+  };
+
+  return { ok: true, evalAt };
+}
+
+/** Result of evaluating one derived trace: either the computed series or a
+ *  per-trace error message to surface inline. */
+export interface DerivedResult {
+  id: string;
+  series?: Series;
+  error?: string;
+}
+
+/** Compute derived series from the fetched base series + the user's traces.
+ *  Each trace is compiled once, then evaluated per bucket index, building the
+ *  per-bucket variable map from each base series' value at that index (null →
+ *  0, matching the chart's existing null handling). Unknown variable refs and
+ *  non-finite results yield null points (the chart renders null → 0) rather
+ *  than throwing. */
+export function computeDerivedSeries(
+  series: Series[],
+  traces: DerivedTrace[],
+): DerivedResult[] {
+  // The bucket axis is shared across every base series (server zero-fills),
+  // so the first series defines the bucket strings the derived series reuse.
+  const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
+
+  return traces.map((trace) => {
+    const label = trace.label.trim() || trace.expression.trim() || "derived";
+
+    if (trace.expression.trim() === "") {
+      // An empty expression isn't an error worth shouting about — just skip
+      // it (no series, no message) so the row can sit there mid-edit.
+      return { id: trace.id };
+    }
+
+    // One shared compile-and-validate path with highlights (see
+    // `compileAgainstSeries`); a failure carries the formatted message.
+    const evaluator = compileAgainstSeries(trace.expression, series);
+    if (!evaluator.ok || !evaluator.evalAt) {
+      return { id: trace.id, error: evaluator.error };
+    }
+
+    const evalAt = evaluator.evalAt;
+    const points = buckets.map((bucket, i) => {
+      const out = evalAt(i);
+      // NaN (div-by-zero, etc.) → null; the chart coerces null → 0.
+      return { bucket, value: Number.isFinite(out) ? out : null };
+    });
+
+    return {
+      id: trace.id,
+      series: { tags: { [DERIVED_KEY]: label }, points },
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+
+let traceSeq = 0;
+function newTraceId(): string {
+  traceSeq += 1;
+  return `dt_${traceSeq}_${Date.now().toString(36)}`;
+}
+
+interface DerivedTracesProps {
+  traces: DerivedTrace[];
+  onChange: (next: DerivedTrace[]) => void;
+  /** Variables available to reference, shown as a hint. */
+  variables: SeriesVariable[];
+  /** Per-trace parse/eval errors keyed by trace id. */
+  errors: Record<string, string>;
+}
+
+/** Compact editor for derived/expression traces, styled to match the query
+ *  builder's chip/sentence language. Lives below the QueryBuilder. */
+export function DerivedTraces({
+  traces,
+  onChange,
+  variables,
+  errors,
+}: DerivedTracesProps) {
+  function add() {
+    onChange([
+      ...traces,
+      { id: newTraceId(), label: "", expression: "" },
+    ]);
+  }
+
+  function update(id: string, patch: Partial<DerivedTrace>) {
+    onChange(traces.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }
+
+  function remove(id: string) {
+    onChange(traces.filter((t) => t.id !== id));
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="select-none text-xs font-medium text-muted-foreground">
+          Derived traces
+        </span>
+        {traces.length === 0 ? (
+          <span className="select-none text-xs italic text-muted-foreground/60">
+            none
+          </span>
+        ) : null}
+      </div>
+
+      {traces.map((trace) => (
+        <div key={trace.id} className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Input
+              value={trace.label}
+              onChange={(e) => update(trace.id, { label: e.target.value })}
+              placeholder="label"
+              className="h-7 w-32 font-mono text-xs"
+            />
+            <span className="select-none text-xs text-muted-foreground/70">
+              =
+            </span>
+            <Input
+              value={trace.expression}
+              onChange={(e) => update(trace.id, { expression: e.target.value })}
+              placeholder="expression (e.g. s0 * 2)"
+              className="h-7 flex-1 font-mono text-xs"
+            />
+            <button
+              type="button"
+              aria-label="Remove derived trace"
+              onClick={() => remove(trace.id)}
+              className="rounded-sm p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Remove derived trace"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {errors[trace.id] ? (
+            <p className="pl-1 text-xs text-destructive">{errors[trace.id]}</p>
+          ) : null}
+        </div>
+      ))}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={add}
+          className={cn(
+            "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+          )}
+        >
+          <Plus className="h-3 w-3" />
+          derived trace
+        </button>
+      </div>
+
+      {variables.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
+          <span className="uppercase tracking-wider">vars</span>
+          {variables.map((v) => (
+            <code key={v.index} className="font-mono">
+              {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
+            </code>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
