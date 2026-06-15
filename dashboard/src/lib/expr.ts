@@ -11,6 +11,13 @@
 // `with` anywhere here. The only things an expression can reference are the
 // variables we hand it and the whitelisted functions below — nothing can
 // reach the host environment.
+//
+// Beyond arithmetic, the grammar also supports comparison (`== != > >= < <=`,
+// with bare `=` accepted as equality) and logical (`and`/`or`, or the `&&`/`||`
+// aliases) operators that yield `1` (true) / `0` (false). These power boolean
+// *conditions* — e.g. highlight bands where `throttle = 100` — while reusing the
+// very same evaluator: a condition is just an expression whose result is read as
+// truthy (`!= 0`). NaN (div-by-zero, unknown var, …) is falsey.
 
 /** A user-defined trace computed in-browser from already-fetched series. */
 export interface DerivedTrace {
@@ -113,7 +120,35 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    // Single-char operators / punctuation.
+    // Multi-char comparison / logical operators. Check the two-char forms
+    // before the single-char ones so `>=` doesn't lex as `>` then `=`.
+    const two = input.slice(i, i + 2);
+    if (
+      two === "==" ||
+      two === "!=" ||
+      two === ">=" ||
+      two === "<=" ||
+      two === "&&" ||
+      two === "||"
+    ) {
+      tokens.push({ type: "op", value: two, pos: i });
+      i += 2;
+      continue;
+    }
+
+    // Single-char operators / punctuation. A lone `=` is accepted as equality
+    // (friendlier for "throttle = 100") and normalized to `==` here so the
+    // parser only deals with one spelling.
+    if (c === "=") {
+      tokens.push({ type: "op", value: "==", pos: i });
+      i++;
+      continue;
+    }
+    if (c === ">" || c === "<") {
+      tokens.push({ type: "op", value: c, pos: i });
+      i++;
+      continue;
+    }
     if (c === "+" || c === "-" || c === "*" || c === "/" || c === "^") {
       tokens.push({ type: "op", value: c, pos: i });
       i++;
@@ -146,11 +181,28 @@ function tokenize(input: string): Token[] {
 // AST
 // ---------------------------------------------------------------------------
 
+/** Comparison and logical operators fold into the same `bin` node as the
+ *  arithmetic ones; `evalNode` switches on `op` to pick the semantics. */
+type BinOp =
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "^"
+  | "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "and"
+  | "or";
+
 type Node =
   | { kind: "num"; value: number }
   | { kind: "var"; name: string; pos: number }
   | { kind: "neg"; operand: Node }
-  | { kind: "bin"; op: "+" | "-" | "*" | "/" | "^"; left: Node; right: Node }
+  | { kind: "bin"; op: BinOp; left: Node; right: Node }
   | { kind: "call"; name: string; args: Node[]; pos: number };
 
 /** Whitelisted functions and their arity. Anything not in here is a parse
@@ -173,11 +225,21 @@ const FUNCTIONS: Record<string, { arity: number; fn: (...a: number[]) => number 
 // Parser (recursive descent)
 //
 // Grammar (lowest to highest precedence):
-//   expr    := term (('+' | '-') term)*
+//   expr    := or
+//   or      := and (('or' | '||') and)*
+//   and     := compare (('and' | '&&') compare)*
+//   compare := sum (('==' | '!=' | '>' | '>=' | '<' | '<=') sum)*
+//   sum     := term (('+' | '-') term)*
 //   term    := unary (('*' | '/') unary)*
 //   unary   := '-' unary | power
 //   power   := primary ('^' unary)?        // right-associative
 //   primary := number | ident | ident '(' args ')' | '(' expr ')'
+//
+// `and`/`or` are spelled as identifiers (the tokenizer can't tell a keyword
+// from a variable), so the parser recognizes them by value at the `or`/`and`
+// levels; `&&`/`||` are the operator-token aliases. Comparisons left-fold,
+// which is good enough for these expressions (chained `a < b < c` is unusual
+// and reads as `(a < b) < c`, matching most calculator behavior).
 // ---------------------------------------------------------------------------
 
 class Parser {
@@ -205,7 +267,59 @@ class Parser {
     return node;
   }
 
+  // The top of the precedence chain. `expr` simply enters at the lowest
+  // binding level (logical `or`) and everything cascades down from there.
   private parseExpr(): Node {
+    return this.parseOr();
+  }
+
+  /** True when the current token is the keyword `ident` (`and`/`or`). These
+   *  arrive as `ident` tokens, so we match on type+value rather than `op`. */
+  private isKeyword(word: string): boolean {
+    const t = this.peek();
+    return t.type === "ident" && t.value === word;
+  }
+
+  private parseOr(): Node {
+    let left = this.parseAnd();
+    // `or` (keyword) and `||` (operator alias) are equivalent.
+    while (this.isKeyword("or") || (this.peek().type === "op" && this.peek().value === "||")) {
+      this.next();
+      const right = this.parseAnd();
+      left = { kind: "bin", op: "or", left, right };
+    }
+    return left;
+  }
+
+  private parseAnd(): Node {
+    let left = this.parseComparison();
+    while (this.isKeyword("and") || (this.peek().type === "op" && this.peek().value === "&&")) {
+      this.next();
+      const right = this.parseComparison();
+      left = { kind: "bin", op: "and", left, right };
+    }
+    return left;
+  }
+
+  private parseComparison(): Node {
+    let left = this.parseSum();
+    while (
+      this.peek().type === "op" &&
+      (this.peek().value === "==" ||
+        this.peek().value === "!=" ||
+        this.peek().value === ">" ||
+        this.peek().value === ">=" ||
+        this.peek().value === "<" ||
+        this.peek().value === "<=")
+    ) {
+      const op = this.next().value as "==" | "!=" | ">" | ">=" | "<" | "<=";
+      const right = this.parseSum();
+      left = { kind: "bin", op, left, right };
+    }
+    return left;
+  }
+
+  private parseSum(): Node {
     let left = this.parseTerm();
     while (this.peek().type === "op" && (this.peek().value === "+" || this.peek().value === "-")) {
       const op = this.next().value as "+" | "-";
@@ -337,6 +451,19 @@ function evalNode(node: Node, vars: Record<string, number>): number {
         // a non-finite result (the compiled wrapper normalizes it).
         case "/": return l / r;
         case "^": return Math.pow(l, r);
+        // Comparisons / logicals yield 1 (true) or 0 (false). A NaN operand
+        // makes any comparison false (NaN compares false to everything),
+        // which is the behavior we want — an undefined condition isn't a hit.
+        case "==": return l === r ? 1 : 0;
+        case "!=": return l !== r ? 1 : 0;
+        case ">":  return l > r ? 1 : 0;
+        case ">=": return l >= r ? 1 : 0;
+        case "<":  return l < r ? 1 : 0;
+        case "<=": return l <= r ? 1 : 0;
+        // Truthiness = value `!= 0`. NaN is falsey (NaN !== 0 is true, so guard
+        // it explicitly). Logicals always return a clean 0/1, never the operand.
+        case "and": return l !== 0 && !Number.isNaN(l) && r !== 0 && !Number.isNaN(r) ? 1 : 0;
+        case "or":  return (l !== 0 && !Number.isNaN(l)) || (r !== 0 && !Number.isNaN(r)) ? 1 : 0;
       }
       return NaN;
     }

@@ -83,6 +83,13 @@ interface QueryChartProps {
    *  When every plotted label is default, the chart collapses to exactly its
    *  prior single-axis, single-stack rendering. */
   axisConfig?: Record<string, AxisSetting>;
+  /** Highlight bands (T6): translucent vertical regions over the bucket index
+   *  ranges where a per-widget condition holds. Each range is an inclusive
+   *  `[loIdx, hiIdx]` over the shared category axis. Rendered as a dedicated,
+   *  silent `__highlight__` markArea series that sits behind the data and never
+   *  interferes with the transient `__brush__` selection. Absent/empty → the
+   *  chart renders exactly as today. */
+  highlights?: { id: string; color: string; ranges: [number, number][] }[];
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
@@ -256,6 +263,7 @@ export function QueryChart({
   groupId,
   onReady,
   axisConfig,
+  highlights,
 }: QueryChartProps) {
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
@@ -437,6 +445,36 @@ export function QueryChart({
       };
     });
 
+    // Highlight bands (T6) live on their own dedicated, silent series id —
+    // `__highlight__` — kept entirely separate from the transient `__brush__`
+    // markArea so brush-to-select and condition bands never clobber each other.
+    // Each `[lo, hi]` index range becomes one markArea band; every range across
+    // every highlight is flattened into this single series' data, each carrying
+    // its own translucent color via per-item `itemStyle`. With no highlights the
+    // series carries empty data and is visually inert. `silent: true` keeps it
+    // from intercepting the zrender brush mouse handlers, and `z: 0` parks it
+    // behind the data lines/bars.
+    const highlightAreas = (highlights ?? []).flatMap((h) =>
+      h.ranges.map(([lo, hi]) => [
+        { xAxis: lo, itemStyle: { color: h.color } },
+        { xAxis: hi },
+      ]),
+    );
+    const highlightSeries = {
+      id: "__highlight__",
+      type: "line" as const,
+      data: [],
+      silent: true,
+      z: 0,
+      markArea: {
+        silent: true,
+        // Default color is a no-op — every band overrides it per-item above —
+        // but ECharts wants an itemStyle present.
+        itemStyle: { color: "transparent" },
+        data: highlightAreas,
+      },
+    };
+
     return {
       animation: false,
       grid: { top: 8, right: 8, bottom: 24, left: 56, containLabel: false },
@@ -559,7 +597,7 @@ export function QueryChart({
           filterMode: "none",
         },
       ],
-      series: echartsSeries,
+      series: [...echartsSeries, highlightSeries],
     };
   }, [
     plotSeries,
@@ -570,6 +608,7 @@ export function QueryChart({
     nativeGroups,
     hasNormalized,
     normalizedAxisIndex,
+    highlights,
   ]);
 
   // Initialize the instance once.

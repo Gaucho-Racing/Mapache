@@ -64,6 +64,70 @@ export function buildSeriesVariables(series: Series[]): SeriesVariable[] {
   });
 }
 
+/** Compile an expression against a set of base series, sharing the variable
+ *  model (positional `sN` + friendly aliases) and up-front unknown-variable
+ *  validation used by BOTH derived traces and highlights. On success returns a
+ *  per-bucket evaluator `evalAt(i)` that builds the variable map for bucket
+ *  index `i` (each base series' value, null → 0, under both its aliases) and
+ *  evaluates the compiled expression — yielding NaN for non-finite results.
+ *  This is the single code path so the two features can't drift apart. */
+export interface SeriesEvaluator {
+  ok: boolean;
+  /** Present when `!ok` — already formatted for inline display. */
+  error?: string;
+  /** Present when `ok`. Evaluate the expression at a given bucket index. */
+  evalAt?: (bucketIndex: number) => number;
+}
+
+export function compileAgainstSeries(
+  expression: string,
+  series: Series[],
+): SeriesEvaluator {
+  const result = compileExpression(expression);
+  if (!result.ok || !result.compiled) {
+    const err = result.error;
+    return {
+      ok: false,
+      error: err
+        ? `${err.message} (col ${err.position + 1})`
+        : "Invalid expression",
+    };
+  }
+
+  const variables = buildSeriesVariables(series);
+
+  // Validate referenced variables up-front so a typo'd alias is a clear
+  // message instead of a silently flat (all-zero) line / empty highlight.
+  const known = new Set<string>();
+  for (const v of variables) {
+    known.add(v.index);
+    if (v.friendly) known.add(v.friendly);
+  }
+  const unknown = result.compiled.variables.filter((v) => !known.has(v));
+  if (unknown.length > 0) {
+    return {
+      ok: false,
+      error: `Unknown variable${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,
+    };
+  }
+
+  const compiled = result.compiled;
+  const evalAt = (i: number): number => {
+    // Build the per-bucket variable map: each base series contributes its
+    // value at index `i` under both its positional and friendly aliases.
+    const vars: Record<string, number> = {};
+    for (let si = 0; si < series.length; si++) {
+      const value = series[si].points[i]?.value ?? 0;
+      vars[`s${si}`] = value;
+      const friendly = variables[si].friendly;
+      if (friendly) vars[friendly] = value;
+    }
+    return compiled.evaluate(vars);
+  };
+
+  return { ok: true, evalAt };
+}
+
 /** Result of evaluating one derived trace: either the computed series or a
  *  per-trace error message to surface inline. */
 export interface DerivedResult {
@@ -82,7 +146,6 @@ export function computeDerivedSeries(
   series: Series[],
   traces: DerivedTrace[],
 ): DerivedResult[] {
-  const variables = buildSeriesVariables(series);
   // The bucket axis is shared across every base series (server zero-fills),
   // so the first series defines the bucket strings the derived series reuse.
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
@@ -96,44 +159,16 @@ export function computeDerivedSeries(
       return { id: trace.id };
     }
 
-    const result = compileExpression(trace.expression);
-    if (!result.ok || !result.compiled) {
-      const err = result.error;
-      return {
-        id: trace.id,
-        error: err
-          ? `${err.message} (col ${err.position + 1})`
-          : "Invalid expression",
-      };
+    // One shared compile-and-validate path with highlights (see
+    // `compileAgainstSeries`); a failure carries the formatted message.
+    const evaluator = compileAgainstSeries(trace.expression, series);
+    if (!evaluator.ok || !evaluator.evalAt) {
+      return { id: trace.id, error: evaluator.error };
     }
 
-    // Validate referenced variables up-front so a typo'd alias is a clear
-    // message instead of a silently flat (all-zero) line.
-    const known = new Set<string>();
-    for (const v of variables) {
-      known.add(v.index);
-      if (v.friendly) known.add(v.friendly);
-    }
-    const unknown = result.compiled.variables.filter((v) => !known.has(v));
-    if (unknown.length > 0) {
-      return {
-        id: trace.id,
-        error: `Unknown variable${unknown.length === 1 ? "" : "s"}: ${unknown.join(", ")}`,
-      };
-    }
-
-    const compiled = result.compiled;
+    const evalAt = evaluator.evalAt;
     const points = buckets.map((bucket, i) => {
-      // Build the per-bucket variable map: each base series contributes its
-      // value at index `i` under both its positional and friendly aliases.
-      const vars: Record<string, number> = {};
-      for (let si = 0; si < series.length; si++) {
-        const value = series[si].points[i]?.value ?? 0;
-        vars[`s${si}`] = value;
-        const friendly = variables[si].friendly;
-        if (friendly) vars[friendly] = value;
-      }
-      const out = compiled.evaluate(vars);
+      const out = evalAt(i);
       // NaN (div-by-zero, etc.) → null; the chart coerces null → 0.
       return { bucket, value: Number.isFinite(out) ? out : null };
     });

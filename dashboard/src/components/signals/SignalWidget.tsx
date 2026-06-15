@@ -19,6 +19,12 @@ import {
   axisSettingFor,
   TraceAxisControls,
 } from "@/components/signals/TraceAxisControls";
+import {
+  computeHighlightErrors,
+  computeHighlightRanges,
+  Highlights,
+  type Highlight,
+} from "@/components/signals/Highlights";
 import type { DerivedTrace } from "@/lib/expr";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -148,6 +154,11 @@ export function SignalWidget({
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
   >({});
+  // Per-widget highlight conditions (T6), evaluated in-browser over the fetched
+  // series to shade the bucket ranges where each condition holds. Empty by
+  // default — zero-cost and visually identical to today when unused. Local to
+  // this widget; never broadcast across panels.
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [seriesMs, setSeriesMs] = useState<number | null>(null);
   const [queryError, setQueryError] = useState<
@@ -264,6 +275,22 @@ export function SignalWidget({
     [series, derivedSeries],
   );
 
+  // Evaluate every highlight condition against the fetched base series (the
+  // same `sN`/friendly variable model the derived traces use), coalescing
+  // contiguous truthy buckets into inclusive index ranges the chart paints as
+  // bands. Recomputes only when the data or the highlight definitions change.
+  const highlightRanges = useMemo(
+    () => computeHighlightRanges(series, highlights),
+    [series, highlights],
+  );
+
+  // Per-highlight compile/unknown-variable errors, surfaced inline in the
+  // editor exactly like derived traces.
+  const highlightErrors = useMemo(
+    () => computeHighlightErrors(series, highlights),
+    [series, highlights],
+  );
+
   // Narrow the (potentially stale) settings map to just the currently plotted
   // labels before handing it to the chart. The chart already defaults any
   // missing label, so this is mainly to keep the prop small and intentional;
@@ -314,6 +341,12 @@ export function SignalWidget({
               colors={seriesColors}
               settings={axisSettings}
               onChange={updateAxisSetting}
+            />
+            <Highlights
+              highlights={highlights}
+              onChange={setHighlights}
+              variables={seriesVariables}
+              errors={highlightErrors}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -374,6 +407,7 @@ export function SignalWidget({
               onBrushSelect={onBrushSelect}
               onReady={onChartReady}
               axisConfig={axisConfig}
+              highlights={highlightRanges}
             />
           )}
         </CardContent>
