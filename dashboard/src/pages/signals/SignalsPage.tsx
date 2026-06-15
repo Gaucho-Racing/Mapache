@@ -22,6 +22,7 @@ import { notify } from "@/lib/notify";
 import { useVehicle } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import type { ECharts } from "echarts/core";
 import Fuse from "fuse.js";
 import {
   ArrowDown,
@@ -30,8 +31,9 @@ import {
   Loader2,
   Plus,
   Search,
+  ZoomOut,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SortKey = "name" | "count" | "first_seen" | "last_seen";
 type SortDir = "asc" | "desc";
@@ -141,6 +143,64 @@ function SignalsPage() {
   // Single ECharts connection group shared by every widget on the page —
   // joining it syncs the hover cursor + tooltip across all panels.
   const SYNC_GROUP_ID = "signals-page";
+
+  // Live chart instances, keyed by their DOM id so add/hide/delete keep the
+  // set accurate. We dispatch group-wide dataZoom (zoom out / reset) through
+  // any one of them — `echarts.connect` rebroadcasts the action to the rest,
+  // so a single dispatch zooms every synced panel. Purely client-side: it
+  // magnifies the already-fetched buckets and fires no `/query/run`.
+  const chartInstances = useRef<Set<ECharts>>(new Set());
+
+  const onChartReady = useCallback((inst: ECharts | null) => {
+    // QueryChart calls this with the instance on init; we can't get `null`
+    // back with the same reference on teardown, so each chart re-registers
+    // on mount and we prune disposed instances at dispatch time.
+    if (inst) chartInstances.current.add(inst);
+  }, []);
+
+  // Read the current zoom window from any live chart. All synced panels share
+  // the same window, so the first non-disposed instance is authoritative.
+  const liveInstance = (): ECharts | null => {
+    for (const inst of chartInstances.current) {
+      if (inst.isDisposed()) {
+        chartInstances.current.delete(inst);
+        continue;
+      }
+      return inst;
+    }
+    return null;
+  };
+
+  // Dispatch a dataZoom window [start, end] (percent 0–100) to the group.
+  // One dispatchAction on any grouped instance is rebroadcast to all.
+  const dispatchZoom = (start: number, end: number) => {
+    const inst = liveInstance();
+    if (!inst) return;
+    inst.dispatchAction({ type: "dataZoom", start, end });
+  };
+
+  // Step the window back out: widen the current [start, end] by 2x around its
+  // center, clamped to [0, 100]. Repeated clicks walk all the way back out.
+  const zoomOut = () => {
+    const inst = liveInstance();
+    if (!inst) return;
+    const dz = (
+      inst.getOption() as {
+        dataZoom?: Array<{ start?: number; end?: number }>;
+      }
+    ).dataZoom?.[0];
+    const start = typeof dz?.start === "number" ? dz.start : 0;
+    const end = typeof dz?.end === "number" ? dz.end : 100;
+    const center = (start + end) / 2;
+    const halfWidth = (end - start) / 2;
+    const newHalf = Math.min(halfWidth * 2, 50);
+    const newStart = Math.max(0, center - newHalf);
+    const newEnd = Math.min(100, center + newHalf);
+    dispatchZoom(newStart, newEnd);
+  };
+
+  // Snap back to the full fetched window.
+  const resetZoom = () => dispatchZoom(0, 100);
 
   const addWidget = () => {
     setWidgetIds((prev) => [...prev, nextWidgetId.current++]);
@@ -282,7 +342,30 @@ function SignalsPage() {
               selected timeframe.
             </p>
           </div>
-          <TimeframePicker value={timeframe} onChange={setTimeframe} />
+          <div className="flex items-center gap-2">
+            {/* Client-side zoom controls. These magnify the already-fetched
+                buckets via ECharts dataZoom across every synced panel — no
+                requery. The brush (drag on a chart) still sets the timeframe
+                and refetches for true resolution. */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={zoomOut}
+              title="Zoom out (widen the current view)"
+            >
+              <ZoomOut className="mr-2 h-4 w-4" />
+              Zoom out
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetZoom}
+              title="Reset zoom to the full queried window"
+            >
+              Reset zoom
+            </Button>
+            <TimeframePicker value={timeframe} onChange={setTimeframe} />
+          </div>
         </div>
 
         {widgetIds.map((id) => (
@@ -299,6 +382,7 @@ function SignalsPage() {
             onToggleHide={() => toggleHide(id)}
             onDelete={() => deleteWidget(id)}
             onBrushSelect={onBrushSelect}
+            onChartReady={onChartReady}
           />
         ))}
 

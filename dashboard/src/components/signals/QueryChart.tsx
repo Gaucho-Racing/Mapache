@@ -4,6 +4,7 @@ import {
   GridComponent,
   TooltipComponent,
   MarkAreaComponent,
+  DataZoomInsideComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type {
@@ -23,6 +24,12 @@ echarts.use([
   GridComponent,
   TooltipComponent,
   MarkAreaComponent,
+  // `inside` dataZoom only — mouse-wheel zoom over the (already-fetched)
+  // category axis. This is purely client-side magnification and never
+  // triggers a requery; the brush (zrender left-drag) is what sets the
+  // page timeframe and refetches. We deliberately skip the slider
+  // component to keep the gesture surface clear of the left-drag brush.
+  DataZoomInsideComponent,
   CanvasRenderer,
 ]);
 
@@ -52,6 +59,11 @@ interface QueryChartProps {
    *  and tooltip sync across every chart sharing the same id. Additive —
    *  when absent the chart behaves exactly as before. */
   groupId?: string;
+  /** Called once with the ECharts instance after init (and with `null` on
+   *  teardown). Lets the page dispatch group-wide dataZoom actions (zoom
+   *  out / reset) through any one panel — the `connect` group rebroadcasts
+   *  to the rest. Additive; standalone charts simply omit it. */
+  onReady?: (instance: ECharts | null) => void;
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
@@ -174,6 +186,7 @@ export function QueryChart({
   maxSeries = 10,
   onBrushSelect,
   groupId,
+  onReady,
 }: QueryChartProps) {
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
@@ -206,6 +219,10 @@ export function QueryChart({
   // effect's empty dep array stays honest.
   const groupIdRef = useRef(groupId);
   groupIdRef.current = groupId;
+  // Same once-only-effect treatment for onReady: read the latest via a ref
+  // so the init/teardown can notify the page without re-binding.
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   // Brush drag state lives in refs so the native zrender mouse handlers
   // (registered once) always read the latest values without re-binding.
   const brushRef = useRef<{ startIdx: number | null; curIdx: number | null }>({
@@ -320,6 +337,28 @@ export function QueryChart({
         axisLabel: { color: axisLabelColor, formatter: formatCount },
         splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
       },
+      // Client-side zoom over the category (bucket) axis. Mouse-wheel only:
+      // the left-drag is owned by the brush-to-select-timeframe handlers, so
+      // we turn off drag-panning (`moveOnMouseMove: false`) to avoid stealing
+      // it. Zooming never refetches — it just magnifies the buckets we
+      // already have. Because every widget shares the `connect` group,
+      // ECharts broadcasts the dataZoom action so all panels zoom together;
+      // a standalone chart (no groupId) still zooms, just unsynced.
+      dataZoom: [
+        {
+          id: "__inside_zoom__",
+          type: "inside",
+          xAxisIndex: 0,
+          zoomOnMouseWheel: true,
+          moveOnMouseWheel: false,
+          moveOnMouseMove: false,
+          // Preserve the current zoom window across option pushes (data
+          // refreshes) instead of snapping back to the full range.
+          // `filterMode: "none"` keeps out-of-window points so lines/areas
+          // don't get clipped to abrupt edges.
+          filterMode: "none",
+        },
+      ],
       series: echartsSeries,
     };
   }, [plotSeries, buckets, type, stack, intervalSec]);
@@ -341,6 +380,9 @@ export function QueryChart({
       inst.group = groupIdRef.current;
       echarts.connect(groupIdRef.current);
     }
+
+    // Hand the instance to the page so it can drive group-wide dataZoom.
+    onReadyRef.current?.(inst);
 
     const ro = new ResizeObserver(() => inst.resize());
     ro.observe(chartRef.current);
@@ -450,6 +492,7 @@ export function QueryChart({
       zr.off("mousedown", onDown);
       zr.off("mousemove", onMove);
       zr.off("mouseup", commit);
+      onReadyRef.current?.(null);
       inst.dispose();
       instanceRef.current = null;
     };
@@ -461,10 +504,30 @@ export function QueryChart({
   useEffect(() => {
     const inst = instanceRef.current;
     if (!inst) return;
-    const opt = option as { series: unknown[] };
+    // Capture the live zoom window so a `notMerge` rebuild (e.g. a chart-type
+    // toggle) doesn't snap the view back to the full range. Pure zoom
+    // interactions don't run this effect — `option` is referentially stable
+    // unless real inputs change — so this only matters on data/type updates.
+    // `getOption()` returns undefined until the first `setOption`, so guard
+    // it — on the initial mount there's no prior zoom window to preserve.
+    const prevOption = inst.getOption() as
+      | { dataZoom?: Array<{ start?: number; end?: number }> }
+      | undefined;
+    const curZoom = prevOption?.dataZoom?.[0];
+    const opt = option as {
+      series: unknown[];
+      dataZoom: Array<Record<string, unknown>>;
+    };
+    const dataZoom =
+      curZoom &&
+      typeof curZoom.start === "number" &&
+      typeof curZoom.end === "number"
+        ? [{ ...opt.dataZoom[0], start: curZoom.start, end: curZoom.end }]
+        : opt.dataZoom;
     inst.setOption(
       {
         ...opt,
+        dataZoom,
         series: [...opt.series, { id: "__brush__", type: "line", data: [] }],
       },
       { notMerge: true },

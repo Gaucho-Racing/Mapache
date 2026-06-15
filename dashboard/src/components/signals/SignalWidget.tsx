@@ -4,6 +4,7 @@ import {
 } from "@/components/signals/ChartTypeToggle";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
 import { QueryChart, type Series } from "@/components/signals/QueryChart";
+import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
@@ -94,6 +95,10 @@ export interface SignalWidgetProps {
   /** Brush-select on this widget's chart bubbles up to set the shared
    *  page timeframe. */
   onBrushSelect: (start: Date, end: Date) => void;
+  /** Receives this widget's ECharts instance on ready (and `null` on
+   *  teardown) so the page can dispatch group-wide dataZoom (zoom out /
+   *  reset) through any live panel. */
+  onChartReady?: (instance: ECharts | null) => void;
 }
 
 export function SignalWidget({
@@ -108,6 +113,7 @@ export function SignalWidget({
   onToggleHide,
   onDelete,
   onBrushSelect,
+  onChartReady,
 }: SignalWidgetProps) {
   // Chart-side state: the structured query AST, the result series, the
   // chosen chart type, and a query-execution error surfaced under the
@@ -263,6 +269,7 @@ export function SignalWidget({
               intervalSec={intervalSec}
               groupId={groupId}
               onBrushSelect={onBrushSelect}
+              onReady={onChartReady}
             />
           )}
         </CardContent>

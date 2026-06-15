@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T9 — Zoom out / reset window** (next `todo`)
+➡️ **T5 — Derived/expression traces** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -23,9 +23,9 @@ After `/clear`: read this file, then run
 | T0 | Branch + tracking scaffold | done | 5453ffe | branch `feat/signals-overhaul` created |
 | T1 | Sub-second binning (backend + frontend mirror) | done | 0cc4601 | added 16/50/100/500ms; ms-based steps; native CH MILLISECOND interval. Needs live-CH smoke test |
 | T2 | Swap Recharts → ECharts in chart component | done | 1660347 | echarts core (canvas), brush via zrender, top-K/stack/tooltip preserved, 20k gate removed; empty-state made overlay so init is robust for T3 |
-| T3 | Stacked multi-widget layout, shared time axis | done | _pending_ | new SignalWidget.tsx (owns query/chart-type/fetch); page holds widgetIds+hiddenIds, add/delete/hide; synced cursor via echarts.connect group "signals-page" (additive groupId prop on QueryChart); brush bubbles to shared timeframe |
+| T3 | Stacked multi-widget layout, shared time axis | done | dc32f0d | new SignalWidget.tsx (owns query/chart-type/fetch); page holds widgetIds+hiddenIds, add/delete/hide; synced cursor via echarts.connect group "signals-page" (additive groupId prop on QueryChart); brush bubbles to shared timeframe |
 | T4 | Cleaner chip query builder | done | 94458f6 | sentence-style clauses (Show…of…where…grouped by…every…), same MQL AST, sub-second rollups reachable |
-| T9 | Zoom out / reset window (in-chart, no requery) | todo | — | builds on T3 shared axis (dataZoom) |
+| T9 | Zoom out / reset window (in-chart, no requery) | done | _pending_ | inside dataZoom on mouse-wheel (brush keeps left-drag→requery); page-level Zoom out / Reset dispatch to connect group via onReady instances; no network on zoom. Fixed initial-mount crash: getOption() is undefined before first setOption |
 | T5 | Derived/expression traces (frontend compute) | todo | — | |
 | T8 | Per-trace normalization w/ shared-scale groups | todo | — | multi-y-axis; builds on T3/T5 trace model |
 | T6 | Highlight regions / boxes (frontend compute) | todo | — | |
