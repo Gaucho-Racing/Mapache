@@ -1,25 +1,30 @@
-import { Button } from "@/components/ui/button";
+import * as echarts from "echarts/core";
+import { BarChart, LineChart } from "echarts/charts";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { AlertTriangle } from "lucide-react";
-import { useMemo, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceArea,
-  XAxis,
-  YAxis,
-} from "recharts";
+  GridComponent,
+  TooltipComponent,
+  MarkAreaComponent,
+} from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type {
+  ECharts,
+  EChartsCoreOption,
+  ElementEvent,
+} from "echarts/core";
+import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
+
+// Canvas renderer only — that's the whole point of moving off recharts.
+// One <canvas> for the entire plot means a >20k-point query draws without
+// hanging the tab, so there's no longer a "render anyway" confirm gate.
+echarts.use([
+  BarChart,
+  LineChart,
+  GridComponent,
+  TooltipComponent,
+  MarkAreaComponent,
+  CanvasRenderer,
+]);
 
 export interface SeriesPoint {
   bucket: string;
@@ -145,6 +150,18 @@ function topK(series: Series[], max: number): { kept: Series[]; otherCount: numb
   return { kept, otherCount: tail.length };
 }
 
+/** Resolve an HSL CSS custom property (stored as "H S% L%") to an
+ *  `hsl(...)` string ECharts can consume, with an optional alpha. Falls
+ *  back to a sane dark-theme grey if the var is missing (e.g. SSR). */
+function cssHsl(varName: string, fallback: string, alpha = 1): string {
+  if (typeof window === "undefined") return fallback;
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim();
+  if (!raw) return fallback;
+  return alpha === 1 ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
+}
+
 export function QueryChart({
   series,
   type,
@@ -152,239 +169,305 @@ export function QueryChart({
   maxSeries = 10,
   onBrushSelect,
 }: QueryChartProps) {
-  // Brush state. `start` is fixed on mousedown; `current` follows the
-  // mouse and renders the live highlight. We commit on mouseup when the
-  // two are distinct buckets — a same-bucket release is treated as a
-  // click (tooltip), not a selection, so single clicks keep working.
-  const [brushStart, setBrushStart] = useState<string | null>(null);
-  const [brushCurrent, setBrushCurrent] = useState<string | null>(null);
-
-  type ChartMouseEvent = { activeLabel?: string | number | null };
-  const handleMouseDown = onBrushSelect
-    ? (e: ChartMouseEvent | null) => {
-        const label = e?.activeLabel;
-        if (typeof label === "string") {
-          setBrushStart(label);
-          setBrushCurrent(label);
-        }
-      }
-    : undefined;
-  const handleMouseMove = onBrushSelect
-    ? (e: ChartMouseEvent | null) => {
-        if (brushStart === null) return;
-        const label = e?.activeLabel;
-        if (typeof label === "string") setBrushCurrent(label);
-      }
-    : undefined;
-  const handleMouseUp = onBrushSelect
-    ? () => {
-        if (brushStart !== null && brushCurrent !== null && brushStart !== brushCurrent) {
-          const a = new Date(brushStart);
-          const b = new Date(brushCurrent);
-          const [start, end] = a < b ? [a, b] : [b, a];
-          // Extend `end` to the *end* of its bucket so a brush that
-          // visually covers a bar actually includes that bar's data.
-          // intervalSec is the bucket width in seconds.
-          onBrushSelect(
-            start,
-            new Date(end.getTime() + intervalSec * 1000),
-          );
-        }
-        setBrushStart(null);
-        setBrushCurrent(null);
-      }
-    : undefined;
-  // Cancel an in-progress drag if the cursor leaves the chart — avoids
-  // a stuck highlight when the user releases the button off-chart.
-  const handleMouseLeave = onBrushSelect
-    ? () => {
-        setBrushStart(null);
-        setBrushCurrent(null);
-      }
-    : undefined;
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
   const { kept } = useMemo(() => topK(series, maxSeries), [series, maxSeries]);
 
-  // Pivot tall → wide so recharts can render multiple series from one
-  // dataset. Each row: { bucket, [seriesKey1]: value1, [seriesKey2]: ... }.
-  // Series keys are array indices ("s0", "s1", ...) so we never collide on
-  // user-provided values like "name".
-  const { data, seriesKeys, config } = useMemo(() => {
-    const seriesKeys: { key: string; label: string; color: string }[] = kept.map(
-      (s, i) => ({
-        key: `s${i}`,
-        label: seriesLabel(s.tags),
-        color: PALETTE[i % PALETTE.length],
-      }),
-    );
-    const config: ChartConfig = Object.fromEntries(
-      seriesKeys.map(({ key, label, color }) => [key, { label, color }]),
-    );
+  // Shape into the columnar form ECharts wants: a shared category axis of
+  // bucket ISO strings plus one value array per series. Series keys mirror
+  // the old "s0", "s1", ... indexing so colors stay stable by position.
+  const { buckets, plotSeries } = useMemo(() => {
     const buckets = kept[0]?.points.map((p) => p.bucket) ?? [];
-    const data = buckets.map((bucket, i) => {
-      const row: Record<string, string | number | null> = { bucket };
-      kept.forEach((s, sIdx) => {
-        row[`s${sIdx}`] = s.points[i]?.value ?? 0;
-      });
-      return row;
-    });
-    return { data, seriesKeys, config };
+    const plotSeries = kept.map((s, i) => ({
+      key: `s${i}`,
+      label: seriesLabel(s.tags),
+      color: PALETTE[i % PALETTE.length],
+      // Nulls render as 0, matching the old recharts behavior (it coerced
+      // null → 0 in the pivot).
+      values: buckets.map((_, bi) => s.points[bi]?.value ?? 0),
+    }));
+    return { buckets, plotSeries };
   }, [kept]);
 
-  const isMulti = seriesKeys.length > 1;
+  const isMulti = plotSeries.length > 1;
   // Bar/area stack by default in multi-series; line doesn't (lines stacked
-  // on top of each other are unreadable). Single-series ignores stackId.
-  const stackId = isMulti && type !== "line" ? "stack" : undefined;
+  // on top of each other are unreadable). Single-series never stacks.
+  const stack = isMulti && type !== "line" ? "stack" : undefined;
 
-  // Safety rail. Recharts is SVG-based — each bucket × series renders a
-  // DOM element, and the browser starts choking past ~20k of them. Bar
-  // charts hit this hardest (one <rect> per bar); line charts only render
-  // one <path> per series so they're cheap. We treat any chart type the
-  // same here for simplicity — if 20k is too conservative for line later,
-  // we can split the threshold by type.
-  const RENDER_LIMIT = 20_000;
-  const renderElementCount = data.length * Math.max(1, seriesKeys.length);
-  const renderSig = `${data.length}x${seriesKeys.length}`;
-  const [confirmedSig, setConfirmedSig] = useState<string | null>(null);
-  const needsConfirm =
-    renderElementCount > RENDER_LIMIT && confirmedSig !== renderSig;
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const instanceRef = useRef<ECharts | null>(null);
+  // Brush drag state lives in refs so the native zrender mouse handlers
+  // (registered once) always read the latest values without re-binding.
+  const brushRef = useRef<{ startIdx: number | null; curIdx: number | null }>({
+    startIdx: null,
+    curIdx: null,
+  });
+  // Keep the latest props the handlers need without re-creating handlers.
+  const cbRef = useRef<{
+    onBrushSelect?: (start: Date, end: Date) => void;
+    buckets: string[];
+    intervalSec: number;
+  }>({ onBrushSelect, buckets, intervalSec });
+  cbRef.current = { onBrushSelect, buckets, intervalSec };
 
-  if (data.length === 0) {
-    return (
-      <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-        No data in this window
-      </div>
+  // Build the ECharts option. Memoized so we only recompute on real input
+  // changes; the brush markArea is layered on separately during a drag.
+  const option = useMemo<EChartsCoreOption>(() => {
+    const axisLabelColor = cssHsl("--muted-foreground", "#a1a1aa");
+    const splitLineColor = cssHsl("--border", "#27272a");
+
+    const echartsSeries = plotSeries.map((s) => {
+      const base = {
+        id: s.key,
+        name: s.label,
+        data: s.values,
+        itemStyle: { color: s.color },
+        ...(stack ? { stack } : {}),
+      };
+      if (type === "bar") {
+        return {
+          ...base,
+          type: "bar" as const,
+          // Match recharts' rounded top corners.
+          itemStyle: { color: s.color, borderRadius: [2, 2, 0, 0] },
+        };
+      }
+      if (type === "line") {
+        return {
+          ...base,
+          type: "line" as const,
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 2, color: s.color },
+        };
+      }
+      // area
+      return {
+        ...base,
+        type: "line" as const,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: { width: 2, color: s.color },
+        areaStyle: { color: s.color, opacity: 0.25 },
+      };
+    });
+
+    return {
+      animation: false,
+      grid: { top: 8, right: 8, bottom: 24, left: 56, containLabel: false },
+      tooltip: {
+        trigger: "axis",
+        // ECharts handles dark backgrounds itself; nudge styling toward the
+        // shadcn tooltip look.
+        backgroundColor: cssHsl("--popover", "#18181b"),
+        borderColor: splitLineColor,
+        textStyle: { color: cssHsl("--popover-foreground", "#fafafa") },
+        formatter: (params: unknown) => {
+          const arr = Array.isArray(params) ? params : [params];
+          if (arr.length === 0) return "";
+          const iso = buckets[(arr[0] as { dataIndex: number }).dataIndex];
+          const header = iso ? new Date(iso).toLocaleString() : "";
+          const rows = (
+            arr as Array<{
+              seriesName: string;
+              value: number;
+              marker: string;
+            }>
+          )
+            .map(
+              (p) =>
+                `<div style="display:flex;justify-content:space-between;gap:12px">` +
+                `<span>${p.marker}${p.seriesName}</span>` +
+                `<span style="font-variant-numeric:tabular-nums">${formatCount(
+                  p.value,
+                )}</span></div>`,
+            )
+            .join("");
+          return `<div style="font-weight:500;margin-bottom:4px">${header}</div>${rows}`;
+        },
+      },
+      xAxis: {
+        type: "category" as const,
+        data: buckets,
+        boundaryGap: type === "bar",
+        axisTick: { show: false },
+        axisLine: { show: false },
+        axisLabel: {
+          color: axisLabelColor,
+          hideOverlap: true,
+          formatter: (v: string) => formatBucketTick(v, intervalSec),
+        },
+      },
+      yAxis: {
+        type: "value" as const,
+        axisTick: { show: false },
+        axisLine: { show: false },
+        axisLabel: { color: axisLabelColor, formatter: formatCount },
+        splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
+      },
+      series: echartsSeries,
+    };
+  }, [plotSeries, buckets, type, stack, intervalSec]);
+
+  // Initialize the instance once.
+  useEffect(() => {
+    if (!chartRef.current) return;
+    const inst = echarts.init(chartRef.current, undefined, {
+      renderer: "canvas",
+    });
+    instanceRef.current = inst;
+
+    const ro = new ResizeObserver(() => inst.resize());
+    ro.observe(chartRef.current);
+
+    // --- Brush-to-select-timeframe ---
+    // Reproduces the old recharts behavior on canvas: on mousedown we record
+    // the bucket under the cursor; on mousemove we draw a translucent
+    // markArea highlight between start and current; on mouseup we commit
+    // [start, end) — but only if start and current land on *different*
+    // buckets (a same-bucket release is a click, not a selection). The end
+    // is extended by one bucket width (intervalSec) so the brush includes
+    // the bar it visually covers.
+    const zr = inst.getZr();
+
+    // Map a pixel x within the grid to the nearest category index. Returns
+    // null if the point is outside the plot area.
+    const pixelToIndex = (event: ElementEvent): number | null => {
+      const x = event.offsetX;
+      const y = event.offsetY;
+      if (!inst.containPixel({ gridIndex: 0 }, [x, y])) return null;
+      const val = inst.convertFromPixel({ gridIndex: 0 }, [x, y]);
+      const idx = Array.isArray(val) ? Math.round(val[0] as number) : null;
+      if (idx === null) return null;
+      const len = cbRef.current.buckets.length;
+      if (idx < 0 || idx >= len) return null;
+      return idx;
+    };
+
+    const renderHighlight = () => {
+      const { startIdx, curIdx } = brushRef.current;
+      if (startIdx === null || curIdx === null || startIdx === curIdx) {
+        inst.setOption({ series: [{ id: "__brush__", markArea: { data: [] } }] });
+        return;
+      }
+      const lo = Math.min(startIdx, curIdx);
+      const hi = Math.max(startIdx, curIdx);
+      inst.setOption({
+        series: [
+          {
+            id: "__brush__",
+            type: "line",
+            data: [],
+            silent: true,
+            markArea: {
+              itemStyle: { color: cssHsl("--foreground", "#fafafa", 0.12) },
+              data: [[{ xAxis: lo }, { xAxis: hi }]],
+            },
+          },
+        ],
+      });
+    };
+
+    const onDown = (event: ElementEvent) => {
+      if (!cbRef.current.onBrushSelect) return;
+      const idx = pixelToIndex(event);
+      if (idx === null) return;
+      brushRef.current = { startIdx: idx, curIdx: idx };
+    };
+    const onMove = (event: ElementEvent) => {
+      if (!cbRef.current.onBrushSelect) return;
+      if (brushRef.current.startIdx === null) return;
+      const idx = pixelToIndex(event);
+      if (idx === null) return;
+      brushRef.current.curIdx = idx;
+      renderHighlight();
+    };
+    const commit = () => {
+      const { onBrushSelect: cb, buckets: bkts, intervalSec: iv } =
+        cbRef.current;
+      const { startIdx, curIdx } = brushRef.current;
+      brushRef.current = { startIdx: null, curIdx: null };
+      renderHighlight();
+      if (
+        cb &&
+        startIdx !== null &&
+        curIdx !== null &&
+        startIdx !== curIdx
+      ) {
+        const lo = Math.min(startIdx, curIdx);
+        const hi = Math.max(startIdx, curIdx);
+        const startIso = bkts[lo];
+        const endIso = bkts[hi];
+        if (startIso && endIso) {
+          const start = new Date(startIso);
+          // Extend `end` to the end of its bucket so a brush that visually
+          // covers a bar actually includes that bar's data.
+          const end = new Date(new Date(endIso).getTime() + iv * 1000);
+          cb(start, end);
+        }
+      }
+    };
+
+    zr.on("mousedown", onDown);
+    zr.on("mousemove", onMove);
+    zr.on("mouseup", commit);
+    // Cancel an in-progress drag if the cursor leaves the canvas — avoids a
+    // stuck highlight when the button is released off-chart.
+    zr.on("globalout", () => {
+      if (brushRef.current.startIdx !== null) {
+        brushRef.current = { startIdx: null, curIdx: null };
+        renderHighlight();
+      }
+    });
+
+    return () => {
+      ro.disconnect();
+      zr.off("mousedown", onDown);
+      zr.off("mousemove", onMove);
+      zr.off("mouseup", commit);
+      inst.dispose();
+      instanceRef.current = null;
+    };
+  }, []);
+
+  // Push option changes. `notMerge: false` so the persistent "__brush__"
+  // markArea series isn't clobbered by data updates, but we must include a
+  // placeholder brush series so ECharts keeps its id slot stable.
+  useEffect(() => {
+    const inst = instanceRef.current;
+    if (!inst) return;
+    const opt = option as { series: unknown[] };
+    inst.setOption(
+      {
+        ...opt,
+        series: [...opt.series, { id: "__brush__", type: "line", data: [] }],
+      },
+      { notMerge: true },
     );
-  }
+  }, [option]);
 
-  if (needsConfirm) {
-    return (
-      <div className="flex h-[260px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-6 text-center">
-        <AlertTriangle className="h-6 w-6 text-amber-500" />
-        <div>
-          <p className="text-sm font-medium">
-            Large render &mdash;{" "}
-            {data.length.toLocaleString()} buckets &times;{" "}
-            {seriesKeys.length} series ={" "}
-            {renderElementCount.toLocaleString()} elements
-          </p>
-          <p className="mt-1 max-w-md text-xs text-muted-foreground">
-            Past about {RENDER_LIMIT.toLocaleString()} SVG elements the browser
-            tab can hang. Pick a coarser rollup or a narrower timeframe, or
-            render anyway.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmedSig(renderSig)}
-        >
-          Render anyway
-        </Button>
-      </div>
-    );
-  }
-
-  const commonAxes = (
-    <>
-      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-      <XAxis
-        dataKey="bucket"
-        tickFormatter={(v) => formatBucketTick(v, intervalSec)}
-        tickLine={false}
-        axisLine={false}
-        minTickGap={32}
-      />
-      <YAxis
-        tickFormatter={formatCount}
-        tickLine={false}
-        axisLine={false}
-        width={48}
-      />
-      <ChartTooltip
-        content={
-          <ChartTooltipContent
-            labelFormatter={(v) => new Date(v as string).toLocaleString()}
-          />
+  // Always keep the chart container (and its ref) mounted so the one-time
+  // init effect has a node even when the first render has no data — the
+  // empty state is an overlay, not an early return. Otherwise a mount with
+  // empty series followed by data arriving would never initialize the
+  // instance (the `[]`-deps effect won't re-run). The empty overlay sits on
+  // top of an empty canvas.
+  return (
+    <div className="relative h-[260px] w-full">
+      <div
+        ref={chartRef}
+        className="h-full w-full"
+        style={
+          onBrushSelect
+            ? { userSelect: "none", cursor: "crosshair" }
+            : undefined
         }
       />
-    </>
-  );
-
-  // Shared props for whichever chart variant we render below.
-  const chartProps = {
-    data,
-    margin: { top: 8, right: 8, left: -16, bottom: 0 },
-    onMouseDown: handleMouseDown,
-    onMouseMove: handleMouseMove,
-    onMouseUp: handleMouseUp,
-    onMouseLeave: handleMouseLeave,
-    // Drag-to-select feels wrong with text selection happening underneath.
-    style: onBrushSelect ? { userSelect: "none" as const, cursor: "crosshair" as const } : undefined,
-  };
-
-  const brushHighlight =
-    brushStart !== null && brushCurrent !== null && brushStart !== brushCurrent ? (
-      <ReferenceArea
-        x1={brushStart}
-        x2={brushCurrent}
-        strokeOpacity={0}
-        fill="currentColor"
-        fillOpacity={0.12}
-      />
-    ) : null;
-
-  return (
-    <ChartContainer config={config} className="h-[260px] w-full">
-      {type === "bar" ? (
-        <BarChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Bar
-              key={key}
-              dataKey={key}
-              fill={`var(--color-${key})`}
-              stackId={stackId}
-              radius={[2, 2, 0, 0]}
-            />
-          ))}
-          {brushHighlight}
-        </BarChart>
-      ) : type === "line" ? (
-        <LineChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Line
-              key={key}
-              type="monotone"
-              dataKey={key}
-              stroke={`var(--color-${key})`}
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          ))}
-          {brushHighlight}
-        </LineChart>
-      ) : (
-        <AreaChart {...chartProps}>
-          {commonAxes}
-          {seriesKeys.map(({ key }) => (
-            <Area
-              key={key}
-              type="monotone"
-              dataKey={key}
-              stroke={`var(--color-${key})`}
-              fill={`var(--color-${key})`}
-              fillOpacity={0.25}
-              stackId={stackId}
-              isAnimationActive={false}
-            />
-          ))}
-          {brushHighlight}
-        </AreaChart>
+      {buckets.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          No data in this window
+        </div>
       )}
-    </ChartContainer>
+    </div>
   );
 }
