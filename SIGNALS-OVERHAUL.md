@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T2 — Swap Recharts → ECharts** and **T4 — Cleaner chip builder** (both in-progress, parallel)
+➡️ **T3 — Stacked multi-widget layout, shared time axis** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -22,9 +22,9 @@ After `/clear`: read this file, then run
 |----|------|--------|--------|------|
 | T0 | Branch + tracking scaffold | done | 5453ffe | branch `feat/signals-overhaul` created |
 | T1 | Sub-second binning (backend + frontend mirror) | done | 0cc4601 | added 16/50/100/500ms; ms-based steps; native CH MILLISECOND interval. Needs live-CH smoke test |
-| T2 | Swap Recharts → ECharts in chart component | done | _pending_ | echarts core (canvas), brush via zrender, top-K/stack/tooltip preserved, 20k gate removed; empty-state made overlay so init is robust for T3 |
+| T2 | Swap Recharts → ECharts in chart component | done | 1660347 | echarts core (canvas), brush via zrender, top-K/stack/tooltip preserved, 20k gate removed; empty-state made overlay so init is robust for T3 |
 | T3 | Stacked multi-widget layout, shared time axis | todo | — | |
-| T4 | Cleaner chip query builder | in-progress | — | |
+| T4 | Cleaner chip query builder | done | _pending_ | sentence-style clauses (Show…of…where…grouped by…every…), same MQL AST, sub-second rollups reachable |
 | T5 | Derived/expression traces (frontend compute) | todo | — | |
 | T6 | Highlight regions / boxes (frontend compute) | todo | — | |
 | T7 | Export (CSV data + PNG chart) | todo | — | |

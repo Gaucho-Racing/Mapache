@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 interface QueryBuilderProps {
   value: Query;
@@ -49,6 +49,7 @@ export function QueryBuilder({
   const fieldOptions: FieldName[] = ROW_COUNT_AGGS.has(value.fn)
     ? [COUNT_FIELD]
     : NUMERIC_FIELDS;
+  const fieldFixed = fieldOptions.length === 1;
 
   function setFn(fn: Aggregator) {
     // Swapping aggregator classes (count ↔ avg/sum/...) invalidates the
@@ -70,10 +71,7 @@ export function QueryBuilder({
   function addFilter() {
     onChange({
       ...value,
-      filters: [
-        ...value.filters,
-        { column: "name", op: "=", value: "" },
-      ],
+      filters: [...value.filters, { column: "name", op: "=", value: "" }],
     });
   }
 
@@ -112,75 +110,91 @@ export function QueryBuilder({
     onChange(next ? { ...rest, rollup: next } : rest);
   }
 
+  const canAddGroup = value.groupBy.length < GROUPABLE_COLUMNS.length;
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <SelectChip
-          label={value.fn}
-          options={AGGREGATORS.map((a) => ({
-            value: a.value,
-            label: a.label,
-          }))}
-          onSelect={(v) => setFn(v as Aggregator)}
-        />
-        <SelectChip
-          label={value.field}
-          options={fieldOptions.map((f) => ({ value: f, label: f }))}
-          onSelect={(v) => setField(v as FieldName)}
-          disabled={fieldOptions.length === 1}
-        />
+    <div className="flex flex-col gap-2.5">
+      {/* The builder reads as a left-to-right sentence:
+       *   Show <agg> of <field>   where <filters>   grouped by <groups>   every <rollup>
+       * Each clause is its own visual segment with a soft keyword lead-in
+       * so the structure is legible without reading the chips as a run-on. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 leading-7">
+        <Clause keyword="Show">
+          <SelectChip
+            label={value.fn}
+            options={AGGREGATORS.map((a) => ({
+              value: a.value,
+              label: a.label,
+            }))}
+            onSelect={(v) => setFn(v as Aggregator)}
+          />
+          <Connector>of</Connector>
+          <SelectChip
+            label={value.field}
+            options={fieldOptions.map((f) => ({ value: f, label: f }))}
+            onSelect={(v) => setField(v as FieldName)}
+            disabled={fieldFixed}
+          />
+        </Clause>
 
-        <span className="px-1 text-xs uppercase tracking-wide text-muted-foreground">
-          from
-        </span>
-        {value.filters.map((pred, i) => {
-          // Adjacent filters on the same column union (OR semantics);
-          // show a tiny "or" between them so the user sees this rather
-          // than reading the visual sequence as AND.
-          const prev = i > 0 ? value.filters[i - 1] : null;
-          const sameColAsPrev = prev !== null && prev.column === pred.column;
-          return (
-            <span key={i} className="inline-flex items-center gap-1.5">
-              {sameColAsPrev ? (
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  or
+        <Clause keyword="where">
+          {value.filters.length === 0 ? (
+            <Hint>all signals</Hint>
+          ) : (
+            value.filters.map((pred, i) => {
+              // Adjacent filters on the same column union (OR semantics);
+              // show a tiny "or" between them so the user sees this rather
+              // than reading the visual sequence as AND.
+              const prev = i > 0 ? value.filters[i - 1] : null;
+              const sameColAsPrev = prev !== null && prev.column === pred.column;
+              return (
+                <span key={i} className="inline-flex items-center gap-2">
+                  {sameColAsPrev ? <Connector>or</Connector> : null}
+                  <FilterChip
+                    value={pred}
+                    onChange={(next) => updateFilter(i, next)}
+                    onRemove={() => removeFilter(i)}
+                    signalNames={signalNames}
+                  />
                 </span>
-              ) : null}
-              <FilterChip
-                value={pred}
-                onChange={(next) => updateFilter(i, next)}
-                onRemove={() => removeFilter(i)}
-                signalNames={signalNames}
-              />
-            </span>
-          );
-        })}
-        <AddChip label="Filter" onClick={addFilter} />
+              );
+            })
+          )}
+          <AddChip label="filter" onClick={addFilter} />
+        </Clause>
 
-        <span className="px-1 text-xs uppercase tracking-wide text-muted-foreground">
-          by
-        </span>
-        {value.groupBy.map((col) => (
-          <GroupChip key={col} column={col} onRemove={() => removeGroup(col)} />
-        ))}
-        {value.groupBy.length < GROUPABLE_COLUMNS.length ? (
-          <AddChip label="Group" onClick={addGroup} />
-        ) : null}
+        <Clause keyword="grouped by">
+          {value.groupBy.length === 0 ? <Hint>nothing</Hint> : null}
+          {value.groupBy.map((col) => (
+            <GroupChip
+              key={col}
+              column={col}
+              onRemove={() => removeGroup(col)}
+            />
+          ))}
+          {canAddGroup ? (
+            <AddChip label="group" onClick={addGroup} />
+          ) : null}
+        </Clause>
 
-        <span className="px-1 text-xs uppercase tracking-wide text-muted-foreground">
-          rollup
-        </span>
-        <RollupChip value={value.rollup} onChange={setRollup} />
+        <Clause keyword="every">
+          <RollupChip value={value.rollup} onChange={setRollup} />
+        </Clause>
       </div>
 
-      <code
-        className={cn(
-          "block font-mono text-xs text-muted-foreground",
-          error && "text-destructive",
-        )}
-      >
-        {serializeQuery(value)}
-      </code>
+      <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          MQL
+        </span>
+        <code
+          className={cn(
+            "block break-all font-mono text-xs text-foreground/80",
+            error && "text-destructive",
+          )}
+        >
+          {serializeQuery(value)}
+        </code>
+      </div>
       {error ? (
         <p className="text-xs text-destructive">
           {error.message}
@@ -194,11 +208,59 @@ export function QueryBuilder({
 }
 
 // ---------------------------------------------------------------------------
+// Sentence scaffolding
+// ---------------------------------------------------------------------------
+
+/** A clause is a keyword lead-in ("where", "grouped by", ...) followed by its
+ *  chips, kept together so they wrap as a unit and read as one phrase. */
+function Clause({
+  keyword,
+  children,
+}: {
+  keyword: string;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Keyword>{keyword}</Keyword>
+      {children}
+    </span>
+  );
+}
+
+function Keyword({ children }: { children: ReactNode }) {
+  return (
+    <span className="select-none text-xs font-medium text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+/** Inline lowercase connector word between chips ("of", "or"). */
+function Connector({ children }: { children: ReactNode }) {
+  return (
+    <span className="select-none text-xs text-muted-foreground/70">
+      {children}
+    </span>
+  );
+}
+
+/** Muted placeholder shown when a clause has no chips yet, so the sentence
+ *  still reads ("where all signals", "grouped by nothing"). */
+function Hint({ children }: { children: ReactNode }) {
+  return (
+    <span className="select-none text-xs italic text-muted-foreground/60">
+      {children}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Chip primitives
 // ---------------------------------------------------------------------------
 
 const CHIP_BASE =
-  "inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2 text-xs font-mono transition-colors";
+  "inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-mono transition-colors";
 
 function SelectChip({
   label,
@@ -224,7 +286,10 @@ function SelectChip({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={cn(CHIP_BASE, "hover:bg-accent/50")}
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+          )}
         >
           {label}
           <ChevronDown className="h-3 w-3 opacity-50" />
@@ -258,8 +323,7 @@ function AddChip({ label, onClick }: { label: string; onClick: () => void }) {
       type="button"
       onClick={onClick}
       className={cn(
-        CHIP_BASE,
-        "border-dashed text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+        "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
       )}
     >
       <Plus className="h-3 w-3" />
@@ -285,7 +349,7 @@ function RollupChip({
           type="button"
           className={cn(
             CHIP_BASE,
-            "hover:bg-accent/50",
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
             isAuto && "text-muted-foreground",
           )}
         >
@@ -293,7 +357,7 @@ function RollupChip({
           <ChevronDown className="h-3 w-3 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[180px] p-1">
+      <PopoverContent align="start" className="max-h-[280px] w-[200px] overflow-auto p-1">
         <button
           type="button"
           onClick={() => {
@@ -340,12 +404,12 @@ function GroupChip({
   onRemove: () => void;
 }) {
   return (
-    <span className={cn(CHIP_BASE, "pr-1")}>
+    <span className={cn(CHIP_BASE, "gap-1.5 pr-1 font-medium")}>
       {column}
       <button
         type="button"
         onClick={onRemove}
-        className="rounded-sm p-0.5 hover:bg-accent"
+        className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
         title="Remove group"
       >
         <X className="h-3 w-3" />
@@ -368,45 +432,50 @@ function FilterChip({
   // Open the popover automatically when the chip is freshly added (empty
   // value) so the user doesn't have to click again to start typing.
   const [open, setOpen] = useState(value.value === "");
-
-  const display = value.value
-    ? `${value.column} = "${value.value}"`
-    : `${value.column} = …`;
+  const filled = Boolean(value.value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            CHIP_BASE,
-            "pr-1 hover:bg-accent/50",
-            !value.value && "border-destructive/40 text-muted-foreground",
-          )}
-        >
-          {display}
-          <span
-            role="button"
-            aria-label="Remove filter"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="ml-1 rounded-sm p-0.5 hover:bg-accent"
+    <span
+      className={cn(
+        CHIP_BASE,
+        "gap-1.5 pr-1",
+        !filled && "border-destructive/40",
+      )}
+    >
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-sm hover:text-primary"
           >
-            <X className="h-3 w-3" />
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[300px] p-2">
-        <FilterEditor
-          value={value}
-          onChange={onChange}
-          signalNames={signalNames}
-          onCommit={() => setOpen(false)}
-        />
-      </PopoverContent>
-    </Popover>
+            <span className="font-medium">{value.column}</span>
+            <span className="text-muted-foreground">is</span>
+            {filled ? (
+              <span>{value.value}</span>
+            ) : (
+              <span className="italic text-muted-foreground">choose…</span>
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[300px] p-2">
+          <FilterEditor
+            value={value}
+            onChange={onChange}
+            signalNames={signalNames}
+            onCommit={() => setOpen(false)}
+          />
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        aria-label="Remove filter"
+        onClick={onRemove}
+        className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        title="Remove filter"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }
 
@@ -461,11 +530,9 @@ function FilterEditor({
         <SelectChip
           label={value.column}
           options={FILTERABLE_COLUMNS.map((c) => ({ value: c, label: c }))}
-          onSelect={(c) =>
-            onChange({ ...value, column: c as FilterColumn })
-          }
+          onSelect={(c) => onChange({ ...value, column: c as FilterColumn })}
         />
-        <span className="text-xs text-muted-foreground">=</span>
+        <span className="text-xs text-muted-foreground">is</span>
         <Input
           autoFocus
           value={search}
@@ -499,9 +566,7 @@ function FilterEditor({
       </div>
       <div className="max-h-[220px] overflow-auto rounded-sm border bg-popover">
         {matches.length === 0 ? (
-          <div className="p-2 text-xs text-muted-foreground">
-            No matches
-          </div>
+          <div className="p-2 text-xs text-muted-foreground">No matches</div>
         ) : (
           matches.map((name) => (
             <button
