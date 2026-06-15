@@ -273,10 +273,23 @@ export function SignalWidget({
     return out;
   }, [derivedResults]);
 
-  // Base series plus any derived traces — what actually gets plotted.
+  // Base series plus any derived traces — every trace the widget knows about.
+  // This is what the trace controls list and what feeds the visibility filter.
   const plottedSeries = useMemo(
     () => [...series, ...derivedSeries],
     [series, derivedSeries],
+  );
+
+  // What actually reaches the chart: drop any trace the user has hidden (T11).
+  // Hidden traces stay fetched and keep feeding derived traces / highlights
+  // (those read the base `series`/`seriesVariables`, not this) — they're just
+  // kept off the plot. A widget with nothing hidden plots exactly as before.
+  const visibleSeries = useMemo(
+    () =>
+      plottedSeries.filter(
+        (s) => !axisSettingFor(axisSettings, seriesLabel(s.tags)).hidden,
+      ),
+    [plottedSeries, axisSettings],
   );
 
   // Evaluate every highlight condition against the fetched base series (the
@@ -297,18 +310,19 @@ export function SignalWidget({
   // reappear (e.g. a requery that brings the same group-by labels back).
   const axisConfig = useMemo(() => {
     const out: Record<string, AxisSetting> = {};
-    for (const s of plottedSeries) {
+    for (const s of visibleSeries) {
       const label = seriesLabel(s.tags);
       if (axisSettings[label]) out[label] = axisSettings[label];
     }
     return out;
-  }, [plottedSeries, axisSettings]);
+  }, [visibleSeries, axisSettings]);
 
   // label → rendered line color, mirroring the chart's top-K reordering so the
-  // controls' swatches match the on-screen lines.
+  // controls' swatches match the on-screen lines. Keyed off the visible set so
+  // a hidden trace (no line) shows a neutral swatch in its control row.
   const seriesColors = useMemo(
-    () => seriesColorMap(plottedSeries),
-    [plottedSeries],
+    () => seriesColorMap(visibleSeries),
+    [visibleSeries],
   );
 
   // Patch one label's setting (merging over its current/default value).
@@ -328,13 +342,15 @@ export function SignalWidget({
   };
 
   // Whether there's anything to export — the export controls hide entirely
-  // when the widget has no fetched data, so they never produce an empty file.
-  const hasData = plottedSeries.length > 0;
+  // when nothing's plotted (no data, or every trace hidden), so they never
+  // produce an empty file.
+  const hasData = visibleSeries.length > 0;
 
-  // Export the plotted series (base + derived traces) as CSV, and the live
-  // chart as a 2x PNG. Both pull from exactly what's on screen.
+  // Export the visible series (base + derived traces, minus hidden ones) as
+  // CSV, and the live chart as a 2x PNG. Both pull from exactly what's on
+  // screen.
   const exportCsv = () =>
-    downloadText(seriesToCsv(plottedSeries), "signals.csv", "text/csv");
+    downloadText(seriesToCsv(visibleSeries), "signals.csv", "text/csv");
   const exportPng = () => {
     const inst = chartInstance.current;
     if (inst) downloadChartPng(inst, "signals.png");
@@ -447,7 +463,7 @@ export function SignalWidget({
             </div>
           ) : (
             <QueryChart
-              series={plottedSeries}
+              series={visibleSeries}
               type={chartType}
               intervalSec={intervalSec}
               groupId={groupId}

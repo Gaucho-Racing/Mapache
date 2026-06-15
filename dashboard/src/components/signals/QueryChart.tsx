@@ -51,10 +51,17 @@ export interface Series {
  *   - normalize: the trace is min/max-rescaled to [0,1] onto a shared hidden
  *     axis so its peak reaches the top of the plot regardless of magnitude.
  *  Default for any unconfigured label = group "1", un-normalized → today's
- *  exact single-axis behavior. */
+ *  exact single-axis behavior.
+ *
+ *  `hidden` (T11) drops the trace from the chart while it stays fetched, so a
+ *  signal needed only to feed a derived trace or highlight condition can be
+ *  kept out of the plot. The chart never sees hidden series (the widget filters
+ *  them before passing `series`); this flag lives here only so it persists in
+ *  the same per-label settings map as the scaling choices. */
 export interface AxisSetting {
   axisGroup: string;
   normalize: boolean;
+  hidden?: boolean;
 }
 
 interface QueryChartProps {

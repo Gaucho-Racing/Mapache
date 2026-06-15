@@ -1,5 +1,6 @@
 import { seriesLabel, type AxisSetting, type Series } from "./QueryChart";
 import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Per-trace y-axis controls (T8)
@@ -27,7 +28,7 @@ export function axisSettingFor(
   settings: Record<string, AxisSetting>,
   label: string,
 ): AxisSetting {
-  return settings[label] ?? { axisGroup: "1", normalize: false };
+  return settings[label] ?? { axisGroup: "1", normalize: false, hidden: false };
 }
 
 interface TraceAxisControlsProps {
@@ -67,60 +68,97 @@ export function TraceAxisControls({
         // Match the chart's actual color (post top-K). A label rolled into
         // the "+N other" bucket has no individual line — show a neutral chip.
         const color = colors.get(label);
+        const hidden = setting.hidden ?? false;
         return (
           <div key={label} className="flex items-center gap-2">
             <span
               className={cn(
                 "h-2.5 w-2.5 shrink-0 rounded-sm",
                 !color && "bg-muted-foreground/30",
+                hidden && "opacity-40",
               )}
               style={color ? { backgroundColor: color } : undefined}
               aria-hidden
             />
-            <span className="w-32 truncate font-mono text-xs text-foreground">
+            <span
+              className={cn(
+                "w-32 truncate font-mono text-xs text-foreground",
+                hidden && "text-muted-foreground line-through",
+              )}
+            >
               {label}
             </span>
 
-            {/* Normalize toggle — when on, the row's group picker is hidden
-                since the trace lives on the shared [0,1] axis. */}
+            {/* Visibility toggle (T11) — hide the trace from the chart while it
+                stays fetched, so a signal needed only to feed a derived trace or
+                highlight can be kept out of the plot. Sits with the scaling
+                controls since it's another per-trace display choice. */}
             <button
               type="button"
-              onClick={() => onChange(label, { normalize: !setting.normalize })}
+              onClick={() => onChange(label, { hidden: !hidden })}
               className={cn(
-                "inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium transition-colors",
-                setting.normalize
-                  ? "border-primary/50 bg-accent text-foreground"
-                  : "border-dashed bg-transparent text-muted-foreground hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+                "inline-flex h-6 w-6 items-center justify-center rounded-md border transition-colors",
+                hidden
+                  ? "border-dashed border-primary/40 bg-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                  : "border-primary/50 bg-accent text-foreground",
               )}
-              title="Rescale this trace to fill the plot (min/max → 0..1)"
+              title={hidden ? "Show this trace on the chart" : "Hide this trace from the chart (keeps it for derived traces / highlights)"}
             >
-              normalize
+              {hidden ? (
+                <EyeOff className="h-3.5 w-3.5" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
             </button>
 
-            {/* Group picker — only meaningful for native (un-normalized)
-                traces. Hidden for normalized rows to keep the row honest. */}
-            {!setting.normalize ? (
-              <div className="flex items-center gap-1">
-                <span className="select-none text-xs text-muted-foreground/70">
-                  group
-                </span>
-                {GROUP_IDS.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => onChange(label, { axisGroup: g })}
-                    className={cn(
-                      "inline-flex h-6 w-6 items-center justify-center rounded-md border text-xs font-medium transition-colors",
-                      setting.axisGroup === g
-                        ? "border-primary/50 bg-accent text-foreground"
-                        : "border-dashed bg-transparent text-muted-foreground hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
-                    )}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {/* Scaling controls only matter for a visible trace — drop them for
+                a hidden row to keep it honest about what applies. */}
+            {!hidden && (
+              <>
+                {/* Normalize toggle — when on, the row's group picker is hidden
+                    since the trace lives on the shared [0,1] axis. */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange(label, { normalize: !setting.normalize })
+                  }
+                  className={cn(
+                    "inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium transition-colors",
+                    setting.normalize
+                      ? "border-primary/50 bg-accent text-foreground"
+                      : "border-dashed bg-transparent text-muted-foreground hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+                  )}
+                  title="Rescale this trace to fill the plot (min/max → 0..1)"
+                >
+                  normalize
+                </button>
+
+                {/* Group picker — only meaningful for native (un-normalized)
+                    traces. Hidden for normalized rows to keep the row honest. */}
+                {!setting.normalize ? (
+                  <div className="flex items-center gap-1">
+                    <span className="select-none text-xs text-muted-foreground/70">
+                      group
+                    </span>
+                    {GROUP_IDS.map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => onChange(label, { axisGroup: g })}
+                        className={cn(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-md border text-xs font-medium transition-colors",
+                          setting.axisGroup === g
+                            ? "border-primary/50 bg-accent text-foreground"
+                            : "border-dashed bg-transparent text-muted-foreground hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+                        )}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         );
       })}
