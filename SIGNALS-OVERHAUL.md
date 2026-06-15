@@ -30,6 +30,7 @@ After `/clear`: read this file, then run
 | T8 | Per-trace normalization w/ shared-scale groups | done | 787264d | axisSettings keyed by label → axisConfig; one real yAxis per native group + hidden [0,1] axis for normalized; {value,raw} items so tooltip shows true value; stack only when all base share one group; new TraceAxisControls.tsx. tsc/eslint clean. Needs browser smoke test |
 | T6 | Highlight regions / boxes (frontend compute) | done | e83a1ea | per-widget/local; expr.ts gained == != > >= < <= (bare = ok) + and/or; shared compileAgainstSeries backs traces+highlights; new Highlights.tsx; __highlight__ markArea separate from __brush__. tsc/eslint clean. Needs browser smoke test |
 | T7 | Export (CSV data + PNG chart) | todo | — | |
+| T10 | Collapse normalize/derived/highlights into an "Advanced options" disclosure | todo | — | declutter the widget; editors hidden by default behind a toggle |
 
 ## Task detail
 
@@ -94,3 +95,19 @@ across the stacked shared-axis panels (T3). Full reset is best-effort (user can 
 re-query a wider range); the priority is jumping back out after zooming too far in.
 **Check:** zoom into a window on one panel, all panels follow; "zoom out"/"reset"
 returns to the queried range; no network requery fired.
+
+### T10 — "Advanced options" disclosure (frontend)
+The widget header has grown crowded: the query builder now stacks the derived-traces
+(T5), per-trace normalization / axis-group (T8), and highlights (T6) editors beneath it,
+so a simple "count(signal)" query shows a wall of controls it doesn't need. Tuck those
+three editors behind one collapsible **Advanced options** toggle in `SignalWidget.tsx`,
+**collapsed by default**, so the default widget is just the query builder + chart. The
+query builder, chart-type toggle, hide/delete, and timeframe stay always-visible.
+Show a subtle "on" affordance when any advanced editor is non-empty (a configured
+derived trace / normalization / highlight) so collapsing doesn't hide active state
+silently — e.g. a small count badge on the toggle. Pure presentation: no change to the
+trace/highlight/axis models or evaluation; the editors and their state move under the
+disclosure unchanged. Per-widget local state (each widget remembers its own open/closed).
+**Check:** a fresh widget shows only builder + chart; expanding reveals derived traces,
+normalization, and highlights; configuring any of them and collapsing still applies them
+and flags that advanced options are active.
