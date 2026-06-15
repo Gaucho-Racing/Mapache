@@ -43,6 +43,20 @@ export interface Series {
   points: SeriesPoint[];
 }
 
+/** Per-trace y-scaling behavior (T8), keyed by `seriesLabel(tags)` in the
+ *  widget's settings map. Two mutually-exclusive modes:
+ *   - native: the trace plots on the real-value axis for `axisGroup`; every
+ *     trace sharing a group shares one axis and keeps its true relative
+ *     height (not rescaled against the others).
+ *   - normalize: the trace is min/max-rescaled to [0,1] onto a shared hidden
+ *     axis so its peak reaches the top of the plot regardless of magnitude.
+ *  Default for any unconfigured label = group "1", un-normalized → today's
+ *  exact single-axis behavior. */
+export interface AxisSetting {
+  axisGroup: string;
+  normalize: boolean;
+}
+
 interface QueryChartProps {
   series: Series[];
   type: ChartType;
@@ -64,12 +78,17 @@ interface QueryChartProps {
    *  out / reset) through any one panel — the `connect` group rebroadcasts
    *  to the rest. Additive; standalone charts simply omit it. */
   onReady?: (instance: ECharts | null) => void;
+  /** Per-series y-scaling settings (T8), keyed by series label. Sparse —
+   *  any label absent here falls back to the default (group "1", native).
+   *  When every plotted label is default, the chart collapses to exactly its
+   *  prior single-axis, single-stack rendering. */
+  axisConfig?: Record<string, AxisSetting>;
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
 // dark backgrounds — first slot deliberately matches our existing gr-pink
 // so single-series bars don't change color when you flip into multi-series.
-const PALETTE = [
+export const PALETTE = [
   "#e105a3",
   "#8412fc",
   "#10b981",
@@ -198,6 +217,16 @@ function cssHsl(varName: string, fallback: string, alpha = 1): string {
   return alpha === 1 ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
 }
 
+/** Default y-scaling for an unconfigured series label — a single shared
+ *  native group, never normalized. Keeping this in one place guarantees the
+ *  "zero config behaves exactly as today" contract. */
+function settingFor(
+  axisConfig: Record<string, AxisSetting> | undefined,
+  label: string,
+): AxisSetting {
+  return axisConfig?.[label] ?? { axisGroup: "1", normalize: false };
+}
+
 export function QueryChart({
   series,
   type,
@@ -206,6 +235,7 @@ export function QueryChart({
   onBrushSelect,
   groupId,
   onReady,
+  axisConfig,
 }: QueryChartProps) {
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
@@ -216,25 +246,67 @@ export function QueryChart({
   // the old "s0", "s1", ... indexing so colors stay stable by position.
   const { buckets, plotSeries } = useMemo(() => {
     const buckets = kept[0]?.points.map((p) => p.bucket) ?? [];
-    const plotSeries = kept.map((s, i) => ({
-      key: `s${i}`,
-      label: seriesLabel(s.tags),
-      color: PALETTE[i % PALETTE.length],
-      // Derived/expression traces render as standalone lines and never join
-      // the stacked bar/area group (a series and its square stacking on top
-      // of each other would be misleading).
-      derived: isDerived(s),
-      // Nulls render as 0, matching the old recharts behavior (it coerced
-      // null → 0 in the pivot).
-      values: buckets.map((_, bi) => s.points[bi]?.value ?? 0),
-    }));
+    const plotSeries = kept.map((s, i) => {
+      const label = seriesLabel(s.tags);
+      const setting = settingFor(axisConfig, label);
+      // Raw (true) values — what the tooltip must always show, and what a
+      // native series plots directly. Nulls render as 0, matching the old
+      // recharts behavior (it coerced null → 0 in the pivot).
+      const raw = buckets.map((_, bi) => s.points[bi]?.value ?? 0);
+      return {
+        key: `s${i}`,
+        label,
+        color: PALETTE[i % PALETTE.length],
+        // Derived/expression traces render as standalone lines and never join
+        // the stacked bar/area group (a series and its square stacking on top
+        // of each other would be misleading).
+        derived: isDerived(s),
+        normalize: setting.normalize,
+        axisGroup: setting.axisGroup,
+        raw,
+      };
+    });
     return { buckets, plotSeries };
-  }, [kept]);
+  }, [kept, axisConfig]);
 
-  // Stacking is decided per-series below; the group is only meaningful when
-  // there are 2+ *base* (non-derived) series and the chart type stacks.
-  const baseCount = plotSeries.filter((s) => !s.derived).length;
-  const stackBase = baseCount > 1 && type !== "line" ? "stack" : undefined;
+  // Distinct native (un-normalized) axis groups, in first-seen order. The
+  // first such group renders visible axis labels/line; any additional groups
+  // get an independent scale but hidden decorations to avoid clutter. A
+  // separate hidden [0,1] axis is appended for normalized traces when any
+  // exist. This collapses to a single y-axis when nothing is grouped or
+  // normalized, preserving today's rendering exactly.
+  const { nativeGroups, hasNormalized } = useMemo(() => {
+    const order: string[] = [];
+    let anyNorm = false;
+    for (const s of plotSeries) {
+      if (s.normalize) {
+        anyNorm = true;
+      } else if (!order.includes(s.axisGroup)) {
+        order.push(s.axisGroup);
+      }
+    }
+    // Guarantee at least one native axis even if every series is normalized,
+    // so the grid always has a y-axis to render against.
+    if (order.length === 0) order.push("1");
+    return { nativeGroups: order, hasNormalized: anyNorm };
+  }, [plotSeries]);
+
+  // The hidden normalized axis (if present) sits after every native axis.
+  const normalizedAxisIndex = hasNormalized ? nativeGroups.length : -1;
+
+  // Stacking only makes sense within ONE shared native axis. To stay simple
+  // and safe we only stack when ALL base (non-derived, non-normalized) series
+  // live in a single native group; any grouping or normalization splits the
+  // scales and we fall back to unstacked. (Stacking across independent scales
+  // would be visually meaningless, and normalized traces never stack.)
+  const stackableBase = plotSeries.filter((s) => !s.derived && !s.normalize);
+  const singleNativeGroup =
+    stackableBase.length > 0 &&
+    stackableBase.every((s) => s.axisGroup === stackableBase[0].axisGroup);
+  const stackBase =
+    stackableBase.length > 1 && singleNativeGroup && type !== "line"
+      ? "stack"
+      : undefined;
 
   const chartRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ECharts | null>(null);
@@ -267,6 +339,32 @@ export function QueryChart({
     const splitLineColor = cssHsl("--border", "#27272a");
 
     const echartsSeries = plotSeries.map((s) => {
+      // Resolve which y-axis this series binds to, and the data it actually
+      // plots. Native series plot raw numbers on their group's axis. A
+      // normalized series is min/max-rescaled to [0,1] on the hidden
+      // normalized axis, emitting `{ value, raw }` objects so the tooltip can
+      // still recover the true value (see the tooltip formatter below).
+      const yAxisIndex = s.normalize
+        ? normalizedAxisIndex
+        : nativeGroups.indexOf(s.axisGroup);
+      let data: Array<number | { value: number; raw: number }> = s.raw;
+      if (s.normalize) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (const v of s.raw) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        const span = max - min;
+        data = s.raw.map((v) => ({
+          // When the trace is flat (max === min) the [0,1] rescale is
+          // undefined; park it mid-plot (0.5) so a constant line is visible
+          // rather than pinned to an edge. Otherwise standard min/max scaling.
+          value: span === 0 ? 0.5 : (v - min) / span,
+          raw: v,
+        }));
+      }
+
       // Derived traces ignore the widget's chart type and stacking entirely:
       // always a clean, unstacked line so they read as an overlay on top of
       // the raw series.
@@ -274,7 +372,8 @@ export function QueryChart({
         return {
           id: s.key,
           name: s.label,
-          data: s.values,
+          data,
+          yAxisIndex,
           type: "line" as const,
           smooth: true,
           showSymbol: false,
@@ -285,7 +384,8 @@ export function QueryChart({
       const base = {
         id: s.key,
         name: s.label,
-        data: s.values,
+        data,
+        yAxisIndex,
         itemStyle: { color: s.color },
         ...(stackBase ? { stack: stackBase } : {}),
       };
@@ -342,16 +442,27 @@ export function QueryChart({
               seriesName: string;
               value: number;
               marker: string;
+              // Normalized series emit `{ value, raw }` objects; `data` carries
+              // the true (un-rescaled) value so the tooltip never shows the
+              // display-scaled number.
+              data: number | { value: number; raw: number } | null;
             }>
           )
-            .map(
-              (p) =>
+            .map((p) => {
+              const trueValue =
+                p.data !== null &&
+                typeof p.data === "object" &&
+                "raw" in p.data
+                  ? p.data.raw
+                  : p.value;
+              return (
                 `<div style="display:flex;justify-content:space-between;gap:12px">` +
                 `<span>${p.marker}${p.seriesName}</span>` +
                 `<span style="font-variant-numeric:tabular-nums">${formatCount(
-                  p.value,
-                )}</span></div>`,
-            )
+                  trueValue,
+                )}</span></div>`
+              );
+            })
             .join("");
           return `<div style="font-weight:500;margin-bottom:4px">${header}</div>${rows}`;
         },
@@ -368,13 +479,44 @@ export function QueryChart({
           formatter: (v: string) => formatBucketTick(v, intervalSec),
         },
       },
-      yAxis: {
-        type: "value" as const,
-        axisTick: { show: false },
-        axisLine: { show: false },
-        axisLabel: { color: axisLabelColor, formatter: formatCount },
-        splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
-      },
+      // One value axis per native group plus (when needed) a hidden [0,1]
+      // axis for normalized traces. The FIRST native axis keeps today's full
+      // decoration (labels, split lines); additional native axes get an
+      // independent scale but hidden labels/line so the plot doesn't fill with
+      // competing tick columns. With no grouping/normalization this is a
+      // single-element array identical to the old single `yAxis`.
+      yAxis: [
+        ...nativeGroups.map((_, gi) => {
+          const primary = gi === 0;
+          return {
+            type: "value" as const,
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: primary
+              ? { color: axisLabelColor, formatter: formatCount }
+              : { show: false },
+            splitLine: primary
+              ? { lineStyle: { color: splitLineColor, type: "dashed" } }
+              : { show: false },
+          };
+        }),
+        ...(hasNormalized
+          ? [
+              {
+                // Shared normalized axis: fixed [0,1] so every normalized
+                // trace's own max pins to the top of the plot. Fully hidden —
+                // its tick values are meaningless next to native units.
+                type: "value" as const,
+                min: 0,
+                max: 1,
+                axisTick: { show: false },
+                axisLine: { show: false },
+                axisLabel: { show: false },
+                splitLine: { show: false },
+              },
+            ]
+          : []),
+      ],
       // Client-side zoom over the category (bucket) axis. Mouse-wheel only:
       // the left-drag is owned by the brush-to-select-timeframe handlers, so
       // we turn off drag-panning (`moveOnMouseMove: false`) to avoid stealing
@@ -399,7 +541,16 @@ export function QueryChart({
       ],
       series: echartsSeries,
     };
-  }, [plotSeries, buckets, type, stackBase, intervalSec]);
+  }, [
+    plotSeries,
+    buckets,
+    type,
+    stackBase,
+    intervalSec,
+    nativeGroups,
+    hasNormalized,
+    normalizedAxisIndex,
+  ]);
 
   // Initialize the instance once.
   useEffect(() => {

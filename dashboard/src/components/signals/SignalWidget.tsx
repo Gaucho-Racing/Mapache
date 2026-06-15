@@ -3,12 +3,19 @@ import {
   type ChartType,
 } from "@/components/signals/ChartTypeToggle";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
-import { QueryChart, type Series } from "@/components/signals/QueryChart";
+import {
+  PALETTE,
+  QueryChart,
+  seriesLabel,
+  type AxisSetting,
+  type Series,
+} from "@/components/signals/QueryChart";
 import {
   buildSeriesVariables,
   computeDerivedSeries,
   DerivedTraces,
 } from "@/components/signals/DerivedTraces";
+import { TraceAxisControls } from "@/components/signals/TraceAxisControls";
 import type { DerivedTrace } from "@/lib/expr";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +137,14 @@ export function SignalWidget({
   // User-defined derived/expression traces, evaluated in-browser over the
   // fetched series (T5). Empty by default — zero-cost when unused.
   const [derivedTraces, setDerivedTraces] = useState<DerivedTrace[]>([]);
+  // Per-trace y-scaling settings (T8), keyed by series label. Sparse: any
+  // label absent here uses the default (shared group "1", un-normalized), so
+  // an untouched widget renders exactly as it did before this feature.
+  // Labels are stable across requery while the group-by yields the same
+  // labels, so the user's choices persist through a refetch.
+  const [axisSettings, setAxisSettings] = useState<
+    Record<string, AxisSetting>
+  >({});
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [seriesMs, setSeriesMs] = useState<number | null>(null);
   const [queryError, setQueryError] = useState<
@@ -246,6 +261,27 @@ export function SignalWidget({
     [series, derivedSeries],
   );
 
+  // Narrow the (potentially stale) settings map to just the currently plotted
+  // labels before handing it to the chart. The chart already defaults any
+  // missing label, so this is mainly to keep the prop small and intentional;
+  // settings for labels no longer present simply lie dormant until they
+  // reappear (e.g. a requery that brings the same group-by labels back).
+  const axisConfig = useMemo(() => {
+    const out: Record<string, AxisSetting> = {};
+    for (const s of plottedSeries) {
+      const label = seriesLabel(s.tags);
+      if (axisSettings[label]) out[label] = axisSettings[label];
+    }
+    return out;
+  }, [plottedSeries, axisSettings]);
+
+  // Patch one label's setting (merging over its current/default value).
+  const updateAxisSetting = (label: string, patch: Partial<AxisSetting>) =>
+    setAxisSettings((prev) => {
+      const current = prev[label] ?? { axisGroup: "1", normalize: false };
+      return { ...prev, [label]: { ...current, ...patch } };
+    });
+
   return (
     <Card>
       <CardHeader className="gap-3">
@@ -262,6 +298,12 @@ export function SignalWidget({
               onChange={setDerivedTraces}
               variables={seriesVariables}
               errors={derivedErrors}
+            />
+            <TraceAxisControls
+              series={plottedSeries}
+              palette={PALETTE}
+              settings={axisSettings}
+              onChange={updateAxisSetting}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -321,6 +363,7 @@ export function SignalWidget({
               groupId={groupId}
               onBrushSelect={onBrushSelect}
               onReady={onChartReady}
+              axisConfig={axisConfig}
             />
           )}
         </CardContent>
