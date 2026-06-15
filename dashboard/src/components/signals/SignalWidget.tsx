@@ -20,8 +20,7 @@ import {
   TraceAxisControls,
 } from "@/components/signals/TraceAxisControls";
 import {
-  computeHighlightErrors,
-  computeHighlightRanges,
+  evaluateHighlights,
   Highlights,
   type Highlight,
 } from "@/components/signals/Highlights";
@@ -276,18 +275,13 @@ export function SignalWidget({
   );
 
   // Evaluate every highlight condition against the fetched base series (the
-  // same `sN`/friendly variable model the derived traces use), coalescing
-  // contiguous truthy buckets into inclusive index ranges the chart paints as
-  // bands. Recomputes only when the data or the highlight definitions change.
-  const highlightRanges = useMemo(
-    () => computeHighlightRanges(series, highlights),
-    [series, highlights],
-  );
-
-  // Per-highlight compile/unknown-variable errors, surfaced inline in the
-  // editor exactly like derived traces.
-  const highlightErrors = useMemo(
-    () => computeHighlightErrors(series, highlights),
+  // same `sN`/friendly variable model the derived traces use) in a single
+  // pass: contiguous truthy buckets coalesce into inclusive index ranges the
+  // chart paints as bands, and any compile/unknown-variable error is surfaced
+  // inline in the editor (like derived traces). Each condition compiles once.
+  // Recomputes only when the data or the highlight definitions change.
+  const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
+    () => evaluateHighlights(series, highlights),
     [series, highlights],
   );
 

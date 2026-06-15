@@ -48,20 +48,23 @@ export interface HighlightRanges {
   ranges: [number, number][];
 }
 
-/** Pure evaluation: for each highlight, compile its condition against the
- *  series (via the shared `compileAgainstSeries` helper), evaluate per bucket
- *  index, and coalesce contiguous truthy buckets into inclusive index ranges.
- *  A compile/unknown-variable error yields empty ranges (and is surfaced to the
- *  editor separately via `highlightErrors`). NaN / falsey buckets break a run. */
-export function computeHighlightRanges(
+/** Pure evaluation in a single pass: for each highlight, compile its condition
+ *  ONCE against the series (via the shared `compileAgainstSeries` helper),
+ *  evaluate per bucket index, coalesce contiguous truthy buckets into inclusive
+ *  index ranges the chart paints as bands, AND collect any compile/unknown-
+ *  variable error for inline display in the editor. A failing condition yields
+ *  empty ranges + an error; NaN / falsey buckets break a run. Returning both
+ *  from one call avoids compiling each expression twice. */
+export function evaluateHighlights(
   series: Series[],
   highlights: Highlight[],
-): HighlightRanges[] {
+): { ranges: HighlightRanges[]; errors: Record<string, string> } {
   // Shared bucket axis (server zero-fills every series), so the first series
   // defines how many bucket indices there are to walk.
   const bucketCount = series[0]?.points.length ?? 0;
+  const errors: Record<string, string> = {};
 
-  return highlights.map((h) => {
+  const ranges = highlights.map((h): HighlightRanges => {
     if (h.expression.trim() === "") {
       // Empty condition mid-edit — no bands, no error.
       return { id: h.id, color: h.color, ranges: [] };
@@ -69,12 +72,13 @@ export function computeHighlightRanges(
 
     const evaluator = compileAgainstSeries(h.expression, series);
     if (!evaluator.ok || !evaluator.evalAt) {
-      // Compile / unknown-variable error → no bands. The editor shows why.
+      // Compile / unknown-variable error → no bands; surface why in the editor.
+      if (evaluator.error) errors[h.id] = evaluator.error;
       return { id: h.id, color: h.color, ranges: [] };
     }
 
     const evalAt = evaluator.evalAt;
-    const ranges: [number, number][] = [];
+    const bands: [number, number][] = [];
     let runStart: number | null = null;
     for (let i = 0; i < bucketCount; i++) {
       const v = evalAt(i);
@@ -83,30 +87,17 @@ export function computeHighlightRanges(
       if (hit) {
         if (runStart === null) runStart = i;
       } else if (runStart !== null) {
-        ranges.push([runStart, i - 1]);
+        bands.push([runStart, i - 1]);
         runStart = null;
       }
     }
     // Close a run that extends to the last bucket.
-    if (runStart !== null) ranges.push([runStart, bucketCount - 1]);
+    if (runStart !== null) bands.push([runStart, bucketCount - 1]);
 
-    return { id: h.id, color: h.color, ranges };
+    return { id: h.id, color: h.color, ranges: bands };
   });
-}
 
-/** Surface per-highlight compile/unknown-variable errors keyed by id, mirroring
- *  the derived-traces error map. Empty expressions produce no error. */
-export function computeHighlightErrors(
-  series: Series[],
-  highlights: Highlight[],
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const h of highlights) {
-    if (h.expression.trim() === "") continue;
-    const evaluator = compileAgainstSeries(h.expression, series);
-    if (!evaluator.ok && evaluator.error) out[h.id] = evaluator.error;
-  }
-  return out;
+  return { ranges, errors };
 }
 
 // ---------------------------------------------------------------------------
