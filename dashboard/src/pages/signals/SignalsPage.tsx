@@ -80,6 +80,10 @@ function authHeader() {
 
 function intervalToSeconds(i: Interval): number {
   switch (i) {
+    case "16ms":  return 0.016;
+    case "50ms":  return 0.05;
+    case "100ms": return 0.1;
+    case "500ms": return 0.5;
     case "1s":  return 1;
     case "10s": return 10;
     case "30s": return 30;

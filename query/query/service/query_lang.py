@@ -53,6 +53,7 @@ GROUPABLE_COLUMNS = {"name"}
 # because the grammar references them — the executor's INTERVALS map keys
 # off this list to wire each name to its ClickHouse INTERVAL clause.
 ROLLUP_INTERVALS: tuple[str, ...] = (
+    "16ms", "50ms", "100ms", "500ms",
     "1s", "10s", "30s",
     "1m", "5m", "15m", "30m",
     "1h", "2h", "6h",
@@ -96,7 +97,7 @@ _TOKEN_RX = re.compile(
     r"""
       (?P<ws>\s+)
     | (?P<string>"(?:[^"\\]|\\.)*")
-    | (?P<interval>\d+[smhd])
+    | (?P<interval>\d+(?:ms|[smhd]))
     | (?P<ident>[A-Za-z_][A-Za-z0-9_]*)
     | (?P<punct>[().=,])
     """,

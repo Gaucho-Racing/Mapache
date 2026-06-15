@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T1 — Sub-second binning** (next `todo`)
+➡️ **T2 — Swap Recharts → ECharts** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -20,8 +20,8 @@ After `/clear`: read this file, then run
 
 | ID | Task | Status | Commit | Note |
 |----|------|--------|--------|------|
-| T0 | Branch + tracking scaffold | done | _(this commit)_ | branch `feat/signals-overhaul` created |
-| T1 | Sub-second binning (backend + frontend mirror) | todo | — | |
+| T0 | Branch + tracking scaffold | done | 5453ffe | branch `feat/signals-overhaul` created |
+| T1 | Sub-second binning (backend + frontend mirror) | done | _pending_ | added 16/50/100/500ms; ms-based steps; native CH MILLISECOND interval. Needs live-CH smoke test |
 | T2 | Swap Recharts → ECharts in chart component | todo | — | |
 | T3 | Stacked multi-widget layout, shared time axis | todo | — | |
 | T4 | Cleaner chip query builder | todo | — | |

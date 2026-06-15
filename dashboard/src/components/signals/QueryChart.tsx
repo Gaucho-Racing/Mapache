@@ -82,6 +82,18 @@ function formatBucketTick(iso: string, intervalSec: number): string {
       minute: "2-digit",
     });
   }
+  // Sub-second buckets need millisecond precision — otherwise every tick
+  // in a 50ms rollup reads the same "1:23:45 PM" and they're
+  // indistinguishable. Append the zero-padded milliseconds.
+  if (intervalSec < 1) {
+    const base = d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const ms = d.getMilliseconds().toString().padStart(3, "0");
+    return `${base}.${ms}`;
+  }
   // Sub-minute buckets need seconds — otherwise every tick reads the
   // same "1:23 PM" and the user can't tell them apart.
   return d.toLocaleTimeString(undefined, {
