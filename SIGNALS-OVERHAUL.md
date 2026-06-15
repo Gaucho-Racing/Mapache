@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T6 — Highlight regions / boxes** (next `todo`)
+➡️ **T7 — Export (CSV data + PNG chart)** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -28,7 +28,7 @@ After `/clear`: read this file, then run
 | T9 | Zoom out / reset window (in-chart, no requery) | done | ea79fdc | inside dataZoom on mouse-wheel (brush keeps left-drag→requery); page-level Zoom out / Reset dispatch to connect group via onReady instances; no network on zoom. Fixed initial-mount crash: getOption() is undefined before first setOption |
 | T5 | Derived/expression traces (frontend compute) | done | ba116c9 | safe lib/expr.ts evaluator (no eval); s0/s1 + friendly-label var aliases; DerivedTraces.tsx UI; derived series render as non-stacked lines, exempt from stack + top-K. tsc/eslint clean. Needs browser smoke test |
 | T8 | Per-trace normalization w/ shared-scale groups | done | 787264d | axisSettings keyed by label → axisConfig; one real yAxis per native group + hidden [0,1] axis for normalized; {value,raw} items so tooltip shows true value; stack only when all base share one group; new TraceAxisControls.tsx. tsc/eslint clean. Needs browser smoke test |
-| T6 | Highlight regions / boxes (frontend compute) | todo | — | |
+| T6 | Highlight regions / boxes (frontend compute) | done | e83a1ea | per-widget/local; expr.ts gained == != > >= < <= (bare = ok) + and/or; shared compileAgainstSeries backs traces+highlights; new Highlights.tsx; __highlight__ markArea separate from __brush__. tsc/eslint clean. Needs browser smoke test |
 | T7 | Export (CSV data + PNG chart) | todo | — | |
 
 ## Task detail
