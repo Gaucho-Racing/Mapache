@@ -4,8 +4,8 @@ import {
 } from "@/components/signals/ChartTypeToggle";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
 import {
-  PALETTE,
   QueryChart,
+  seriesColorMap,
   seriesLabel,
   type AxisSetting,
   type Series,
@@ -15,7 +15,10 @@ import {
   computeDerivedSeries,
   DerivedTraces,
 } from "@/components/signals/DerivedTraces";
-import { TraceAxisControls } from "@/components/signals/TraceAxisControls";
+import {
+  axisSettingFor,
+  TraceAxisControls,
+} from "@/components/signals/TraceAxisControls";
 import type { DerivedTrace } from "@/lib/expr";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -275,12 +278,19 @@ export function SignalWidget({
     return out;
   }, [plottedSeries, axisSettings]);
 
+  // label → rendered line color, mirroring the chart's top-K reordering so the
+  // controls' swatches match the on-screen lines.
+  const seriesColors = useMemo(
+    () => seriesColorMap(plottedSeries),
+    [plottedSeries],
+  );
+
   // Patch one label's setting (merging over its current/default value).
   const updateAxisSetting = (label: string, patch: Partial<AxisSetting>) =>
-    setAxisSettings((prev) => {
-      const current = prev[label] ?? { axisGroup: "1", normalize: false };
-      return { ...prev, [label]: { ...current, ...patch } };
-    });
+    setAxisSettings((prev) => ({
+      ...prev,
+      [label]: { ...axisSettingFor(prev, label), ...patch },
+    }));
 
   return (
     <Card>
@@ -301,7 +311,7 @@ export function SignalWidget({
             />
             <TraceAxisControls
               series={plottedSeries}
-              palette={PALETTE}
+              colors={seriesColors}
               settings={axisSettings}
               onChange={updateAxisSetting}
             />

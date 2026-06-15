@@ -205,6 +205,26 @@ function topK(series: Series[], max: number): { kept: Series[]; otherCount: numb
   return { kept: [...kept, ...derived], otherCount: tail.length };
 }
 
+/** Map each plotted series' label to the palette color the chart actually
+ *  renders it with — applying the SAME top-K reordering used below — so
+ *  external UI (the axis-controls swatches) matches the on-screen line
+ *  colors. Series folded into the "+N other" rollup aren't individually
+ *  colored and are omitted; callers should fall back to a neutral swatch. */
+export function seriesColorMap(
+  series: Series[],
+  maxSeries = 10,
+): Map<string, string> {
+  const { kept } = topK(series, maxSeries);
+  const map = new Map<string, string>();
+  kept.forEach((s, i) => {
+    // The synthetic "+N other" series isn't a configurable trace — skip it,
+    // but keep `i` so every real series keeps its rendered color index.
+    if (OTHER_KEY in s.tags) return;
+    map.set(seriesLabel(s.tags), PALETTE[i % PALETTE.length]);
+  });
+  return map;
+}
+
 /** Resolve an HSL CSS custom property (stored as "H S% L%") to an
  *  `hsl(...)` string ECharts can consume, with an optional alpha. Falls
  *  back to a sane dark-theme grey if the var is missing (e.g. SSR). */

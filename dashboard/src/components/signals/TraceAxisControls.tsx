@@ -34,8 +34,10 @@ interface TraceAxisControlsProps {
   /** The currently plotted series (base + derived), in palette order. The
    *  index gives each row its swatch color (mirrors QueryChart's PALETTE). */
   series: Series[];
-  /** Palette used by the chart, so swatches match the rendered lines. */
-  palette: string[];
+  /** label → rendered line color, from QueryChart's `seriesColorMap`, so each
+   *  row's swatch matches the actual on-screen line *after* top-K reordering.
+   *  Labels folded into "+N other" are absent and get a neutral swatch. */
+  colors: Map<string, string>;
   /** Current per-label settings map (sparse — missing labels are default). */
   settings: Record<string, AxisSetting>;
   /** Patch one label's setting. */
@@ -47,7 +49,7 @@ interface TraceAxisControlsProps {
  *  to configure. */
 export function TraceAxisControls({
   series,
-  palette,
+  colors,
   settings,
   onChange,
 }: TraceAxisControlsProps) {
@@ -59,15 +61,20 @@ export function TraceAxisControls({
         Y-axis scaling
       </span>
 
-      {series.map((s, i) => {
+      {series.map((s) => {
         const label = seriesLabel(s.tags);
         const setting = axisSettingFor(settings, label);
-        const color = palette[i % palette.length];
+        // Match the chart's actual color (post top-K). A label rolled into
+        // the "+N other" bucket has no individual line — show a neutral chip.
+        const color = colors.get(label);
         return (
           <div key={label} className="flex items-center gap-2">
             <span
-              className="h-2.5 w-2.5 shrink-0 rounded-sm"
-              style={{ backgroundColor: color }}
+              className={cn(
+                "h-2.5 w-2.5 shrink-0 rounded-sm",
+                !color && "bg-muted-foreground/30",
+              )}
+              style={color ? { backgroundColor: color } : undefined}
               aria-hidden
             />
             <span className="w-32 truncate font-mono text-xs text-foreground">
