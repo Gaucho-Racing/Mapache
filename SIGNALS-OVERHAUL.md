@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T5 — Derived/expression traces** (next `todo`)
+➡️ **T8 — Per-trace normalization w/ shared-scale groups** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -26,7 +26,7 @@ After `/clear`: read this file, then run
 | T3 | Stacked multi-widget layout, shared time axis | done | dc32f0d | new SignalWidget.tsx (owns query/chart-type/fetch); page holds widgetIds+hiddenIds, add/delete/hide; synced cursor via echarts.connect group "signals-page" (additive groupId prop on QueryChart); brush bubbles to shared timeframe |
 | T4 | Cleaner chip query builder | done | 94458f6 | sentence-style clauses (Show…of…where…grouped by…every…), same MQL AST, sub-second rollups reachable |
 | T9 | Zoom out / reset window (in-chart, no requery) | done | ea79fdc | inside dataZoom on mouse-wheel (brush keeps left-drag→requery); page-level Zoom out / Reset dispatch to connect group via onReady instances; no network on zoom. Fixed initial-mount crash: getOption() is undefined before first setOption |
-| T5 | Derived/expression traces (frontend compute) | todo | — | |
+| T5 | Derived/expression traces (frontend compute) | done | ba116c9 | safe lib/expr.ts evaluator (no eval); s0/s1 + friendly-label var aliases; DerivedTraces.tsx UI; derived series render as non-stacked lines, exempt from stack + top-K. tsc/eslint clean. Needs browser smoke test |
 | T8 | Per-trace normalization w/ shared-scale groups | todo | — | multi-y-axis; builds on T3/T5 trace model |
 | T6 | Highlight regions / boxes (frontend compute) | todo | — | |
 | T7 | Export (CSV data + PNG chart) | todo | — | |
