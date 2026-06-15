@@ -11,7 +11,7 @@ Locked decisions: chart lib → **ECharts**; query surface → **cleaner chip bu
 Full plan: `~/.claude/plans/i-have-a-bunch-gentle-engelbart.md`.
 
 ## Resume here
-➡️ **T7 — Export (CSV data + PNG chart)** (next `todo`)
+➡️ **T10 — "Advanced options" disclosure** (next `todo`)
 
 After `/clear`: read this file, then run
 `git log --oneline main..feat/signals-overhaul`. The first `todo` row below is next.
@@ -29,7 +29,7 @@ After `/clear`: read this file, then run
 | T5 | Derived/expression traces (frontend compute) | done | ba116c9 | safe lib/expr.ts evaluator (no eval); s0/s1 + friendly-label var aliases; DerivedTraces.tsx UI; derived series render as non-stacked lines, exempt from stack + top-K. tsc/eslint clean. Needs browser smoke test |
 | T8 | Per-trace normalization w/ shared-scale groups | done | 787264d | axisSettings keyed by label → axisConfig; one real yAxis per native group + hidden [0,1] axis for normalized; {value,raw} items so tooltip shows true value; stack only when all base share one group; new TraceAxisControls.tsx. tsc/eslint clean. Needs browser smoke test |
 | T6 | Highlight regions / boxes (frontend compute) | done | e83a1ea | per-widget/local; expr.ts gained == != > >= < <= (bare = ok) + and/or; shared compileAgainstSeries backs traces+highlights; new Highlights.tsx; __highlight__ markArea separate from __brush__. tsc/eslint clean. Needs browser smoke test |
-| T7 | Export (CSV data + PNG chart) | todo | — | |
+| T7 | Export (CSV data + PNG chart) | done | 3f97aa1 | per-widget CSV (plotted series, true values) + PNG via getDataURL@2x; new lib/export.ts; wrapped onReady keeps page group-zoom. tsc/eslint clean. Needs browser smoke test |
 | T10 | Collapse normalize/derived/highlights into an "Advanced options" disclosure | todo | — | declutter the widget; editors hidden by default behind a toggle |
 
 ## Task detail
