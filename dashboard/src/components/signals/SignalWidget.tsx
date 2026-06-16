@@ -24,12 +24,8 @@ import {
   Highlights,
   type Highlight,
 } from "@/components/signals/Highlights";
+import { ExportDialog } from "@/components/signals/ExportDialog";
 import type { DerivedTrace } from "@/lib/expr";
-import {
-  downloadChartPng,
-  downloadText,
-  seriesToCsv,
-} from "@/lib/export";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
@@ -48,7 +44,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  Image,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -379,15 +374,9 @@ export function SignalWidget({
   // produce an empty file.
   const hasData = visibleSeries.length > 0;
 
-  // Export the visible series (base + derived traces, minus hidden ones) as
-  // CSV, and the live chart as a 2x PNG. Both pull from exactly what's on
-  // screen.
-  const exportCsv = () =>
-    downloadText(seriesToCsv(visibleSeries), "signals.csv", "text/csv");
-  const exportPng = () => {
-    const inst = chartInstance.current;
-    if (inst) downloadChartPng(inst, "signals.png");
-  };
+  // Whether the Export dialog (CSV/JSON/PNG + clipboard) is open. Local to
+  // this widget.
+  const [exportOpen, setExportOpen] = useState(false);
 
   return (
     <Card>
@@ -449,31 +438,19 @@ export function SignalWidget({
           </div>
           <div className="flex items-center gap-2">
             <ChartTypeToggle value={chartType} onChange={setChartType} />
-            {/* Export the underlying data (CSV) and the chart image (PNG).
-                Hidden when there's nothing plotted so we never export an empty
-                file. PNG needs a live instance, so it's gated on the chart
-                being visible (not collapsed). */}
+            {/* Open the Export dialog (data as CSV/JSON, chart image as PNG,
+                copy-to-clipboard). Hidden when there's nothing plotted so we
+                never export an empty file; the dialog itself disables the
+                image controls when the chart is collapsed. */}
             {hasData && (
-              <>
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  title="Export data as CSV"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                {!hidden && (
-                  <button
-                    type="button"
-                    onClick={exportPng}
-                    title="Export chart as PNG"
-                    className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <Image className="h-4 w-4" />
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                title="Export"
+                className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Download className="h-4 w-4" />
+              </button>
             )}
             <button
               type="button"
@@ -536,6 +513,15 @@ export function SignalWidget({
           )}
         </CardContent>
       )}
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        getInstance={() => chartInstance.current}
+        visibleSeries={visibleSeries}
+        allSeries={plottedSeries}
+        chartHidden={hidden}
+        defaultFilename="signals"
+      />
     </Card>
   );
 }

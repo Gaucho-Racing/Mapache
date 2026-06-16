@@ -51,14 +51,56 @@ export function seriesToCsv(series: Series[]): string {
   return [header.map(csvField).join(","), ...rows].join("\n");
 }
 
-/** Export an ECharts instance as a PNG download. `getDataURL` renders the
- *  current on-screen chart to a data URL at 2x for a crisp image; a white
- *  background keeps it legible outside the app's dark theme. */
-export function downloadChartPng(instance: ECharts, filename: string) {
-  const url = instance.getDataURL({
-    type: "png",
-    pixelRatio: 2,
-    backgroundColor: "#fff",
+/** Shape the plotted series into a JSON string: an array of row objects, one
+ *  per shared bucket, keyed `time` (the bucket ISO) plus one entry per series
+ *  labeled exactly as the chart legend reads it (`seriesLabel`). Mirrors
+ *  `seriesToCsv` semantics — same rows (the first series' buckets), true
+ *  un-normalized values, and null buckets emitted as JSON `null`. Pretty-
+ *  printed at 2-space indent. */
+export function seriesToJson(series: Series[]): string {
+  const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
+  const rows = buckets.map((bucket, bi) => {
+    const row: Record<string, string | number | null> = { time: bucket };
+    for (const s of series) {
+      const v = s.points[bi]?.value;
+      row[seriesLabel(s.tags)] = v === undefined ? null : v;
+    }
+    return row;
   });
+  return JSON.stringify(rows, null, 2);
+}
+
+/** Options for rendering an ECharts instance to a PNG. `backgroundColor`
+ *  accepts any CSS color or `"transparent"`; `pixelRatio` scales the raster
+ *  for crispness on hi-DPI displays. */
+export interface ChartPngOptions {
+  backgroundColor?: string;
+  pixelRatio?: number;
+}
+
+/** Export an ECharts instance as a PNG download. Defaults to a white
+ *  background at 2x so existing callers keep a crisp, legible image outside
+ *  the app's dark theme; pass `backgroundColor: "transparent"` for a
+ *  transparent PNG, or the resolved `--background` color for a dark one. */
+export function downloadChartPng(
+  instance: ECharts,
+  filename: string,
+  opts: ChartPngOptions = {},
+) {
+  const { backgroundColor = "#fff", pixelRatio = 2 } = opts;
+  const url = instance.getDataURL({ type: "png", pixelRatio, backgroundColor });
   triggerDownload(url, filename, false);
+}
+
+/** Render the chart to a PNG and write it to the system clipboard as an
+ *  `image/png` blob. Throws on any failure (unsupported browser, denied
+ *  clipboard permission) so the caller can surface a toast. */
+export async function copyChartToClipboard(
+  instance: ECharts,
+  opts: { backgroundColor?: string } = {},
+): Promise<void> {
+  const { backgroundColor = "#fff" } = opts;
+  const url = instance.getDataURL({ type: "png", pixelRatio: 2, backgroundColor });
+  const blob = await (await fetch(url)).blob();
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }

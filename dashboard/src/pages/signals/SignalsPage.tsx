@@ -1,5 +1,6 @@
 import Layout from "@/components/Layout";
 import { SignalWidget } from "@/components/signals/SignalWidget";
+import { PlotWidget } from "@/components/signals/PlotWidget";
 import {
   defaultTimeframe,
   type Timeframe,
@@ -30,6 +31,7 @@ import {
   ArrowUpDown,
   Loader2,
   Plus,
+  ScatterChart,
   Search,
   ZoomOut,
 } from "lucide-react";
@@ -129,11 +131,15 @@ function SignalsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  // Stacked chart widgets. Each descriptor is just an identity — all of
-  // the per-chart state (query AST, chart type, fetched series, loading /
-  // error / latency) lives inside the SignalWidget component. Seed with one
-  // so the page opens to exactly the old single-chart experience.
-  const [widgetIds, setWidgetIds] = useState<number[]>(() => [0]);
+  // Stacked chart widgets. Each descriptor carries an identity plus a kind —
+  // "signal" (the time-series SignalWidget) or "plot" (the non-time PlotWidget,
+  // signal-vs-signal / categorical). All per-chart state lives inside the
+  // widget component. Seed with one time-series widget so the page opens to
+  // exactly the old single-chart experience.
+  type WidgetKind = "signal" | "plot";
+  const [widgets, setWidgets] = useState<{ id: number; kind: WidgetKind }[]>(
+    () => [{ id: 0, kind: "signal" }],
+  );
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(() => new Set());
   // Monotonic counter for stable widget keys across add/delete. A ref (not
   // state) so it never goes stale within a render and double-clicks can't
@@ -202,12 +208,12 @@ function SignalsPage() {
   // Snap back to the full fetched window.
   const resetZoom = () => dispatchZoom(0, 100);
 
-  const addWidget = () => {
-    setWidgetIds((prev) => [...prev, nextWidgetId.current++]);
+  const addWidget = (kind: WidgetKind = "signal") => {
+    setWidgets((prev) => [...prev, { id: nextWidgetId.current++, kind }]);
   };
 
   const deleteWidget = (id: number) => {
-    setWidgetIds((prev) => prev.filter((w) => w !== id));
+    setWidgets((prev) => prev.filter((w) => w.id !== id));
     setHiddenIds((prev) => {
       const next = new Set(prev);
       next.delete(id);
@@ -368,28 +374,50 @@ function SignalsPage() {
           </div>
         </div>
 
-        {widgetIds.map((id) => (
-          <SignalWidget
-            key={id}
-            vehicleId={vehicle.id}
-            vehicleType={vehicle.type}
-            signalNames={signals.map((s) => s.name)}
-            startIso={startIso}
-            endIso={endIso}
-            rangeSeconds={rangeSeconds}
-            groupId={SYNC_GROUP_ID}
-            hidden={hiddenIds.has(id)}
-            onToggleHide={() => toggleHide(id)}
-            onDelete={() => deleteWidget(id)}
-            onBrushSelect={onBrushSelect}
-            onChartReady={onChartReady}
-          />
-        ))}
+        {widgets.map(({ id, kind }) =>
+          kind === "signal" ? (
+            <SignalWidget
+              key={id}
+              vehicleId={vehicle.id}
+              vehicleType={vehicle.type}
+              signalNames={signals.map((s) => s.name)}
+              startIso={startIso}
+              endIso={endIso}
+              rangeSeconds={rangeSeconds}
+              groupId={SYNC_GROUP_ID}
+              hidden={hiddenIds.has(id)}
+              onToggleHide={() => toggleHide(id)}
+              onDelete={() => deleteWidget(id)}
+              onBrushSelect={onBrushSelect}
+              onChartReady={onChartReady}
+            />
+          ) : (
+            // Non-time plots don't share the hover `connect` group — their axes
+            // aren't the shared time/bucket axis — so they're intentionally not
+            // wired to onChartReady/groupId. They still share the page
+            // timeframe via startIso/endIso.
+            <PlotWidget
+              key={id}
+              vehicleId={vehicle.id}
+              vehicleType={vehicle.type}
+              signalNames={signals.map((s) => s.name)}
+              startIso={startIso}
+              endIso={endIso}
+              hidden={hiddenIds.has(id)}
+              onToggleHide={() => toggleHide(id)}
+              onDelete={() => deleteWidget(id)}
+            />
+          ),
+        )}
 
-        <div>
-          <Button variant="outline" onClick={addWidget}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => addWidget("signal")}>
             <Plus className="mr-2 h-4 w-4" />
             Add widget
+          </Button>
+          <Button variant="outline" onClick={() => addWidget("plot")}>
+            <ScatterChart className="mr-2 h-4 w-4" />
+            Add plot
           </Button>
         </div>
 

@@ -305,11 +305,12 @@ export function QueryChart({
   }, [kept, axisConfig]);
 
   // Distinct native (un-normalized) axis groups, in first-seen order. The
-  // first such group renders visible axis labels/line; any additional groups
-  // get an independent scale but hidden decorations to avoid clutter. A
-  // separate hidden [0,1] axis is appended for normalized traces when any
-  // exist. This collapses to a single y-axis when nothing is grouped or
-  // normalized, preserving today's rendering exactly.
+  // first group renders on the left with split lines; any additional groups
+  // get an independent scale drawn on the right (color-matched, no split
+  // lines) — see the yAxis builder. A separate hidden [0,1] axis is appended
+  // for normalized traces when any exist. This collapses to a single left
+  // y-axis when nothing is grouped or normalized, preserving today's rendering
+  // exactly.
   const { nativeGroups, hasNormalized } = useMemo(() => {
     const order: string[] = [];
     let anyNorm = false;
@@ -372,6 +373,21 @@ export function QueryChart({
   const option = useMemo<EChartsCoreOption>(() => {
     const axisLabelColor = cssHsl("--muted-foreground", "#a1a1aa");
     const splitLineColor = cssHsl("--border", "#27272a");
+
+    // Color each native axis to its group's trace. Walk the plotted series in
+    // render order and record the color of the FIRST native series bound to
+    // each group, so every axis matches the line/bar it scales. Series carry
+    // their rendered palette color on `s.color` (PALETTE[i] from plotSeries),
+    // so we reuse exactly the on-screen colors — no separate scheme.
+    const groupColor = new Map<string, string>();
+    for (const s of plotSeries) {
+      if (s.normalize) continue;
+      if (!groupColor.has(s.axisGroup)) groupColor.set(s.axisGroup, s.color);
+    }
+    // Number of native axes beyond the first — these render on the right and
+    // each claim a 48px-wide gutter, so the grid's right margin must grow to
+    // keep their labels from clipping. Zero extra axes → today's `right: 8`.
+    const rightAxisCount = Math.max(0, nativeGroups.length - 1);
 
     const echartsSeries = plotSeries.map((s) => {
       // Resolve which y-axis this series binds to, and the data it actually
@@ -484,7 +500,16 @@ export function QueryChart({
 
     return {
       animation: false,
-      grid: { top: 8, right: 8, bottom: 24, left: 56, containLabel: false },
+      grid: {
+        top: 8,
+        // Grow the right margin for each extra native axis (each stacks
+        // outward in a 48px gutter) so right-side labels aren't clipped.
+        // Exactly 8 when there are no extra axes — today's layout.
+        right: 8 + rightAxisCount * 48,
+        bottom: 24,
+        left: 56,
+        containLabel: false,
+      },
       tooltip: {
         trigger: "axis",
         // A shared axisPointer is what `echarts.connect` actually syncs
@@ -545,24 +570,45 @@ export function QueryChart({
         },
       },
       // One value axis per native group plus (when needed) a hidden [0,1]
-      // axis for normalized traces. The FIRST native axis keeps today's full
-      // decoration (labels, split lines); additional native axes get an
-      // independent scale but hidden labels/line so the plot doesn't fill with
-      // competing tick columns. With no grouping/normalization this is a
-      // single-element array identical to the old single `yAxis`.
+      // axis for normalized traces. EVERY native axis is now drawn and
+      // color-matched to its group's trace: the FIRST (index 0) stays on the
+      // LEFT with horizontal split lines — pixel-identical to today when
+      // there's only one group. Each additional native axis goes on the RIGHT,
+      // stacked outward by 48px (`offset`), with its own labels + axis line but
+      // NO split lines, so only the primary axis draws the horizontal grid
+      // (avoiding competing tick grids). With no grouping/normalization this is
+      // a single-element array identical to the old single `yAxis`.
       yAxis: [
-        ...nativeGroups.map((_, gi) => {
+        ...nativeGroups.map((g, gi) => {
           const primary = gi === 0;
+          // When multiple native groups exist, color the left axis too so all
+          // axes read as consistently color-coded; with a single group fall
+          // back to today's muted color for a pixel-identical render.
+          const color =
+            rightAxisCount > 0
+              ? groupColor.get(g) ?? axisLabelColor
+              : axisLabelColor;
+          if (primary) {
+            return {
+              type: "value" as const,
+              axisTick: { show: false },
+              axisLine:
+                rightAxisCount > 0
+                  ? { show: true, lineStyle: { color } }
+                  : { show: false },
+              axisLabel: { color, formatter: formatCount },
+              splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
+            };
+          }
           return {
             type: "value" as const,
+            position: "right" as const,
+            // 2nd axis sits flush right (offset 0), 3rd steps out 48px, etc.
+            offset: (gi - 1) * 48,
             axisTick: { show: false },
-            axisLine: { show: false },
-            axisLabel: primary
-              ? { color: axisLabelColor, formatter: formatCount }
-              : { show: false },
-            splitLine: primary
-              ? { lineStyle: { color: splitLineColor, type: "dashed" } }
-              : { show: false },
+            axisLine: { show: true, lineStyle: { color } },
+            axisLabel: { color, formatter: formatCount },
+            splitLine: { show: false },
           };
         }),
         ...(hasNormalized
