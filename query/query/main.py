@@ -8,7 +8,15 @@ from loguru import logger
 from query.config.config import Config
 from query.database.clickhouse import init_clickhouse
 from query.database.connection import init_db
-from query.routes import ping, query_pairs, query_run, signal_definition, signals, token
+from query.routes import (
+    clusters,
+    ping,
+    query_pairs,
+    query_run,
+    signal_definition,
+    signals,
+    token,
+)
 from query.service.auth import AuthService
 from query.service.kerbecs import init as init_kerbecs
 
@@ -51,6 +59,7 @@ def create_app():
     app.include_router(query_run.router, prefix="/query", tags=["Query"])
     app.include_router(query_pairs.router, prefix="/query", tags=["Query"])
     app.include_router(signals.router, prefix="/query", tags=["Signals"])
+    app.include_router(clusters.router, prefix="/query", tags=["Clusters"])
     app.include_router(signal_definition.router, prefix="/query", tags=["Signal Definition"])
     app.include_router(token.router, prefix="/query", tags=["Token"])
 

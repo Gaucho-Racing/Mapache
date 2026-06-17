@@ -7,9 +7,9 @@ import (
 	"github.com/gaucho-racing/mapache/vehicle/database"
 )
 
-func GetAllSessions() []mapache.Session {
+func GetAllSessionsPaged(limit, offset int) []mapache.Session {
 	var sessions []mapache.Session
-	database.DB.Find(&sessions)
+	database.DB.Order("start_time DESC").Limit(limit).Offset(offset).Find(&sessions)
 	for i := range sessions {
 		populateSession(&sessions[i])
 	}
@@ -19,8 +19,27 @@ func GetAllSessions() []mapache.Session {
 func GetAllSessionsByVehicleID(vehicleID string) []mapache.Session {
 	var sessions []mapache.Session
 	database.DB.Where("vehicle_id = ?", vehicleID).Find(&sessions)
+	summaries := GetLapSummariesByVehicle(vehicleID)
 	for i := range sessions {
 		populateSession(&sessions[i])
+		if summary, ok := summaries[sessions[i].ID]; ok {
+			s := summary
+			sessions[i].LapSummary = &s
+		}
+	}
+	return sessions
+}
+
+func GetSessionsByVehicleIDPaged(vehicleID string, limit, offset int) []mapache.Session {
+	var sessions []mapache.Session
+	database.DB.Where("vehicle_id = ?", vehicleID).Order("start_time DESC").Limit(limit).Offset(offset).Find(&sessions)
+	summaries := GetLapSummariesByVehicle(vehicleID)
+	for i := range sessions {
+		populateSession(&sessions[i])
+		if summary, ok := summaries[sessions[i].ID]; ok {
+			s := summary
+			sessions[i].LapSummary = &s
+		}
 	}
 	return sessions
 }
@@ -74,10 +93,14 @@ func DeleteSession(id string) error {
 	if result.Error != nil {
 		return result.Error
 	}
+	if err := DeleteLapsForSession(id); err != nil {
+		return err
+	}
 	return nil
 }
 
 func populateSession(session *mapache.Session) {
 	session.Markers = GetAllMarkersForSession(session.ID)
 	session.Segments = mapache.DeriveSegments(*session)
+	session.Laps = GetLapsForSession(session.ID)
 }

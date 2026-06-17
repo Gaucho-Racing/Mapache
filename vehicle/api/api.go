@@ -11,6 +11,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Cap request bodies so a single oversized payload (e.g. a huge laps array on
+// PUT /sessions/:id/laps) can't be read fully into memory. ShouldBindJSON
+// otherwise buffers the entire body with no limit.
+const maxRequestBodyBytes = 10 << 20 // 10 MiB
+
+func MaxBodySize(max int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, max)
+		c.Next()
+	}
+}
+
 func Run() {
 	api := InitializeRouter()
 	InitializeRoutes(api)
@@ -25,6 +37,7 @@ func InitializeRouter() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.Default()
+	r.Use(MaxBodySize(maxRequestBodyBytes))
 	r.Use(cors.New(cors.Config{
 		AllowAllOrigins:  true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
@@ -50,6 +63,8 @@ func InitializeRoutes(router *gin.Engine) {
 	router.DELETE("/sessions/:sessionID", DeleteSession)
 	router.POST("/sessions/:sessionID/markers", CreateMarker)
 	router.DELETE("/sessions/:sessionID/markers/:markerID", DeleteMarker)
+	router.GET("/sessions/:sessionID/laps", GetLapsForSession)
+	router.PUT("/sessions/:sessionID/laps", ReplaceLapsForSession)
 
 	router.GET("/vehicle-types", GetVehicleTypes)
 

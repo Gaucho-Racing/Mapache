@@ -41,6 +41,7 @@
     "@uiw/react-json-view": "^2.0.0-alpha.32",
     "@xyflow/react": "^12.11.0",
     "axios": "^1.17.0",
+    "chrono-node": "^2.9.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

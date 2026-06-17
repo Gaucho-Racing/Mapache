@@ -18,6 +18,9 @@ import VehicleDetailsPage from "@/pages/vehicles/VehicleDetailsPage.tsx";
 import JobsPage from "@/pages/jobs/JobsPage.tsx";
 import JobDetailsPage from "@/pages/jobs/JobDetailsPage.tsx";
 import DebugPage from "@/pages/debug/DebugPage.tsx";
+import SessionsPage from "@/pages/sessions/SessionsPage.tsx";
+import SessionDetailPage from "@/pages/sessions/SessionDetailPage.tsx";
+import SessionEditorPage from "@/pages/sessions/SessionEditorPage.tsx";
 import { useRoseMode } from "@/lib/store";
 import { useEffect } from "react";
 
@@ -61,6 +64,22 @@ const router = createBrowserRouter([
   {
     path: "/debug",
     element: <DebugPage />,
+  },
+  {
+    path: "/sessions",
+    element: <SessionsPage />,
+  },
+  {
+    path: "/sessions/new",
+    element: <SessionEditorPage />,
+  },
+  {
+    path: "/sessions/:id",
+    element: <SessionDetailPage />,
+  },
+  {
+    path: "/sessions/:id/edit",
+    element: <SessionEditorPage />,
   },
 ]);
 
