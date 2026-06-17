@@ -20,8 +20,9 @@ export interface TraceStmt {
 }
 
 let mqlSeq = 0;
-/** Stable id for a freshly-introduced statement line. */
-function newStmtId(): string {
+/** Stable id for a freshly-introduced statement line. Exported so the chart-type
+ *  registry's default-trace factories mint ids of the same `tr_` shape. */
+export function newStmtId(): string {
   mqlSeq += 1;
   return `tr_${mqlSeq}_${Date.now().toString(36)}`;
 }

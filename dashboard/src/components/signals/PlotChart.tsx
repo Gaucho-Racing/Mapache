@@ -17,6 +17,7 @@ import type { ECharts, EChartsCoreOption } from "echarts/core";
 import { useEffect, useMemo, useRef } from "react";
 import { PALETTE, seriesLabel, type Series } from "./QueryChart";
 import type { PairRow, PairsResponse } from "@/lib/pairs";
+import type { ChartType } from "@/components/signals/chartTypes";
 
 // Register everything the non-time plots need. Kept in this file's own
 // `echarts.use(...)` so it never disturbs QueryChart's (Bar/Line) registration
@@ -36,12 +37,17 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-export type PlotKind = "scatter" | "path" | "bar" | "pie" | "scatter3d";
+/** The subset of chart types this renderer handles — the non-time-series ones.
+ *  (Time-series bar/line/area are rendered by QueryChart instead.) */
+export type PlotKind = Extract<
+  ChartType,
+  "scatter" | "path" | "scatter3d" | "catbar" | "pie"
+>;
 
 /** Sparse config driving the chart. Which fields matter depends on `kind`:
  *  - scatter/path: xSignal + ySignals (one or more), optional colorBy.
  *  - scatter3d: xSignal + ySignals[0] (y) + zSignal (z).
- *  - bar/pie: neither — those read the categorical `/query/run` series. */
+ *  - catbar/pie: neither — those read the categorical `/query/run` series. */
 export interface PlotConfig {
   kind: PlotKind;
   xSignal?: string;
@@ -106,8 +112,8 @@ export function PlotChart({
       textStyle: { color: popoverFg },
     };
 
-    // --- bar / pie: categorical aggregates from /query/run ---
-    if (config.kind === "bar" || config.kind === "pie") {
+    // --- catbar / pie: categorical aggregates from /query/run ---
+    if (config.kind === "catbar" || config.kind === "pie") {
       const entries = categorical
         .map((s) => ({ name: seriesLabel(s.tags), value: seriesTotal(s) }))
         .filter((e) => Number.isFinite(e.value));

@@ -1,6 +1,5 @@
 import Layout from "@/components/Layout";
 import { SignalWidget } from "@/components/signals/SignalWidget";
-import { PlotWidget } from "@/components/signals/PlotWidget";
 import {
   defaultTimeframe,
   type Timeframe,
@@ -33,7 +32,6 @@ import {
   Loader2,
   MousePointer,
   Plus,
-  ScatterChart,
   Search,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -139,15 +137,11 @@ function SignalsPage() {
     "select",
   );
 
-  // Stacked chart widgets. Each descriptor carries an identity plus a kind —
-  // "signal" (the time-series SignalWidget) or "plot" (the non-time PlotWidget,
-  // signal-vs-signal / categorical). All per-chart state lives inside the
-  // widget component. Seed with one time-series widget so the page opens to
-  // exactly the old single-chart experience.
-  type WidgetKind = "signal" | "plot";
-  const [widgets, setWidgets] = useState<{ id: number; kind: WidgetKind }[]>(
-    () => [{ id: 0, kind: "signal" }],
-  );
+  // Stacked chart widgets — one unified, all-encompassing widget that picks its
+  // own chart type (bar/line/area/scatter/path/3D/categorical) from its chart-
+  // type selector. All per-chart state lives inside the widget component. Seed
+  // with one so the page opens to exactly the old single-chart experience.
+  const [widgets, setWidgets] = useState<{ id: number }[]>(() => [{ id: 0 }]);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(() => new Set());
   // Monotonic counter for stable widget keys across add/delete. A ref (not
   // state) so it never goes stale within a render and double-clicks can't
@@ -196,8 +190,8 @@ function SignalsPage() {
   // Snap back to the full fetched window.
   const resetZoom = () => dispatchZoom(0, 100);
 
-  const addWidget = (kind: WidgetKind = "signal") => {
-    setWidgets((prev) => [...prev, { id: nextWidgetId.current++, kind }]);
+  const addWidget = () => {
+    setWidgets((prev) => [...prev, { id: nextWidgetId.current++ }]);
   };
 
   const deleteWidget = (id: number) => {
@@ -380,51 +374,33 @@ function SignalsPage() {
           </div>
         </div>
 
-        {widgets.map(({ id, kind }) =>
-          kind === "signal" ? (
-            <SignalWidget
-              key={id}
-              vehicleId={vehicle.id}
-              vehicleType={vehicle.type}
-              signalNames={signals.map((s) => s.name)}
-              startIso={startIso}
-              endIso={endIso}
-              rangeSeconds={rangeSeconds}
-              groupId={SYNC_GROUP_ID}
-              hidden={hiddenIds.has(id)}
-              onToggleHide={() => toggleHide(id)}
-              onDelete={() => deleteWidget(id)}
-              onBrushSelect={onBrushSelect}
-              onChartReady={onChartReady}
-              interactionMode={interactionMode}
-            />
-          ) : (
-            // Non-time plots don't share the hover `connect` group — their axes
-            // aren't the shared time/bucket axis — so they're intentionally not
-            // wired to onChartReady/groupId. They still share the page
-            // timeframe via startIso/endIso.
-            <PlotWidget
-              key={id}
-              vehicleId={vehicle.id}
-              vehicleType={vehicle.type}
-              signalNames={signals.map((s) => s.name)}
-              startIso={startIso}
-              endIso={endIso}
-              hidden={hiddenIds.has(id)}
-              onToggleHide={() => toggleHide(id)}
-              onDelete={() => deleteWidget(id)}
-            />
-          ),
-        )}
+        {widgets.map(({ id }) => (
+          // The unified widget self-gates page group participation: only its
+          // time-series chart wires onChartReady/groupId into the shared hover/
+          // zoom group; pairs/categorical charts ignore them (their axes aren't
+          // the shared time axis). All share the page timeframe via startIso/endIso.
+          <SignalWidget
+            key={id}
+            vehicleId={vehicle.id}
+            vehicleType={vehicle.type}
+            signalNames={signals.map((s) => s.name)}
+            startIso={startIso}
+            endIso={endIso}
+            rangeSeconds={rangeSeconds}
+            groupId={SYNC_GROUP_ID}
+            hidden={hiddenIds.has(id)}
+            onToggleHide={() => toggleHide(id)}
+            onDelete={() => deleteWidget(id)}
+            onBrushSelect={onBrushSelect}
+            onChartReady={onChartReady}
+            interactionMode={interactionMode}
+          />
+        ))}
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => addWidget("signal")}>
+          <Button variant="outline" onClick={() => addWidget()}>
             <Plus className="mr-2 h-4 w-4" />
             Add widget
-          </Button>
-          <Button variant="outline" onClick={() => addWidget("plot")}>
-            <ScatterChart className="mr-2 h-4 w-4" />
-            Add plot
           </Button>
         </div>
 

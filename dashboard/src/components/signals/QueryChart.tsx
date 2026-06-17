@@ -67,7 +67,8 @@ export interface AxisSetting {
 
 interface QueryChartProps {
   series: Series[];
-  type: ChartType;
+  /** Time-series renderings only — the non-time chart types are PlotChart's. */
+  type: Extract<ChartType, "bar" | "line" | "area">;
   /** Number of seconds per bucket — drives the x-axis tick formatting. */
   intervalSec: number;
   /** Max series shown before everything beyond gets rolled into "other".

@@ -1,7 +1,21 @@
 import {
-  ChartTypeToggle,
+  ChartTypeSelect,
   type ChartType,
 } from "@/components/signals/ChartTypeToggle";
+import {
+  CHART_TYPE_MAP,
+  compatible,
+  dataPath,
+} from "@/components/signals/chartTypes";
+import { PlotChart, type PlotConfig } from "@/components/signals/PlotChart";
+import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
 import {
   QueryChart,
@@ -55,7 +69,6 @@ import {
   Plus,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -131,8 +144,9 @@ function wildcardToRegex(pattern: string): RegExp {
 }
 
 /** Concrete signal names a fetch query targets, expanding `*` wildcards
- *  against the page's known signal list. Native mode plots raw signals, so the
- *  aggregator/field are irrelevant — only the `name` filters matter. */
+ *  against the page's known signal list. The pairs path plots raw signals by
+ *  name, so the aggregator/field are irrelevant — only the `name` filters
+ *  matter. */
 function queryToSignalNames(q: Query, known: string[]): string[] {
   const out: string[] = [];
   for (const f of q.filters) {
@@ -231,16 +245,29 @@ export function SignalWidget({
   // Advanced options disclosure (T10): y-axis scaling + visibility, highlights.
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loadingSeries, setLoadingSeries] = useState(false);
-  // Native / max-frequency mode (W4): plot each signal at its own sample
-  // cadence (raw decimated samples via /query/pairs) instead of fixed-interval
-  // aggregate buckets. This sidesteps the "8 Hz signal at a 100 ms bucket shows
-  // phantom 0s" problem at the source — gaps between a signal's samples join as
-  // NaN (true in CSV) and render per the trace's `.fill` mode on the chart.
-  const [maxFreq, setMaxFreq] = useState(false);
-  const [nativeData, setNativeData] = useState<{
-    series: Series[];
-    ms: number | null;
-  }>({ series: [], ms: null });
+
+  // The render path the current chart type drives (see chartTypes.ts):
+  //  - "timeseries"  → /query/run, rendered by QueryChart (bar/line/area)
+  //  - "categorical" → /query/run @ 1d buckets, rendered by PlotChart (catbar/pie)
+  //  - "pairs"       → /query/pairs, rendered by PlotChart (scatter/path/3D)
+  const path = dataPath(chartType);
+  // Raw aligned samples for the pairs path (scatter/path/3D).
+  const [pairsData, setPairsData] = useState<PairsResponse>({
+    columns: ["produced_at"],
+    rows: [],
+  });
+  // Color-by dimension for scatter/path (render option, not MQL): "none",
+  // "time", or a signal name.
+  const [colorBy, setColorBy] = useState<string>("none");
+
+  // Switch chart type, resetting the trace list to the target's default MQL when
+  // the current MQL can't carry across (crossing into/out of the pairs path).
+  const changeChartType = (next: ChartType) => {
+    if (!compatible(chartType, next)) {
+      setTraces(CHART_TYPE_MAP[next].defaultTraces());
+    }
+    setChartType(next);
+  };
 
   // --- Classify each statement once per `traces` change ---------------------
   // A fetch statement carries its parsed Query (or a parse error); an
@@ -286,23 +313,14 @@ export function SignalWidget({
   // the auto interval from the timeframe. A per-statement `.every()` still
   // parses, but only this first-set one drives the shared axis.
   const interval = useMemo<Interval>(() => {
+    // Categorical (catbar/pie) collapses the whole window into one bucket per
+    // group, so each series' total is its bar/slice value.
+    if (path === "categorical") return "1d";
     for (const p of fetchPlan) if (p.query.rollup) return p.query.rollup;
     return autoInterval(rangeSeconds);
-  }, [fetchPlan, rangeSeconds]);
+  }, [path, fetchPlan, rangeSeconds]);
 
   const intervalSec = intervalToSeconds(interval);
-
-  // Native mode has no fixed bucket width; estimate the x-axis tick granularity
-  // from the spacing of the merged samples so labels pick the right format.
-  const nativeIntervalSec = useMemo(() => {
-    const pts = nativeData.series[0]?.points;
-    if (!pts || pts.length < 2) return 1;
-    const dt =
-      (new Date(pts[1].bucket).getTime() - new Date(pts[0].bucket).getTime()) /
-      1000;
-    return dt > 0 ? dt : 1;
-  }, [nativeData]);
-  const effIntervalSec = maxFreq ? nativeIntervalSec : intervalSec;
 
   // A stable key over the runnable fetch statements + the shared interval, so
   // the fetch effect fires only when the wire form actually changes.
@@ -369,9 +387,10 @@ export function SignalWidget({
 
   useEffect(() => {
     if (!vehicleId) return;
-    // Native mode fetches raw samples instead (separate effect below); skip the
-    // aggregate path entirely so we don't double-fetch.
-    if (maxFreq) return;
+    // The pairs path fetches /query/pairs (separate effect); skip the aggregate
+    // /query/run path there so we don't double-fetch. Categorical still runs
+    // here (at 1d buckets).
+    if (path === "pairs") return;
     if (runnableFetches.length === 0) {
       setFetchResults([]);
       return;
@@ -381,81 +400,108 @@ export function SignalWidget({
     // shared interval; depending on it means the effect fires only on real
     // changes, not on reference identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleId, vehicleType, rangeSeconds, fetchKey, startIso, endIso, maxFreq]);
+  }, [vehicleId, vehicleType, rangeSeconds, fetchKey, startIso, endIso, path]);
 
-  // --- Native / max-frequency fetch (W4) ------------------------------------
-  // In native mode we plot raw signals at their own cadence via /query/pairs
-  // (merge_asof aligned, decimated, fill="none" so gaps stay NaN). The signal
-  // set is gathered from the fetch statements' `name` filters.
-  const nativeSignals = useMemo(() => {
-    if (!maxFreq) return [];
-    const seen = new Set<string>();
-    for (const p of runnableFetches)
-      for (const n of queryToSignalNames(p.query, signalNames)) seen.add(n);
-    return [...seen];
-  }, [maxFreq, runnableFetches, signalNames]);
-
-  const nativeKey = useMemo(
-    () => JSON.stringify({ sigs: nativeSignals, startIso, endIso }),
-    [nativeSignals, startIso, endIso],
-  );
-
-  const runNative = async () => {
-    setLoadingSeries(true);
-    const startedAt = performance.now();
-    try {
-      const res = await axios.post(
-        `${BACKEND_URL}/query/pairs`,
-        {
-          vehicle_id: vehicleId,
-          signals: nativeSignals,
-          start: startIso,
-          end: endIso,
-          // Raw join: keep NaN between a signal's samples (the chart's .fill
-          // mode interpolates for display; CSV export keeps the true NaN).
-          fill: "none",
-          max_points: 4000,
-        },
-        { headers: authHeader() },
-      );
-      const cols: string[] = res.data.data?.columns ?? [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows: any[] = res.data.data?.rows ?? [];
-      // Each signal column → a Series sharing the merged produced_at timeline
-      // (the same shared-bucket shape the chart already consumes).
-      const series: Series[] = cols
-        .filter((c) => c !== "produced_at")
-        .map((name) => ({
-          tags: { name },
-          points: rows.map((r) => ({
-            bucket: r.produced_at,
-            value: r[name] ?? null,
-          })),
-        }));
-      setNativeData({ series, ms: Math.round(performance.now() - startedAt) });
-    } catch (e) {
-      notify.error(getAxiosErrorMessage(e));
-      setNativeData({ series: [], ms: null });
-    } finally {
-      setLoadingSeries(false);
+  // --- Pairs path (scatter/path/3D) -----------------------------------------
+  // Each runnable trace resolves to ONE signal (the first name its `.where`
+  // filter targets); trace POSITION assigns the axis: line 1 → X, line 2 → Y,
+  // line 3 → Z. This keeps the pairs plots MQL-driven off the same trace list.
+  const pairNames = useMemo(() => {
+    const out: string[] = [];
+    for (const p of runnableFetches) {
+      const n = queryToSignalNames(p.query, signalNames)[0];
+      if (n) out.push(n);
     }
-  };
+    return out;
+  }, [runnableFetches, signalNames]);
+
+  // Enough axes resolved to plot: 2 for scatter/path (X,Y), 3 for 3D (X,Y,Z).
+  const pairReady =
+    path === "pairs" &&
+    (chartType === "scatter3d" ? pairNames.length >= 3 : pairNames.length >= 2);
+
+  // The signal set a pairs fetch needs: every axis signal plus any color-by
+  // signal (scatter/path only). Deduped.
+  const pairFetchSignals = useMemo(() => {
+    if (path !== "pairs") return [];
+    const set = new Set(pairNames);
+    if (
+      (chartType === "scatter" || chartType === "path") &&
+      colorBy !== "none" &&
+      colorBy !== "time"
+    )
+      set.add(colorBy);
+    return [...set];
+  }, [path, pairNames, chartType, colorBy]);
 
   useEffect(() => {
-    if (!maxFreq) return;
-    if (!vehicleId || nativeSignals.length === 0) {
-      setNativeData({ series: [], ms: null });
+    if (path !== "pairs") return;
+    if (!vehicleId || !pairReady) {
+      setPairsData({ columns: ["produced_at"], rows: [] });
       return;
     }
-    runNative();
+    let cancelled = false;
+    setLoadingSeries(true);
+    fetchPairs({ vehicleId, signals: pairFetchSignals, startIso, endIso })
+      .then((resp) => {
+        if (!cancelled) setPairsData(resp);
+      })
+      .catch((e) => {
+        if (!cancelled) notify.error(getAxiosErrorMessage(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSeries(false);
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maxFreq, vehicleId, vehicleType, rangeSeconds, nativeKey]);
+  }, [
+    path,
+    vehicleId,
+    vehicleType,
+    pairReady,
+    pairFetchSignals.join(","),
+    startIso,
+    endIso,
+  ]);
+
+  // PlotConfig assembled from the resolved axis signals (by trace position).
+  const plotConfig = useMemo<PlotConfig>(() => {
+    const colorByOpt = colorBy === "none" ? undefined : colorBy;
+    const x = pairNames[0];
+    if (chartType === "scatter3d") {
+      return {
+        kind: "scatter3d",
+        xSignal: x,
+        ySignals: pairNames[1] ? [pairNames[1]] : [],
+        zSignal: pairNames[2],
+      };
+    }
+    if (chartType === "path") {
+      return {
+        kind: "path",
+        xSignal: x,
+        ySignals: pairNames[1] ? [pairNames[1]] : [],
+        colorBy: colorByOpt,
+      };
+    }
+    if (chartType === "scatter") {
+      return {
+        kind: "scatter",
+        xSignal: x,
+        ySignals: pairNames.slice(1),
+        colorBy: colorByOpt,
+      };
+    }
+    // categorical (catbar/pie): axes unused, data comes from runSeries.
+    return { kind: chartType === "pie" ? "pie" : "catbar", ySignals: [] };
+  }, [chartType, pairNames, colorBy]);
 
   // --- Assemble base + derived series ---------------------------------------
   // runSeries = every aggregate-fetched series concatenated IN TRACE ORDER (the
-  // order of runnable fetch statements). baseSeries swaps to the native raw
-  // series when max-frequency mode is on. Derived expressions read variables
-  // from baseSeries (s0, s1, … by position); the chart stacks/ranks it.
+  // order of runnable fetch statements). Derived expressions read variables from
+  // baseSeries (s0, s1, … by position); the chart stacks/ranks it.
   const runSeries = useMemo(() => {
     const byId = new Map(fetchResults.map((r) => [r.id, r]));
     const out: Series[] = [];
@@ -466,7 +512,7 @@ export function SignalWidget({
     return out;
   }, [fetchResults, runnableFetches]);
 
-  const baseSeries = maxFreq ? nativeData.series : runSeries;
+  const baseSeries = runSeries;
 
   // Per-statement run/parse errors, keyed by statement id, for inline display.
   const fetchErrors = useMemo(() => {
@@ -480,16 +526,14 @@ export function SignalWidget({
     return out;
   }, [classified, fetchResults]);
 
-  // Latency for the subtitle: the single native request, or the sum across
-  // every aggregate fetch statement.
+  // Latency for the subtitle: the sum across every aggregate fetch statement.
   const seriesMs = useMemo(() => {
-    if (maxFreq) return nativeData.ms;
     const vals = fetchResults
       .map((r) => r.ms)
       .filter((m): m is number => m !== null);
     if (vals.length === 0) return null;
     return vals.reduce((a, b) => a + b, 0);
-  }, [maxFreq, nativeData, fetchResults]);
+  }, [fetchResults]);
 
   // Expression statements, in trace order, mapped to the DerivedTrace shape the
   // evaluator expects. The label is the expression text itself (it doubles as
@@ -565,21 +609,10 @@ export function SignalWidget({
     return out;
   }, [visibleSeries, axisSettings]);
 
-  // Per-label fill config (W4): each fetch statement's `.fill` mode applies to
-  // every series that statement produces (keyed by series label). In native
-  // mode the labels are signal names, mapped from the trace that referenced
-  // each name; in aggregate mode they're the fetched series' labels.
+  // Per-label fill config: each fetch statement's `.fill` mode applies to every
+  // series that statement produces (keyed by the fetched series' label).
   const fillConfig = useMemo(() => {
     const out: Record<string, FillMode> = {};
-    if (maxFreq) {
-      for (const p of runnableFetches) {
-        if (!p.query.fill) continue;
-        for (const name of queryToSignalNames(p.query, signalNames)) {
-          out[name] = p.query.fill;
-        }
-      }
-      return out;
-    }
     const fillById = new Map<string, FillMode>();
     for (const p of runnableFetches) {
       if (p.query.fill) fillById.set(p.id, p.query.fill);
@@ -590,7 +623,7 @@ export function SignalWidget({
       for (const s of r.series) out[seriesLabel(s.tags)] = fill;
     }
     return out;
-  }, [maxFreq, runnableFetches, fetchResults, signalNames]);
+  }, [runnableFetches, fetchResults]);
 
   // label → rendered line color, mirroring the chart's top-K reordering.
   const seriesColors = useMemo(
@@ -642,10 +675,41 @@ export function SignalWidget({
   const chartInstance = useRef<ECharts | null>(null);
   const handleChartReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
+    // Only the time-series chart shares the page hover/zoom `connect` group;
+    // pairs/categorical axes aren't the shared time axis, so they stay out.
     onChartReady?.(instance);
   };
+  const handlePlotReady = (instance: ECharts | null) => {
+    chartInstance.current = instance;
+  };
 
-  const hasData = visibleSeries.length > 0;
+  // Categorical (catbar/pie) reuses the /query/run series: each series' total is
+  // its bar/slice value (PlotChart sums the points).
+  const categoricalSeries = path === "categorical" ? runSeries : [];
+
+  // What the chart has to draw, per path.
+  const hasData =
+    path === "timeseries"
+      ? visibleSeries.length > 0
+      : path === "pairs"
+        ? pairsData.rows.length > 0
+        : categoricalSeries.length > 0;
+
+  // Underlying data for the export dialog, adapted to the Series shape its
+  // CSV/JSON serializers understand.
+  const exportVisible =
+    path === "pairs"
+      ? pairsToSeries(pairsData)
+      : path === "categorical"
+        ? categoricalSeries
+        : visibleSeries;
+  const exportAll =
+    path === "pairs"
+      ? pairsToSeries(pairsData)
+      : path === "categorical"
+        ? categoricalSeries
+        : plottedSeries;
+
   const [exportOpen, setExportOpen] = useState(false);
 
   const totalSeriesValue = useMemo(() => {
@@ -653,6 +717,29 @@ export function SignalWidget({
     for (const s of baseSeries) for (const p of s.points) acc += p.value ?? 0;
     return acc;
   }, [baseSeries]);
+
+  // In the pairs path, label each fetch row by the axis its position maps to
+  // (line 1 → X, line 2 → Y, line 3 → Z for 3D; extra scatter rows are more Ys).
+  const pairAxisLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    if (path !== "pairs") return out;
+    let i = 0;
+    for (const c of classified) {
+      if (c.kind !== "fetch") continue;
+      out[c.stmt.id] =
+        i === 0
+          ? "X"
+          : chartType === "scatter3d"
+            ? i === 1
+              ? "Y"
+              : i === 2
+                ? "Z"
+                : `#${i + 1}`
+            : "Y";
+      i++;
+    }
+    return out;
+  }, [path, classified, chartType]);
 
   return (
     <Card>
@@ -683,7 +770,7 @@ export function SignalWidget({
                       const builderValue =
                         parsed ?? lastGoodQuery.current.get(id) ?? DEFAULT_QUERY;
                       return (
-                        <TraceRow key={id} onRemove={() => removeTrace(id)} disableRemove={onlyRow}>
+                        <TraceRow key={id} onRemove={() => removeTrace(id)} disableRemove={onlyRow} axisLabel={pairAxisLabels[id]}>
                           <QueryBuilder
                             value={builderValue}
                             onChange={(next) => updateTraceMql(id, serializeQuery(next))}
@@ -754,7 +841,9 @@ export function SignalWidget({
             </div>
 
             {/* Advanced options (T10): per-trace y-axis scaling + visibility,
-                highlight bands. */}
+                highlight bands. Time-series only — they operate on the shared
+                time/bucket axis the pairs and categorical charts don't have. */}
+            {path === "timeseries" && (
             <div className="flex flex-col gap-3">
               <button
                 type="button"
@@ -790,29 +879,28 @@ export function SignalWidget({
                 </div>
               )}
             </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Native / max-frequency mode (W4): plot each signal at its own
-                sample cadence (raw via /query/pairs) instead of fixed buckets. */}
-            <button
-              type="button"
-              onClick={() => setMaxFreq((m) => !m)}
-              title={
-                maxFreq
-                  ? "Native resolution: each signal at its own cadence"
-                  : "Switch to native resolution (max frequency)"
-              }
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
-                maxFreq
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              <Zap className="h-3.5 w-3.5" />
-              Native
-            </button>
-            <ChartTypeToggle value={chartType} onChange={setChartType} />
+            {/* Color-by (scatter/path only): a render option layered over the
+                pairs data, not part of the MQL. */}
+            {(chartType === "scatter" || chartType === "path") && (
+              <Select value={colorBy} onValueChange={setColorBy}>
+                <SelectTrigger className="h-8 w-[150px]" title="Color points by">
+                  <SelectValue placeholder="Color by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No color</SelectItem>
+                  <SelectItem value="time">Color: time</SelectItem>
+                  {signalNames.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      Color: {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <ChartTypeSelect value={chartType} onChange={changeChartType} />
             {hasData && (
               <button
                 type="button"
@@ -848,23 +936,27 @@ export function SignalWidget({
         {!hidden && (
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">
-              {baseSeries.length > 1
-                ? `${baseSeries.length} series`
-                : "Query result"}
+              {path === "pairs"
+                ? CHART_TYPE_MAP[chartType].label
+                : path === "categorical"
+                  ? "Categorical aggregate"
+                  : baseSeries.length > 1
+                    ? `${baseSeries.length} series`
+                    : "Query result"}
             </CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {loadingSeries
-                ? "Loading…"
-                : [
-                    maxFreq
-                      ? `${baseSeries.length} signal${baseSeries.length === 1 ? "" : "s"}`
-                      : `${formatCount(totalSeriesValue)} total`,
-                    maxFreq ? "native resolution" : `${interval} buckets`,
-                    seriesMs !== null && formatLatency(seriesMs),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-            </div>
+            {path === "timeseries" && (
+              <div className="text-sm text-muted-foreground">
+                {loadingSeries
+                  ? "Loading…"
+                  : [
+                      `${formatCount(totalSeriesValue)} total`,
+                      `${interval} buckets`,
+                      seriesMs !== null && formatLatency(seriesMs),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+              </div>
+            )}
           </div>
         )}
       </CardHeader>
@@ -874,11 +966,26 @@ export function SignalWidget({
             <div className="flex h-[260px] items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : path !== "timeseries" ? (
+            !hasData ? (
+              <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+                {path === "pairs"
+                  ? "Set the axis signals (one per trace line) to plot"
+                  : "No data in this window"}
+              </div>
+            ) : (
+              <PlotChart
+                config={plotConfig}
+                pairs={pairsData}
+                categorical={categoricalSeries}
+                onReady={handlePlotReady}
+              />
+            )
           ) : (
             <QueryChart
               series={visibleSeries}
-              type={chartType}
-              intervalSec={effIntervalSec}
+              type={chartType as "bar" | "line" | "area"}
+              intervalSec={intervalSec}
               groupId={groupId}
               onBrushSelect={onBrushSelect}
               onReady={handleChartReady}
@@ -894,8 +1001,8 @@ export function SignalWidget({
         open={exportOpen}
         onOpenChange={setExportOpen}
         getInstance={() => chartInstance.current}
-        visibleSeries={visibleSeries}
-        allSeries={plottedSeries}
+        visibleSeries={exportVisible}
+        allSeries={exportAll}
         chartHidden={hidden}
         defaultFilename="signals"
       />
@@ -909,13 +1016,21 @@ function TraceRow({
   children,
   onRemove,
   disableRemove,
+  axisLabel,
 }: {
   children: React.ReactNode;
   onRemove: () => void;
   disableRemove: boolean;
+  /** Pairs path: the axis (X/Y/Z) this row's signal maps to, by position. */
+  axisLabel?: string;
 }) {
   return (
     <div className="flex items-start gap-2 rounded-md border bg-card/40 p-2.5">
+      {axisLabel ? (
+        <span className="mt-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-[10px] font-semibold text-primary">
+          {axisLabel}
+        </span>
+      ) : null}
       <div className="min-w-0 flex-1">{children}</div>
       <button
         type="button"
