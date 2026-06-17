@@ -32,6 +32,7 @@ func Init() {
 	} else {
 		logger.SugarLogger.Infoln("Connected to database")
 		db.AutoMigrate(&mapache.Vehicle{}, &mapache.Session{}, &mapache.Marker{},
+			&mapache.Lap{}, &mapache.Sector{},
 			&model.ConfigFlag{}, &model.VehicleConfigOverride{}, &model.VehicleConfigStatus{})
 		logger.SugarLogger.Infoln("AutoMigration complete")
 		DB = db

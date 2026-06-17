@@ -50,6 +50,8 @@ func InitializeRoutes(router *gin.Engine) {
 	router.DELETE("/sessions/:sessionID", DeleteSession)
 	router.POST("/sessions/:sessionID/markers", CreateMarker)
 	router.DELETE("/sessions/:sessionID/markers/:markerID", DeleteMarker)
+	router.GET("/sessions/:sessionID/laps", GetLapsForSession)
+	router.PUT("/sessions/:sessionID/laps", ReplaceLapsForSession)
 
 	router.GET("/vehicle-types", GetVehicleTypes)
 

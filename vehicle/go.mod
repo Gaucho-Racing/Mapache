@@ -2,6 +2,10 @@ module github.com/gaucho-racing/mapache/vehicle
 
 go 1.26
 
+// Local-dev only: build vehicle against the in-repo mapache-go (new Lap/Sector
+// types). Replace with a published mapache-go version bump before merge.
+replace github.com/gaucho-racing/mapache/mapache-go/v3 => ../mapache-go
+
 require (
 	github.com/fatih/color v1.18.0
 	github.com/gaucho-racing/mapache/mapache-go/v3 v3.4.0

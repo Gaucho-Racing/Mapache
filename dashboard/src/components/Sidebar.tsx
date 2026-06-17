@@ -13,6 +13,7 @@ import {
   Bug,
   CarFront,
   ChevronsUpDown,
+  Flag,
   LayoutDashboard,
   LucideIcon,
   Settings,
@@ -288,6 +289,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Signals"
             link={`/signals?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "signals"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={Flag}
+            text="Sessions"
+            link={`/sessions?vid=${currentVehicle.id}`}
+            isSelected={props.selectedPage === "sessions"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">
