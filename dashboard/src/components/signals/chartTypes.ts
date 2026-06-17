@@ -11,20 +11,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Chart-type registry — the single source of truth for every kind of widget the
-// Signals page can render. One unified widget reads this to decide its icon, its
-// data path (which endpoint to hit + which chart component to render), and the
-// default MQL trace list to fall back to when a chart-type switch can't carry
-// the current MQL across (see `compatible`).
-// ---------------------------------------------------------------------------
+// Chart-type registry — source of truth for the icon, data path (endpoint +
+// renderer), and default MQL of every widget kind the Signals page renders.
 
 export type ChartType =
-  // time-series: aggregate buckets over the shared time axis (/query/run → QueryChart)
+  // time-series (/query/run → QueryChart)
   | "bar"
   | "line"
   | "area"
-  // categorical: group-by aggregate, one bar/slice per group (/query/run → PlotChart)
+  // categorical: group-by aggregate (/query/run → PlotChart)
   | "catbar"
   | "pie"
   // pairs: signal-vs-signal raw samples (/query/pairs → PlotChart)
@@ -48,15 +43,13 @@ export interface ChartTypeDef {
   defaultQueries: () => QueryStmt[];
 }
 
-/** The default a fresh widget / a compatible time-series or categorical switch
- *  lands on — the same `count(signal)` you see on first opening Signals. */
+/** Default a fresh widget / a compatible run-path switch lands on. */
 function defaultRunQueries(): QueryStmt[] {
   return [{ id: newStmtId(), mql: "count(signal)" }];
 }
 
-/** Pairs plots resolve one signal per trace line by position (X, Y[, Z]); seed
- *  empty `name` filters so the user fills the axis signals. `n` lines: 2 for
- *  scatter/path, 3 for 3D scatter. */
+/** `n` empty-name trace lines for the pairs path (2 for scatter/path, 3 for 3D),
+ *  one per axis by position. */
 function defaultPairQueries(n: number): () => QueryStmt[] {
   return () =>
     Array.from({ length: n }, () => ({
@@ -86,10 +79,8 @@ export function dataPath(type: ChartType): DataPath {
   return CHART_TYPE_MAP[type].path;
 }
 
-/** Whether the current MQL trace list can carry across a type switch. Both
- *  `/query/run` paths share the MQL grammar so time-series ↔ categorical is
- *  lossless; pairs uses position-as-axis raw samples, so crossing into or out of
- *  it resets to the target's default queries. */
+/** Whether the MQL carries across a type switch. The two /query/run paths share
+ *  the grammar (lossless); crossing into/out of pairs resets to defaults. */
 export function compatible(from: ChartType, to: ChartType): boolean {
   const a = dataPath(from);
   const b = dataPath(to);

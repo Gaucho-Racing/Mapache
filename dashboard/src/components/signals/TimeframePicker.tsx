@@ -11,10 +11,8 @@ import { CalendarDays, Clock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
-/** The page-level time window. Always absolute under the hood — presets
- *  just snap start/end to a "now-anchored" pair at the moment they're
- *  picked. `label` is metadata for the chip display ("Past 1 week",
- *  "Past 45 minutes", or "Custom" when the user dragged on the chart). */
+/** The page-level time window — always absolute; presets snap to a now-anchored
+ *  pair when picked. `label` is chip-display metadata ("Past 1 week", "Custom"). */
 export interface Timeframe {
   start: Date;
   end: Date;
@@ -38,8 +36,7 @@ export const TIMEFRAME_PRESETS: TimeframePreset[] = [
   { label: "Past 1 week",     shortcut: "1w",  rangeSeconds: 7 * 24 * 60 * 60 },
 ];
 
-// Aliases mapped to seconds-per-unit. Plural / abbreviated variants all
-// collapse to the same multiplier so users can type whatever feels natural.
+// Unit aliases → seconds, so users can type whatever feels natural.
 const UNIT_SECONDS: Record<string, number> = {
   s: 1, sec: 1, secs: 1, second: 1, seconds: 1,
   m: 60, min: 60, mins: 60, minute: 60, minutes: 60,
@@ -50,12 +47,8 @@ const UNIT_SECONDS: Record<string, number> = {
 
 const SHORTCUT_RX = /^(\d+)\s*([a-z]+)$/;
 
-// Absolute-range parser. Canonical separator is " - " (space-dash-space)
-// since it's easy to type and not conflicting with the date format's
-// internal dashes. We also accept `→`, `->`, and ` to ` as input tolerance
-// — output always uses " - ". Times are interpreted in the user's local
-// timezone — that's what `new Date(y, m, d, h, min)` does by default and
-// matches the chip's display.
+// Canonical separator is " - "; `→`, `->`, ` to ` are accepted on input. Times
+// are local (matching the chip display).
 const RANGE_SEPARATOR_RX = /\s+(?:-|→|->|to)\s+/i;
 const ABS_DT_RX = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
 
@@ -75,8 +68,6 @@ function parseAbsoluteDatetime(s: string): Date | null {
 }
 
 function parseAbsoluteRange(input: string): Timeframe | null {
-  // Split on the first separator match; if there's no separator we're
-  // not looking at an absolute range and fall through to shortcuts.
   const parts = input.split(RANGE_SEPARATOR_RX);
   if (parts.length !== 2) return null;
   const start = parseAbsoluteDatetime(parts[0]);
@@ -99,16 +90,13 @@ export function defaultTimeframe(): Timeframe {
   return relativeTimeframe(7 * 24 * 60 * 60, "Past 1 week");
 }
 
-/** Parse user input into a Timeframe. Accepts three forms, tried in
- *  order: absolute range (`YYYY-MM-DD HH:MM - YYYY-MM-DD HH:MM`), preset
- *  label or shortcut (`Past 1 week`, `1w`), and ad-hoc shortcut (`45m`).
- *  Returns null if none match. */
+/** Parse user input into a Timeframe, trying in order: absolute range, preset
+ *  label/shortcut (`Past 1 week`, `1w`), ad-hoc shortcut (`45m`). Null if none. */
 export function parseTimeframeInput(input: string): Timeframe | null {
   const raw = input.trim();
   if (!raw) return null;
 
-  // Absolute range first — it's the only form that can contain
-  // whitespace internally, so the cheap match is unambiguous.
+  // Absolute range first — the only form with internal whitespace.
   const abs = parseAbsoluteRange(raw);
   if (abs) return abs;
 
@@ -143,10 +131,7 @@ function plural(n: number, unit: string): string {
   return `${n} ${unit}${n === 1 ? "" : "s"}`;
 }
 
-/** Compact local-time formatting for the chip's range display. Shows the
- *  date prefix only when the range crosses a day boundary, so a 1-hour
- *  range reads "1:00 PM - 2:00 PM" without redundant "Jun 10" on both
- *  sides. */
+/** Chip range display; shows the date prefix only when the range crosses a day. */
 function formatRange(start: Date, end: Date): string {
   const sameDay =
     start.getFullYear() === end.getFullYear() &&
@@ -172,9 +157,7 @@ function formatRange(start: Date, end: Date): string {
   return `${start.toLocaleString(undefined, dateTime)} - ${end.toLocaleString(undefined, dateTime)}`;
 }
 
-/** Editable form: `YYYY-MM-DD HH:MM - YYYY-MM-DD HH:MM`, local time. Round
- *  trips through `parseAbsoluteRange` so what the user sees in the input
- *  is exactly what they'd type to reproduce it. */
+/** Editable absolute-range form (local time); round-trips through the parser. */
 function formatRangeForInput(start: Date, end: Date): string {
   return `${formatLocalDT(start)} - ${formatLocalDT(end)}`;
 }
@@ -188,10 +171,8 @@ function formatLocalDT(d: Date): string {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-/** Calendar-driven range builder. Picks a day range plus start/end times,
- *  then hands back the canonical absolute-range string
- *  (`YYYY-MM-DD HH:mm - YYYY-MM-DD HH:mm`, local) which the existing
- *  parser already understands — so this adds no new parsing path. */
+/** Calendar-driven range builder; hands back the canonical absolute-range
+ *  string the text parser already understands (no new parse path). */
 function CalendarRangePicker({
   value,
   onApply,
@@ -207,8 +188,7 @@ function CalendarRangePicker({
   const [startTime, setStartTime] = useState(format(value.start, "HH:mm"));
   const [endTime, setEndTime] = useState(format(value.end, "HH:mm"));
 
-  // Re-seed from the active timeframe each time the popover opens so the
-  // calendar reflects whatever is currently applied.
+  // Re-seed from the active timeframe each time the popover opens.
   useEffect(() => {
     if (!open) return;
     setRange({ from: value.start, to: value.end });
@@ -218,8 +198,7 @@ function CalendarRangePicker({
 
   function apply() {
     const from = range?.from;
-    // Single-day selections leave `to` undefined — treat the lone day as
-    // both ends of the range.
+    // Single-day selection leaves `to` undefined — use the lone day for both.
     const to = range?.to ?? range?.from;
     if (!from || !to) return;
     const startStr = `${format(from, "yyyy-MM-dd")} ${startTime || "00:00"}`;
@@ -231,14 +210,10 @@ function CalendarRangePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        {/* Rendered as the last row of the presets list — reads like another
-            preset ("Past 1 week", …) but opens the calendar instead of
-            committing, with a calendar glyph where a shortcut would be. */}
+        {/* The final preset row — opens the calendar instead of committing. */}
         <button
           type="button"
           aria-label="Select a range from the calendar"
-          // Mousedown would race the picker's outside-click handler; the
-          // Popover stops propagation on click, so this is safe.
           onMouseDown={(e) => e.preventDefault()}
           className={cn(
             "flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-accent",
@@ -252,8 +227,8 @@ function CalendarRangePicker({
       <PopoverContent
         align="start"
         className="w-auto p-0"
-        // Keep clicks inside the popover from bubbling to the picker's
-        // document-level mousedown handler, which would close the editor.
+        // Don't let clicks bubble to the picker's document-level mousedown
+        // handler, which would close the editor.
         onMouseDown={(e) => e.stopPropagation()}
       >
         <Calendar
@@ -263,8 +238,6 @@ function CalendarRangePicker({
           onSelect={setRange}
           defaultMonth={value.start}
         />
-        {/* Start/end times stacked above a full-width Apply to keep the
-            popover narrow and the geometry tidy under a single-month grid. */}
         <div className="flex flex-col gap-2 border-t p-3">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
             Start time
@@ -320,10 +293,8 @@ export function TimeframePicker({
 
   useEffect(() => {
     if (!editing) return;
-    // Always seed with the absolute range so the user can tweak either
-    // side directly. Typing a shortcut like `1h` still works — the
-    // parser tries the absolute form first, then falls back to presets
-    // and shortcuts.
+    // Seed with the absolute range so either side is directly editable; typing
+    // a shortcut like `1h` still works (the parser tries presets/shortcuts too).
     setInput(formatRangeForInput(value.start, value.end));
     setError(false);
     const t = setTimeout(() => {
@@ -363,9 +334,7 @@ export function TimeframePicker({
     commit(parsed);
   }
 
-  // The calendar produces the canonical absolute-range string; run it
-  // through the same parser the text field uses so there's a single
-  // commit path. It always parses, but guard defensively.
+  // Run the calendar's range string through the same parser (single commit path).
   function commitRangeString(rangeString: string) {
     const parsed = parseTimeframeInput(rangeString);
     if (parsed) commit(parsed);
@@ -424,9 +393,7 @@ export function TimeframePicker({
           <button
             key={p.shortcut}
             type="button"
-            // Mousedown (not click) so we beat the document-level
-            // mousedown handler above that would otherwise cancel the
-            // edit before the click event fires.
+            // Mousedown (not click) to beat the document-level handler above.
             onMouseDown={(e) => {
               e.preventDefault();
               commit(relativeTimeframe(p.rangeSeconds, p.label));
@@ -440,8 +407,6 @@ export function TimeframePicker({
             <span className="text-xs text-muted-foreground">{p.shortcut}</span>
           </button>
         ))}
-        {/* The calendar lives as the final preset row — picking it opens a
-            month grid instead of committing a relative window. */}
         <CalendarRangePicker value={value} onApply={commitRangeString} />
       </div>
     </div>

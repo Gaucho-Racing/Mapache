@@ -51,10 +51,7 @@ def _build_filter_sql(
 
     def _leaf(col: str, key: str, value: str, negate: bool) -> str:
         if "*" in value:
-            # ClickHouse's LIKE uses `%` as the multi-char wildcard; `*` is
-            # what users naturally type. Single-char `_` and literal-`%`
-            # escaping aren't useful at the signal-name scale today, so we
-            # don't translate them.
+            # ClickHouse LIKE uses `%`; `*` is what users type.
             params[key] = value.replace("*", "%")
             return f"{col} NOT LIKE {{{key}:String}}" if negate else f"{col} LIKE {{{key}:String}}"
         params[key] = value
@@ -65,35 +62,28 @@ def _build_filter_sql(
         eq = [p for p in preds if p.op == "="]
         ne = [p for p in preds if p.op == "!="]
         clauses: list[str] = []
-        # Any-of: OR the equality matches together.
-        if eq:
+        if eq:  # any-of
             sub = [_leaf(col, f"f_{col}_eq_{i}", p.value, False) for i, p in enumerate(eq)]
             clauses.append(sub[0] if len(sub) == 1 else f"({' OR '.join(sub)})")
-        # None-of: AND the negations together (exclude every listed pattern).
-        for i, p in enumerate(ne):
+        for i, p in enumerate(ne):  # none-of
             clauses.append(_leaf(col, f"f_{col}_ne_{i}", p.value, True))
         if clauses:
             out.append(clauses[0] if len(clauses) == 1 else f"({' AND '.join(clauses)})")
     return out
 
 
-# The SQL placeholder the sigma metric expands to inside a reject expression.
-# The outer query computes per-group window stats `_mean`/`_std` in a subquery
-# (see run_query); `sigma` is the absolute distance from the group mean in std
-# devs. nullIf guards a degenerate group where every sample is identical
-# (`_std == 0`): the division yields NULL, so the comparison is NULL — the
-# caller's `coalesce(..., 0)` then treats that unknown as "not an outlier" and
-# keeps the sample rather than rejecting (or erroring on) divide-by-zero.
+# Distance from the group mean in std devs. nullIf guards a degenerate group
+# (every sample identical → `_std == 0`): the division yields NULL, which the
+# caller's `coalesce(..., 0)` treats as "not an outlier".
 def _sigma_expr(sigma_col: str) -> str:
     return f"abs({sigma_col} - _mean) / nullIf(_std, 0)"
 
 
 def _reject_uses_sigma(node: RejectNode | None) -> bool:
-    """True if the reject tree references the `sigma` metric anywhere.
+    """True if the reject tree references `sigma` anywhere.
 
-    Sigma needs per-group window stats, so its presence forces the executor
-    onto the subquery path. value/raw_value rejects stay on the cheap path
-    (just an extra NOT(...) in the main WHERE).
+    Sigma needs per-group window stats, forcing the executor onto the subquery
+    path; value/raw_value rejects stay on the cheap NOT(...) path.
     """
     if node is None:
         return False
@@ -111,20 +101,13 @@ def _build_reject_sql(
 ) -> str:
     """Translate a reject AST into a parameterized boolean SQL expression.
 
-    The expression is *true* for rows the user wants dropped; the caller
-    negates it (`WHERE NOT (<expr>)`) so matching raw samples are excluded
-    before GROUP BY. All numeric thresholds are bound as ClickHouse params
-    (`{key:Float64}`) — user numbers are never string-interpolated.
-
-    `sigma_col` is the numeric column the sigma metric measures distance on
-    (the query's value/raw_value field). It's only consulted when a leaf uses
-    the `sigma` metric; value/raw_value leaves reference their own column.
+    The expression is *true* for rows to drop; the caller negates it
+    (`WHERE NOT (<expr>)`). Thresholds are bound as params, never interpolated.
+    `sigma_col` is only consulted by sigma leaves.
     """
     if isinstance(node, RejectCmp):
         key = f"rj_{len(params)}"
         params[key] = node.threshold
-        # sigma expands to the window-stat distance expression; value/raw_value
-        # compare the column directly. `=`/`!=` pass through unchanged.
         metric_sql = _sigma_expr(sigma_col) if node.metric == "sigma" else node.metric
         return f"{metric_sql} {node.op} {{{key}:Float64}}"
 
@@ -133,11 +116,9 @@ def _build_reject_sql(
         params[lo_key] = node.lo
         hi_key = f"rj_{len(params)}"
         params[hi_key] = node.hi
-        m = node.metric  # only value/raw_value reach here (parser blocks sigma)
-        if node.inside:
-            # `between`: reject samples INSIDE [lo, hi].
+        m = node.metric
+        if node.inside:  # `between`: reject inside [lo, hi]
             return f"({m} >= {{{lo_key}:Float64}} AND {m} <= {{{hi_key}:Float64}})"
-        # `outside`: reject samples OUTSIDE [lo, hi].
         return f"({m} < {{{lo_key}:Float64}} OR {m} > {{{hi_key}:Float64}})"
 
     if isinstance(node, RejectBool):
@@ -149,7 +130,6 @@ def _build_reject_sql(
 
 
 _FN_SQL: dict[str, str] = {
-    # field gets substituted in below; count() ignores it entirely.
     "count":  "count()",
     "sum":    "sum({field})",
     "avg":    "avg({field})",
@@ -170,11 +150,8 @@ def run_query(
     end: datetime,
     interval: str,
 ) -> dict[str, Any]:
-    # An explicit rollup in the query string wins over the request-level
-    # `interval` fallback. The parser already validated that it's in
-    # ALLOWED_ROLLUPS, but we re-check membership in INTERVALS here so
-    # divergence between the two lists fails loudly rather than silently
-    # producing wrong buckets.
+    # Explicit `.every` rollup wins over the request-level fallback. Re-check
+    # INTERVALS membership so ALLOWED_ROLLUPS divergence fails loudly.
     effective_interval = q.rollup or interval
     if effective_interval not in INTERVALS:
         raise ValueError(
@@ -189,11 +166,9 @@ def run_query(
     select_parts = [f"toStartOfInterval(produced_at, {interval_expr}) AS bucket"]
     for col in q.group_by:
         select_parts.append(f"{col} AS series_{col}")
-    # Alias the aggregate as `agg_value`, NOT `value`: a `.reject(value > N)`
-    # predicate references the raw `value` column in WHERE, and an `AS value`
-    # alias would shadow it (ClickHouse then reports an aggregate in WHERE).
-    # _shape_response reads the metric positionally (row[-1]), so the name is
-    # free to be collision-proof.
+    # Alias `agg_value`, not `value`: an `AS value` alias would shadow the raw
+    # `value` column a `.reject(value > N)` predicate references in WHERE.
+    # _shape_response reads the metric positionally (row[-1]).
     select_parts.append(f"{agg_sql} AS agg_value")
 
     where = [
@@ -206,49 +181,34 @@ def run_query(
         "start": start,
         "end": end,
     }
-    # Build the user-supplied WHERE: same-column predicates OR within the
-    # column (so `name = A and name = B` matches any-of, the only sensible
-    # reading of "give me both signals"), distinct-column predicates AND
-    # across columns. Values containing `*` become LIKE patterns.
     where.extend(_build_filter_sql(q.filters, params))
 
     group_by_cols = ["bucket"] + [f"series_{c}" for c in q.group_by]
 
-    # --- Outlier rejection (.reject(...)) -----------------------------------
-    # Reject matching RAW samples before GROUP BY so a spike can't skew a
-    # bucket's avg/last (and the now-empty bucket becomes a null gap). The
-    # sigma metric needs the group's mean/std, so when it appears we wrap the
-    # filtered base scan in a subquery that computes window stats first, then
-    # reject+aggregate in the outer query. value/raw_value rejects don't need
-    # the window pass — they just add a NOT(...) to the main WHERE.
+    # Reject matching RAW samples before GROUP BY so a spike can't skew a bucket
+    # (the now-empty bucket becomes a null gap). The sigma metric needs the
+    # group's mean/std, so it takes a window-stats subquery; value/raw_value
+    # rejects just add a NOT(...) to the main WHERE.
     if q.reject is not None and _reject_uses_sigma(q.reject):
-        # sigma measures distance on the query's numeric column. count(signal)
-        # has no numeric field, so fall back to `value`; same when the field is
-        # somehow non-numeric (shouldn't happen — the parser validates it).
+        # count(signal) has no numeric field, so fall back to `value`.
         sigma_col = q.field if q.field in ("value", "raw_value") else "value"
-        # Partition the window stats over the query's group columns so each
-        # series' samples are scored against their own population; with no
-        # group-by, score against the whole filtered window.
+        # Score each series against its own population.
         if q.group_by:
             partition = "PARTITION BY " + ", ".join(q.group_by)
         else:
             partition = ""
         reject_expr = _build_reject_sql(q.reject, params, sigma_col)
-        # `produced_at` is a MATERIALIZED column, so `SELECT *` omits it — name
-        # it explicitly so the outer query's toStartOfInterval(produced_at, ...)
-        # can see it. (Normal columns like the group-by `name` ride along in *.)
+        # `produced_at` is MATERIALIZED, so `SELECT *` omits it — name it
+        # explicitly so the outer toStartOfInterval can see it.
         inner_select = (
             f"SELECT *, produced_at, "
             f"avg({sigma_col}) OVER ({partition}) AS _mean, "
             f"stddevPop({sigma_col}) OVER ({partition}) AS _std "
             f"FROM signal WHERE {' AND '.join(where)}"
         )
-        # `coalesce(..., 0)` is load-bearing: a degenerate group (every sample
-        # identical → `_std == 0`) makes the sigma division NULL via nullIf, so
-        # the comparison is NULL. Bare `NOT (NULL)` is NULL, which ClickHouse's
-        # WHERE treats as false → the row would be DROPPED. coalescing the
-        # drop-condition to 0 (false) means "unknown is not an outlier", so
-        # identical samples are kept rather than silently rejected.
+        # coalesce(..., 0) is load-bearing: a degenerate group makes the sigma
+        # comparison NULL, and `NOT (NULL)` would drop the row. Coalescing to
+        # false means "unknown is not an outlier", keeping identical samples.
         sql = f"""
             SELECT {', '.join(select_parts)}
             FROM ({inner_select})
@@ -258,7 +218,6 @@ def run_query(
         """
     else:
         if q.reject is not None:
-            # value/raw_value only — sigma_col is unused on this path.
             reject_expr = _build_reject_sql(q.reject, params, sigma_col="value")
             where.append(f"NOT ({reject_expr})")
         sql = f"""
@@ -293,27 +252,14 @@ def _shape_response(
 ) -> list[dict[str, Any]]:
     """Pivot ClickHouse rows into the multi-series response shape.
 
-    For grouped queries we fill missing buckets per-series in Python rather
-    than relying on ClickHouse's WITH FILL — the latter requires INTERPOLATE
-    clauses to carry group columns and gets unwieldy fast. Doing it here
-    is cheap because cardinality is bounded by the number of distinct
-    series the query produces (typically <100 at our scale).
-
-    The fill value depends on the aggregator. For `count` a missing bucket
-    genuinely means "0 rows", so we zero-fill. For every other aggregator
-    (avg/sum/min/max/last/p50/p95/p99/stddev) a missing bucket means "no
-    sample landed here" — there is no meaningful 0, so we fill `None` (null).
-    Zero-filling those would draw spurious troughs (e.g. an 8 Hz signal
-    bucketed at 100 ms appears to dip to 0 between samples).
+    Missing buckets are filled per-series in Python (ClickHouse WITH FILL needs
+    unwieldy INTERPOLATE clauses for group columns); cheap at our cardinality.
+    `count` zero-fills (absent bucket = 0 rows); other aggregators null-fill, so
+    a sparse signal doesn't draw phantom 0s between samples.
     """
-    # `count` is the only aggregator where an absent bucket = 0; all others
-    # null-fill so sparse signals don't show phantom 0s.
     fill_value: float | None = 0 if fn == "count" else None
-    # Quantize start/end to bucket boundaries so the fill axis lines up
-    # with whatever ClickHouse returned.
     expected_buckets = _bucket_axis(start, end, step_ms)
 
-    # Group rows by their series tags
     by_series: dict[tuple, dict[datetime, float]] = {}
     for row in rows:
         bucket_ts = row[0]
@@ -321,16 +267,13 @@ def _shape_response(
         value = row[-1]
         by_series.setdefault(group_vals, {})[bucket_ts] = value
 
-    # If the query had no rows at all, still emit a single empty series so
-    # the chart has the right axis range to render.
+    # Emit one empty series even with no rows so the chart keeps its axis range.
     if not by_series:
         by_series[tuple([None] * len(group_by))] = {}
 
     out: list[dict[str, Any]] = []
     for group_vals, points_by_bucket in by_series.items():
-        # `.as("...")` only ever reaches here without a group-by (the parser
-        # rejects the combination), so a label names the lone series directly.
-        # seriesLabel on the frontend renders the tag value verbatim.
+        # A label only reaches here without group_by (parser rejects the combo).
         tags = (
             {"label": label}
             if label and not group_by
@@ -345,8 +288,7 @@ def _shape_response(
         ]
         out.append({"tags": tags, "points": points})
 
-    # Sort series by total descending so the largest contributors render
-    # on top in a stacked chart.
+    # Largest contributors first, so they render on top in a stacked chart.
     out.sort(
         key=lambda s: -sum(p["value"] for p in s["points"] if p["value"] is not None)
     )
@@ -356,13 +298,10 @@ def _shape_response(
 def _bucket_axis(
     start: datetime, end: datetime, step_ms: int
 ) -> list[datetime]:
-    # Work in integer milliseconds since the epoch so sub-second steps
-    # (down to 16 ms) stay exact — float seconds would drift and collapse
-    # adjacent buckets. This mirrors toStartOfInterval's flooring.
+    # Integer milliseconds so sub-second steps stay exact (float seconds drift
+    # and collapse adjacent buckets); mirrors toStartOfInterval's flooring.
     step = timedelta(milliseconds=step_ms)
     epoch = datetime(1970, 1, 1, tzinfo=start.tzinfo)
-    # Round `start` down to the nearest bucket boundary so the first
-    # bucket in our axis matches what ClickHouse produced.
     offset_ms = (start - epoch).total_seconds() * 1000
     aligned_offset_ms = (int(offset_ms) // step_ms) * step_ms
     aligned = epoch + timedelta(milliseconds=aligned_offset_ms)

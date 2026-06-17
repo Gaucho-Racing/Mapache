@@ -2,17 +2,10 @@ import { looksLikeFetchQuery, parseQuery } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// ---------------------------------------------------------------------------
-// Raw MQL editor — the "everything editable in one text window" surface.
-//
-// A widget owns an ordered list of trace statements (`{ id, mql }`). The chip
-// rows and this textarea are two views of the SAME list: this editor renders
-// one statement per line and, on every edit, splits the text back into
-// `QueryStmt[]` (blank lines ignored), preserving ids BY INDEX so React keys
-// and per-trace state stay stable while the user types. Fetch lines are
-// parse-checked for an inline hint; expression lines (`s0 / s1`) are left
-// alone (they're validated in-browser by the evaluator, not here).
-// ---------------------------------------------------------------------------
+// Raw MQL editor — one statement per line, the textual view of the same
+// `QueryStmt[]` the chip rows edit. Splits text back to statements on every
+// edit, reusing ids by index so React keys stay stable. Fetch lines get an
+// inline parse hint; expression lines are validated in-browser elsewhere.
 
 export interface QueryStmt {
   id: string;
@@ -20,25 +13,22 @@ export interface QueryStmt {
 }
 
 let mqlSeq = 0;
-/** Stable id for a freshly-introduced statement line. Exported so the chart-type
- *  registry's default-trace factories mint ids of the same `tr_` shape. */
+/** Stable id for a new statement line; shares the `tr_` shape the chart-type
+ *  registry's default-trace factories mint. */
 export function newStmtId(): string {
   mqlSeq += 1;
   return `tr_${mqlSeq}_${Date.now().toString(36)}`;
 }
 
-/** Split editor text into statements: one non-blank line each. Ids are reused
- *  positionally from the previous list (line 0 keeps `prev[0].id`, …) so the
- *  identity of an edited line is preserved as long as line order is stable;
- *  newly-added lines get a fresh id. This keeps chip-view state aligned with
- *  the text the user typed. */
+/** Split editor text into statements (one non-blank line each), reusing ids
+ *  positionally from `prev` so an edited line keeps its identity. */
 export function textToQueries(text: string, prev: QueryStmt[]): QueryStmt[] {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l !== "");
   if (lines.length === 0) {
-    // Never leave a widget with zero queries — collapse to a single default.
+    // Never leave a widget with zero queries.
     return [{ id: prev[0]?.id ?? newStmtId(), mql: "count(signal)" }];
   }
   return lines.map((mql, i) => ({ id: prev[i]?.id ?? newStmtId(), mql }));
@@ -55,16 +45,11 @@ interface MqlEditorProps {
 }
 
 export function MqlEditor({ queries, onChange }: MqlEditorProps) {
-  // Local text state so the textarea is freely editable (including blank
-  // lines mid-edit) without the parent's normalized list yanking the caret.
-  // We re-sync from the incoming queries only when they describe DIFFERENT text
-  // than what's on screen (e.g. a chip edit happened while collapsed, or the
-  // toggle just opened) — never on our own keystrokes, which would fight the
-  // cursor.
+  // Local text state so the textarea is freely editable without the parent's
+  // normalized list yanking the caret; re-sync only on external (chip) changes.
   const [text, setText] = useState(() => queriesToText(queries));
   const incoming = useMemo(() => queriesToText(queries), [queries]);
-  // Track the last text we emitted upward so we can tell an external change
-  // (chips) from the echo of our own edit.
+  // Distinguishes an external change from the echo of our own edit.
   const lastEmitted = useRef(incoming);
   useEffect(() => {
     if (incoming !== lastEmitted.current) {
@@ -81,7 +66,7 @@ export function MqlEditor({ queries, onChange }: MqlEditorProps) {
     onChange(queries);
   }
 
-  // Keep the latest list for positional id reuse without it being a render dep.
+  // Latest list for positional id reuse, kept out of the render deps.
   const prevRef = useRef(queries);
   prevRef.current = queries;
 

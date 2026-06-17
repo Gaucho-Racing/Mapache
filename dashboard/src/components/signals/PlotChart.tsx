@@ -7,10 +7,8 @@ import {
   LegendComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-// echarts-gl 2.x ships tree-shakeable install modules (`{ install }`) that
-// plug into `echarts.use(...)`. Importing the granular paths keeps the common
-// 2D bundle from pulling the whole GL chart in. No bundled types — declared in
-// `echarts-gl.d.ts`.
+// Granular echarts-gl install paths keep the 2D bundle from pulling in the
+// whole GL chart. Types declared in `echarts-gl.d.ts`.
 import { install as Scatter3DChart } from "echarts-gl/lib/chart/scatter3D/install";
 import { install as Grid3DComponent } from "echarts-gl/lib/component/grid3D/install";
 import type { ECharts, EChartsCoreOption } from "echarts/core";
@@ -19,10 +17,8 @@ import { PALETTE, seriesLabel, type Series } from "./QueryChart";
 import type { PairRow, PairsResponse } from "@/lib/pairs";
 import type { ChartType } from "@/components/signals/chartTypes";
 
-// Register everything the non-time plots need. Kept in this file's own
-// `echarts.use(...)` so it never disturbs QueryChart's (Bar/Line) registration
-// — both call `use` against the same shared core registry, which is additive
-// and idempotent.
+// Additive + idempotent against the shared core registry, so this never
+// disturbs QueryChart's registration.
 echarts.use([
   ScatterChart,
   LineChart,
@@ -58,9 +54,8 @@ export interface PlotConfig {
   colorBy?: "time" | string;
 }
 
-/** Resolve an HSL CSS custom property (stored as "H S% L%") to an `hsl(...)`
- *  string ECharts can consume. Mirrors QueryChart.cssHsl — duplicated rather
- *  than exported to keep that file's surface unchanged. */
+/** Resolve an HSL CSS custom property to an `hsl(...)` string (mirrors
+ *  QueryChart.cssHsl). */
 function cssHsl(varName: string, fallback: string, alpha = 1): string {
   if (typeof window === "undefined") return fallback;
   const raw = getComputedStyle(document.documentElement)
@@ -86,8 +81,7 @@ interface PlotChartProps {
   onReady?: (instance: ECharts | null) => void;
 }
 
-/** Sum every point in a categorical series — the aggregate value for its
- *  bar/slice. Mirrors how the time chart totals a series. */
+/** Aggregate value (point sum) for a categorical series' bar/slice. */
 function seriesTotal(s: Series): number {
   let acc = 0;
   for (const p of s.points) acc += p.value ?? 0;
@@ -209,15 +203,12 @@ export function PlotChart({
 
     // --- scatter / path: XY from /query/pairs ---
     const x = config.xSignal;
-    // For each Y signal build a series of [x, y] pairs (path keeps time order,
-    // scatter is unordered points). colorBy adds a visualMap over a 3rd dim.
     const colorBy = config.colorBy;
     const colorBySignal =
       colorBy && colorBy !== "time" ? colorBy : undefined;
 
-    // When coloring by time we tag each point with its row index (a proxy for
-    // time, since rows arrive in produced_at order); by a signal we tag it with
-    // that signal's value. The visualMap reads the 3rd array element.
+    // colorBy tags each point with a 3rd dim the visualMap reads: row index
+    // (time proxy — rows are in produced_at order) or a signal's value.
     const colorDim = colorBy ? 2 : undefined;
 
     const series = config.ySignals.map((ySig, si) => {
@@ -254,8 +245,7 @@ export function PlotChart({
       };
     });
 
-    // Color range for the visualMap, computed over every plotted point's color
-    // dimension across all series.
+    // visualMap color range over every plotted point's color dimension.
     let cMin = Infinity;
     let cMax = -Infinity;
     if (colorDim !== undefined) {
@@ -339,8 +329,7 @@ export function PlotChart({
     };
   }, []);
 
-  // notMerge: true so switching plot kinds (e.g. scatter → pie, which swaps the
-  // whole axis/series model) never leaves stale components behind.
+  // notMerge so switching plot kinds never leaves stale components behind.
   useEffect(() => {
     const inst = instanceRef.current;
     if (!inst) return;

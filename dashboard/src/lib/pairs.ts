@@ -69,12 +69,9 @@ export function numericColumn(rows: PairRow[], name: string): number[] {
   return out;
 }
 
-/** Adapt aligned XY rows into the time-`Series` shape the CSV/JSON export
- *  helpers (and ExportDialog) already understand: one Series per non-time
- *  column, each point's `bucket` = the row's produced_at. This lets the plot
- *  widget reuse `seriesToCsv`/`seriesToJson` for data export instead of a
- *  bespoke serializer. The `name` tag carries the signal so `seriesLabel`
- *  reads it back as the column header. */
+/** Adapt aligned XY rows into the `Series` shape the export helpers understand
+ *  (one Series per non-time column), so the plot widget can reuse
+ *  `seriesToCsv`/`seriesToJson`. */
 export function pairsToSeries(resp: PairsResponse): Series[] {
   const valueCols = resp.columns.filter((c) => c !== "produced_at");
   return valueCols.map((col) => ({

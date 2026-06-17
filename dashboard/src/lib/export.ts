@@ -1,9 +1,8 @@
 import type { ECharts } from "echarts/core";
 import { seriesLabel, type Series } from "@/components/signals/QueryChart";
 
-// Trigger a browser download for an in-memory payload. Works for both a Blob
-// (CSV text) and a ready-made data URL (the PNG ECharts hands back). Object
-// URLs are revoked on the next tick so the click has time to start.
+// Trigger a browser download for an object URL or data URL. Object URLs are
+// revoked next tick so the click has time to start.
 function triggerDownload(href: string, filename: string, isObjectUrl: boolean) {
   const a = document.createElement("a");
   a.href = href;
@@ -20,23 +19,15 @@ export function downloadText(text: string, filename: string, mime: string) {
   triggerDownload(URL.createObjectURL(blob), filename, true);
 }
 
-// Escape one CSV field: wrap in quotes and double any embedded quotes when the
-// value contains a comma, quote, or newline (RFC 4180). Plain values pass
-// through untouched so numeric columns stay clean.
+// Escape one CSV field per RFC 4180; plain values pass through untouched.
 function csvField(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 }
 
-/** Shape the plotted series into a CSV string: a leading `time` column (the
- *  shared, server-aligned bucket ISO axis) followed by one column per series,
- *  labeled exactly as the chart legend reads it (`seriesLabel`). The values are
- *  the true, un-normalized bucket values — normalization is a display-only
- *  rescale, so the export always carries real numbers. Null buckets render as
- *  empty cells. Base series and derived/expression traces are columns alike.
- *
- *  Every series shares the same bucket axis (the backend zero-fills), so the
- *  first series' buckets define the rows and the rest index-align onto them. */
+/** Plotted series → CSV: a leading `time` column (the shared bucket axis) plus
+ *  one column per series, labeled as the legend reads it. Values are the true
+ *  un-normalized numbers; null buckets are empty cells. */
 export function seriesToCsv(series: Series[]): string {
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
   const header = ["time", ...series.map((s) => seriesLabel(s.tags))];
@@ -51,12 +42,8 @@ export function seriesToCsv(series: Series[]): string {
   return [header.map(csvField).join(","), ...rows].join("\n");
 }
 
-/** Shape the plotted series into a JSON string: an array of row objects, one
- *  per shared bucket, keyed `time` (the bucket ISO) plus one entry per series
- *  labeled exactly as the chart legend reads it (`seriesLabel`). Mirrors
- *  `seriesToCsv` semantics — same rows (the first series' buckets), true
- *  un-normalized values, and null buckets emitted as JSON `null`. Pretty-
- *  printed at 2-space indent. */
+/** Plotted series → JSON: one row object per bucket, keyed `time` plus one
+ *  entry per series. Same semantics as `seriesToCsv`; null buckets → `null`. */
 export function seriesToJson(series: Series[]): string {
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
   const rows = buckets.map((bucket, bi) => {
@@ -70,18 +57,14 @@ export function seriesToJson(series: Series[]): string {
   return JSON.stringify(rows, null, 2);
 }
 
-/** Options for rendering an ECharts instance to a PNG. `backgroundColor`
- *  accepts any CSS color or `"transparent"`; `pixelRatio` scales the raster
- *  for crispness on hi-DPI displays. */
 export interface ChartPngOptions {
+  /** Any CSS color or "transparent". */
   backgroundColor?: string;
+  /** Raster scale for hi-DPI crispness. */
   pixelRatio?: number;
 }
 
-/** Export an ECharts instance as a PNG download. Defaults to a white
- *  background at 2x so existing callers keep a crisp, legible image outside
- *  the app's dark theme; pass `backgroundColor: "transparent"` for a
- *  transparent PNG, or the resolved `--background` color for a dark one. */
+/** Export an ECharts instance as a PNG download (white bg at 2x by default). */
 export function downloadChartPng(
   instance: ECharts,
   filename: string,
@@ -92,9 +75,8 @@ export function downloadChartPng(
   triggerDownload(url, filename, false);
 }
 
-/** Render the chart to a PNG and write it to the system clipboard as an
- *  `image/png` blob. Throws on any failure (unsupported browser, denied
- *  clipboard permission) so the caller can surface a toast. */
+/** Render the chart to a PNG and write it to the clipboard. Throws on failure
+ *  so the caller can surface a toast. */
 export async function copyChartToClipboard(
   instance: ECharts,
   opts: { backgroundColor?: string } = {},

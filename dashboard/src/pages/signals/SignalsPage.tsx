@@ -39,8 +39,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type SortKey = "name" | "count" | "first_seen" | "last_seen";
 type SortDir = "asc" | "desc";
 
-// Sensible initial direction per column: alphabetical names go A→Z,
-// quantities go biggest-first.
+// Initial direction per column: names A→Z, quantities biggest-first.
 const DEFAULT_DIR: Record<SortKey, SortDir> = {
   name: "asc",
   count: "desc",
@@ -69,9 +68,6 @@ function formatCount(n: number): string {
 
 function formatAbsolute(iso: string | null): string {
   if (!iso) return "";
-  // Locale-aware full timestamp; the trailing 'Z' from the backend means
-  // `new Date` parses as UTC and `toLocaleString` renders in the user's
-  // timezone — matches the bucket tick labels.
   return new Date(iso).toLocaleString();
 }
 
@@ -129,45 +125,31 @@ function SignalsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  // Left-drag gesture mode shared by every signal chart. "select" (default) is
-  // the original brush-to-set-timeframe; "pan" hands left-drag to the inside
-  // dataZoom so the user slides the (already-fetched) zoom window — which the
-  // `connect` group broadcasts across all panels. Wheel-zoom works in both.
+  // Shared left-drag mode: "select" brushes a timeframe, "pan" slides the zoom
+  // window (broadcast across panels by the connect group). Wheel zooms in both.
   const [interactionMode, setInteractionMode] = useState<"select" | "pan">(
     "select",
   );
 
-  // Stacked chart widgets — one unified, all-encompassing widget that picks its
-  // own chart type (bar/line/area/scatter/path/3D/categorical) from its chart-
-  // type selector. All per-chart state lives inside the widget component. Seed
-  // with one so the page opens to exactly the old single-chart experience.
+  // One unified widget per entry; it picks its own chart type. Seed with one.
   const [widgets, setWidgets] = useState<{ id: number }[]>(() => [{ id: 0 }]);
   const [hiddenIds, setHiddenIds] = useState<Set<number>>(() => new Set());
-  // Monotonic counter for stable widget keys across add/delete. A ref (not
-  // state) so it never goes stale within a render and double-clicks can't
-  // mint the same id.
+  // Monotonic id counter; a ref so it can't go stale within a render.
   const nextWidgetId = useRef(1);
 
-  // Single ECharts connection group shared by every widget on the page —
-  // joining it syncs the hover cursor + tooltip across all panels.
+  // Shared connect group, syncing hover cursor + tooltip across panels.
   const SYNC_GROUP_ID = "signals-page";
 
-  // Live chart instances, keyed by their DOM id so add/hide/delete keep the
-  // set accurate. We dispatch group-wide dataZoom (zoom out / reset) through
-  // any one of them — `echarts.connect` rebroadcasts the action to the rest,
-  // so a single dispatch zooms every synced panel. Purely client-side: it
-  // magnifies the already-fetched buckets and fires no `/query/run`.
+  // Live chart instances. Group-wide dataZoom dispatched through any one is
+  // rebroadcast to the rest (client-side only — no /query/run).
   const chartInstances = useRef<Set<ECharts>>(new Set());
 
   const onChartReady = useCallback((inst: ECharts | null) => {
-    // QueryChart calls this with the instance on init; we can't get `null`
-    // back with the same reference on teardown, so each chart re-registers
-    // on mount and we prune disposed instances at dispatch time.
+    // No null-with-same-ref on teardown, so prune disposed instances at dispatch.
     if (inst) chartInstances.current.add(inst);
   }, []);
 
-  // Read the current zoom window from any live chart. All synced panels share
-  // the same window, so the first non-disposed instance is authoritative.
+  // First non-disposed instance is authoritative (all share one zoom window).
   const liveInstance = (): ECharts | null => {
     for (const inst of chartInstances.current) {
       if (inst.isDisposed()) {
@@ -179,8 +161,7 @@ function SignalsPage() {
     return null;
   };
 
-  // Dispatch a dataZoom window [start, end] (percent 0–100) to the group.
-  // One dispatchAction on any grouped instance is rebroadcast to all.
+  // Dispatch a dataZoom window (percent 0–100); rebroadcast to the group.
   const dispatchZoom = (start: number, end: number) => {
     const inst = liveInstance();
     if (!inst) return;
@@ -217,36 +198,25 @@ function SignalsPage() {
     [timeframe],
   );
 
-  // ISO strings drive the fetch effects; deriving via Date.getTime() means
-  // we re-run the effect only when start/end actually move, not on every
-  // Timeframe object identity change.
+  // ISO strings drive the fetch effects, so they re-run only when start/end
+  // actually move, not on every Timeframe identity change.
   const startIso = useMemo(() => timeframe.start.toISOString(), [timeframe]);
   const endIso = useMemo(() => timeframe.end.toISOString(), [timeframe]);
 
-  // Brush-select callback shared by every widget's chart. Whichever panel
-  // the user drags on sets the page timeframe and all widgets refetch.
-  // Always lands as "Custom" since the user drew it themselves; presets
-  // re-snap to now when clicked.
+  // A user-drawn brush always lands as "Custom" (presets re-snap to now).
   const onBrushSelect = (start: Date, end: Date) => {
     setTimeframe({ start, end, label: "Custom" });
   };
 
-  // The table doesn't refetch every time the user iterates on a query or
-  // scrubs the timeframe — only on vehicle change.
+  // The table refetches only on vehicle change, not on query/timeframe edits.
   useEffect(() => {
     if (!vehicle.id) return;
     fetchSignals();
   }, [vehicle.id, vehicle.type]);
 
-  // Kerbecs wraps every upstream response in
-  //   { status, ping, gateway, service, timestamp, data: <upstream-body> }
-  // so the upstream's own JSON sits at axios `response.data.data`.
-  //
-  // The collected-signals table is deliberately unbounded by the page's
-  // timeframe — it's "everything we've ever seen for this vehicle",
-  // independent of what the chart is scoped to. Omitting start/end makes
-  // the backend skip its produced_at filter, so the query runs against
-  // the full partition set.
+  // The collected-signals table is unbounded by the timeframe ("everything ever
+  // seen for this vehicle") — omitting start/end skips the backend's
+  // produced_at filter. Kerbecs nests the upstream body at response.data.data.
   const fetchSignals = async () => {
     setLoadingSignals(true);
     try {
@@ -262,11 +232,8 @@ function SignalsPage() {
     }
   };
 
-  // Rebuild the Fuse index only when the signal list changes — searching
-  // is cheap, indexing isn't. Threshold 0.3 forgives typos and missing
-  // characters ("accmltr" → "accumulator") without surfacing unrelated
-  // matches; ignoreLocation lets a match score the same wherever it sits
-  // in the string, which matters for our `subsystem_metric` names.
+  // Rebuild the Fuse index only when the signal list changes. Threshold 0.3
+  // forgives typos; ignoreLocation matches anywhere in `subsystem_metric` names.
   const fuse = useMemo(
     () =>
       new Fuse(signals, {
@@ -279,9 +246,7 @@ function SignalsPage() {
 
   const filteredSignals = useMemo(() => {
     const q = search.trim();
-    // Fuse already ranks by relevance; sorting only kicks in when the
-    // user isn't actively searching, otherwise we'd shuffle the ranked
-    // results back into alphabetical order.
+    // Fuse ranks by relevance; sorting applies only when not searching.
     if (q) return fuse.search(q).map((r) => r.item);
 
     const sorted = [...signals];
@@ -294,8 +259,7 @@ function SignalsPage() {
           return (a.count - b.count) * dir;
         case "first_seen":
         case "last_seen": {
-          // null timestamps sink to the bottom regardless of direction
-          // — they're "no data" rather than "infinitely old/new".
+          // null timestamps sink to the bottom regardless of direction.
           const av = a[sortKey];
           const bv = b[sortKey];
           if (av === null && bv === null) return 0;
@@ -331,11 +295,8 @@ function SignalsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Left-drag interaction mode. "Select" brushes a timeframe (the
-                original behavior, refetches at true resolution); "Pan" slides
-                the client-side zoom window across every synced panel. Wheel
-                still zooms in either mode. A segmented pair styled to sit with
-                the zoom controls. */}
+            {/* Left-drag mode: Select brushes a timeframe (refetches), Pan
+                slides the client-side zoom window. */}
             <div className="flex items-center rounded-md border">
               <Button
                 variant={interactionMode === "select" ? "secondary" : "ghost"}
@@ -358,10 +319,7 @@ function SignalsPage() {
                 Pan
               </Button>
             </div>
-            {/* Client-side zoom control: snap the synced panels back to the
-                full fetched window via ECharts dataZoom — no requery. The
-                brush (drag on a chart) still sets the timeframe and refetches
-                for true resolution; the wheel zooms in. */}
+            {/* Snap the synced panels back to the full fetched window — no requery. */}
             <Button
               variant="outline"
               size="sm"
@@ -375,10 +333,7 @@ function SignalsPage() {
         </div>
 
         {widgets.map(({ id }) => (
-          // The unified widget self-gates page group participation: only its
-          // time-series chart wires onChartReady/groupId into the shared hover/
-          // zoom group; pairs/categorical charts ignore them (their axes aren't
-          // the shared time axis). All share the page timeframe via startIso/endIso.
+          // Only the widget's time-series chart joins the shared hover/zoom group.
           <SignalWidget
             key={id}
             vehicleId={vehicle.id}

@@ -31,23 +31,15 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 interface QueryBuilderProps {
   value: Query;
   onChange: (next: Query) => void;
-  /** Available signal names for the filter-value autocomplete. Pulled from
-   *  the page's existing `/query/signals` fetch so the picker and the
-   *  table never disagree about what exists. */
+  /** Signal names for the filter-value autocomplete. */
   signalNames: string[];
-  /** Parser/execution error from the most recent run. Surfaced under the
-   *  serialized preview; the builder itself stays interactive so the user
-   *  can keep iterating. */
+  /** Parser/execution error from the most recent run, shown under the preview. */
   error?: { message: string; position?: number } | null;
-  /** Opt-in editable MQL line. When provided, the serialized-MQL preview
-   *  becomes a controlled `<input>`: typing calls `onMqlChange(text)` and the
-   *  parent re-parses (and may surface an error via `error`). When absent the
-   *  preview stays a read-only `<code>` exactly as before. */
+  /** Opt-in editable MQL line: when provided, the preview becomes a controlled
+   *  `<input>` that calls `onMqlChange` for the parent to re-parse. */
   onMqlChange?: (mql: string) => void;
-  /** Focus lifecycle of the editable MQL line. The parent uses these to FREEZE
-   *  this row as a fetch row while the user is typing in the line, so deleting
-   *  the `(` (which momentarily makes the text stop looking like a fetch query)
-   *  doesn't unmount the builder and steal the caret mid-edit. */
+  /** Focus lifecycle of the editable MQL line — the parent uses these to freeze
+   *  the row as a fetch row mid-edit (see SignalWidget's editingRow). */
   onMqlFocus?: () => void;
   onMqlBlur?: () => void;
 }
@@ -67,9 +59,8 @@ export function QueryBuilder({
   const fieldFixed = fieldOptions.length === 1;
 
   function setFn(fn: Aggregator) {
-    // Swapping aggregator classes (count ↔ avg/sum/...) invalidates the
-    // current field. Reset to the canonical default to keep the AST
-    // valid without a separate "field is wrong" error state.
+    // Swapping aggregator classes (count ↔ avg/sum/...) invalidates the field;
+    // reset to the canonical default to keep the AST valid.
     const fieldClassChanged =
       ROW_COUNT_AGGS.has(fn) !== ROW_COUNT_AGGS.has(value.fn);
     onChange({
@@ -103,11 +94,8 @@ export function QueryBuilder({
     });
   }
 
-  // `.by(name)` is the only grouping today: with it on, the query returns one
-  // series PER matching signal (a breakdown); off, one combined series. We
-  // surface this single choice as a toggle rather than a column picker. `->`
-  // can't combine with `.by` (a breakdown is already labeled by its group
-  // values), so turning break-out on clears any label.
+  // `.by(name)` breakout: on = one series per matching signal, off = one
+  // combined series. Clears any label, which can't combine with `.by`.
   const breakout = value.groupBy.length > 0;
   function setBreakout(on: boolean) {
     if (on) {
@@ -119,8 +107,6 @@ export function QueryBuilder({
   }
 
   function setRollup(next: Rollup | undefined) {
-    // Pass an explicit undefined to clear instead of leaving rollup
-    // hanging around as an empty string in the AST.
     const { rollup: _drop, ...rest } = value;
     onChange(next ? { ...rest, rollup: next } : rest);
   }
@@ -136,30 +122,23 @@ export function QueryBuilder({
   }
 
   function setLabel(next: string | undefined) {
-    // The label is a `-> name` variable: keep it to identifier characters so
-    // it parses and can be referenced from expression lines.
+    // Restrict to identifier chars so the `-> name` variable parses.
     const ident = next?.replace(/[^A-Za-z0-9_]/g, "");
     const { label: _drop, ...rest } = value;
     onChange(ident ? { ...rest, label: ident } : rest);
   }
 
-  // Editable MQL line (two-way chips↔text). Local text state is the user's
-  // source of truth while they type; we only re-seed it from the serialized AST
-  // when a CHIP changed the query — never on the user's own keystrokes. Without
-  // this gate the canonical re-serialization (normalized spacing, or a fallback
-  // to the last-good query when the text transiently fails to parse) would yank
-  // the caret to the end and even re-populate a box the user just cleared,
-  // making free rewriting impossible. Mirrors MqlEditor's `lastEmitted` guard.
+  // Editable MQL line (two-way chips↔text). Local text is the source of truth
+  // while typing; re-seed from the serialized AST only on chip-driven changes,
+  // never on the user's own keystrokes (which would yank the caret). Mirrors
+  // MqlEditor's `lastEmitted` guard.
   const serialized = serializeQuery(value);
   const [mqlText, setMqlText] = useState(serialized);
   const lastSerialized = useRef(serialized);
-  // Set on every text keystroke; consumed by the re-sync effect to distinguish
-  // our own edit echo (skip the overwrite) from a chip-driven change (apply it).
+  // Distinguishes our own edit echo (skip overwrite) from a chip change (apply).
   const fromTextEdit = useRef(false);
   useEffect(() => {
     if (fromTextEdit.current) {
-      // Our own typing flowed out and came back as a (possibly normalized)
-      // serialized form — don't overwrite what the user is editing.
       fromTextEdit.current = false;
       lastSerialized.current = serialized;
       return;
@@ -172,10 +151,7 @@ export function QueryBuilder({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* The builder reads as a left-to-right sentence:
-       *   Show <agg> of <field>   where <filters>   grouped by <groups>   every <rollup>
-       * Each clause is its own visual segment with a soft keyword lead-in
-       * so the structure is legible without reading the chips as a run-on. */}
+      {/* Reads as a sentence: Show <agg> of <field> where <filters> … */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 leading-7">
         <Clause keyword="Show">
           <SelectChip
@@ -200,9 +176,8 @@ export function QueryBuilder({
             <Hint>all signals</Hint>
           ) : (
             value.filters.map((pred, i) => {
-              // Adjacent filters on the same column combine: equality matches
-              // union ("or"), negations intersect ("and" — exclude all). Show
-              // the matching connector so the sequence doesn't read ambiguously.
+              // Same-column filters combine: matches union ("or"), negations
+              // intersect ("and"). Show the connector so it doesn't read ambiguously.
               const prev = i > 0 ? value.filters[i - 1] : null;
               const sameColAsPrev = prev !== null && prev.column === pred.column;
               const connector = pred.op === "!=" ? "and" : "or";
@@ -236,9 +211,8 @@ export function QueryBuilder({
           <FillChip value={value.fill} onChange={setFill} />
         </Clause>
 
-        {/* `-> name` names the single result series (one slice/legend entry)
-            and exposes it as a variable. Hidden while breaking out — a
-            breakdown is already labeled by its per-signal group values. */}
+        {/* `-> name` labels the single result series; hidden while breaking
+            out (a breakdown is already labeled by its group values). */}
         {!breakout ? (
           <Clause keyword="→">
             <LabelChip value={value.label} onChange={setLabel} />
@@ -251,8 +225,6 @@ export function QueryBuilder({
           MQL
         </span>
         {onMqlChange ? (
-          // Editable: typing flows out to the parent, which re-parses. The
-          // chips re-sync this line whenever they change the serialized form.
           <input
             value={mqlText}
             onChange={(e) => {
@@ -329,8 +301,7 @@ function Connector({ children }: { children: ReactNode }) {
   );
 }
 
-/** Muted placeholder shown when a clause has no chips yet, so the sentence
- *  still reads ("where all signals", "grouped by nothing"). */
+/** Muted placeholder shown when a clause has no chips yet. */
 function Hint({ children }: { children: ReactNode }) {
   return (
     <span className="select-none text-xs italic text-muted-foreground/60">
@@ -480,12 +451,8 @@ function RollupChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Fill chip (W4) — pick the null-gap fill mode. Unset = "gap" (the default the
-// chart already applies), so an untouched widget reads "fill gap" without
-// serializing a `.fill(...)` clause.
-// ---------------------------------------------------------------------------
-
+// Null-gap fill mode. Unset = "gap" (the chart's default), so an untouched
+// widget doesn't serialize a `.fill(...)` clause.
 function FillChip({
   value,
   onChange,
@@ -517,8 +484,7 @@ function FillChip({
             key={m}
             type="button"
             onClick={() => {
-              // "gap" is the implicit default — clear the clause instead of
-              // serializing a redundant `.fill(gap)`.
+              // "gap" is the implicit default — clear instead of serializing it.
               onChange(m === "gap" ? undefined : m);
               setOpen(false);
             }}
@@ -542,12 +508,8 @@ function FillChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Break-out toggle — the single grouping choice (`.by(name)`). On = one series
-// per matching signal (a breakdown); off = one combined series. Replaces the
-// old column picker, which only ever offered "name".
-// ---------------------------------------------------------------------------
-
+// The single grouping choice (`.by(name)`): on = one series per matching
+// signal, off = one combined series.
 function BreakoutToggle({
   value,
   onChange,
@@ -568,14 +530,8 @@ function BreakoutToggle({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Label chip (`-> name`) — name the result series and expose it as a variable.
-// Unset reads "name" (the series falls back to its tag-derived name, e.g.
-// "value" for an ungrouped query). A name is what lets a stack of queries
-// render as distinct pie slices / legend entries and be referenced from
-// expression lines. Input is restricted to identifier characters by `setLabel`.
-// ---------------------------------------------------------------------------
-
+// `-> name` chip: names the result series and exposes it as a variable. Unset
+// reads "name". Input is restricted to identifier chars by `setLabel`.
 function LabelChip({
   value,
   onChange,
@@ -585,8 +541,7 @@ function LabelChip({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
-  // Re-seed the draft from the AST whenever it changes (e.g. the MQL line edits
-  // `-> name` directly) so the popover input mirrors the current value.
+  // Re-seed from the AST when it changes (e.g. the MQL line edits `-> name`).
   useEffect(() => setDraft(value ?? ""), [value]);
   const isDefault = !value;
   const commit = () => {
@@ -630,20 +585,10 @@ function LabelChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Reject chip (W1) — outlier rejection. Two independent toggles combine into a
-// RejectNode:
-//   - statistical outliers → `sigma > N`
-//   - hard limits → `value outside (min, max)` (or a single comparison when
-//     only one bound is set).
-// When both are on they OR together (reject if statistical OR out of bounds).
-// Nothing enabled → reject undefined (no `.reject(...)` clause).
-//
-// We derive the editor's UI state by *reading* the current RejectNode rather
-// than holding a parallel copy, so a `.reject(...)` typed into the MQL line
-// round-trips into the popover's controls.
-// ---------------------------------------------------------------------------
-
+// Outlier rejection. Two toggles combine into a RejectNode (OR'd): statistical
+// outliers (`sigma > N`) and hard limits (`value outside (min, max)`, or a
+// single comparison). UI state is read back from the node, not held in parallel,
+// so a hand-typed `.reject(...)` round-trips into the controls.
 interface RejectUiState {
   sigmaOn: boolean;
   sigmaN: number;
@@ -651,10 +596,8 @@ interface RejectUiState {
   max: string;
 }
 
-/** Read a RejectNode back into the chip's UI state. Recognizes exactly the
- *  shapes this chip writes (a `sigma > N` leaf and/or a value range/single
- *  comparison, possibly OR'd); anything else falls back to defaults so the
- *  controls stay usable even over a hand-authored tree. */
+/** Read a RejectNode back into the chip's UI state, recognizing the shapes this
+ *  chip writes; anything else falls back to defaults. */
 function rejectToUi(node: RejectNode | undefined): RejectUiState {
   const ui: RejectUiState = { sigmaOn: false, sigmaN: 3, min: "", max: "" };
   const visit = (n: RejectNode) => {
@@ -665,7 +608,6 @@ function rejectToUi(node: RejectNode | undefined): RejectUiState {
       ui.sigmaOn = true;
       ui.sigmaN = n.threshold;
     } else if (n.kind === "cmp" && (n.metric === "value" || n.metric === "raw_value")) {
-      // single-bound hard limit: `value < min` or `value > max`
       if (n.op === "<" || n.op === "<=") ui.min = String(n.threshold);
       else if (n.op === ">" || n.op === ">=") ui.max = String(n.threshold);
     } else if (n.kind === "range" && !n.inside) {
@@ -695,7 +637,6 @@ function uiToReject(ui: RejectUiState): RejectNode | undefined {
       inside: false,
     });
   } else if (hasMin) {
-    // Only a floor set → reject anything below it.
     leaves.push({ kind: "cmp", metric: "value", op: "<", threshold: Number(ui.min) });
   } else if (hasMax) {
     leaves.push({ kind: "cmp", metric: "value", op: ">", threshold: Number(ui.max) });
@@ -728,8 +669,7 @@ function RejectChip({
   const ui = rejectToUi(value);
   const summary = rejectSummary(ui);
 
-  // Apply a patched UI state straight through to a RejectNode so the chip is a
-  // pure view of `value` — no local copy to drift.
+  // Patch straight through to a RejectNode — the chip is a pure view of `value`.
   const apply = (patch: Partial<RejectUiState>) =>
     onChange(uiToReject({ ...ui, ...patch }));
 
@@ -813,8 +753,7 @@ function FilterChip({
   onRemove: () => void;
   signalNames: string[];
 }) {
-  // Open the popover automatically when the chip is freshly added (empty
-  // value) so the user doesn't have to click again to start typing.
+  // Auto-open when freshly added (empty) so the user can start typing.
   const [open, setOpen] = useState(value.value === "");
   const filled = Boolean(value.value);
 
@@ -893,12 +832,9 @@ function FilterEditor({
     const q = search.trim();
     if (!q) return signalNames.slice(0, 50);
     if (hasWildcard) {
-      // Compile the wildcard pattern to a regex so the preview list
-      // shows what would actually match on the backend (`*` ⇒ any run
-      // of characters). Anchor with ^…$ to mirror LIKE's full-string
-      // semantics — `bcu_*_temp` shouldn't match `prefix_bcu_x_temp`.
+      // Compile to an anchored regex mirroring the backend's LIKE semantics.
       const escaped = q
-        .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // escape regex metachars
+        .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
         .replace(/\*/g, ".*");
       try {
         const rx = new RegExp(`^${escaped}$`, "i");
@@ -933,10 +869,8 @@ function FilterEditor({
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              // Wildcards commit the literal pattern (we want LIKE
-              // semantics, not "pick the first match"). Otherwise prefer
-              // the top fuzzy match — saves a click when the user typed
-              // an exact-ish prefix.
+              // Wildcards commit the literal pattern (LIKE semantics); otherwise
+              // take the top fuzzy match.
               const pick = hasWildcard
                 ? search.trim()
                 : (matches[0] ?? search.trim());

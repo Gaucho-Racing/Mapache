@@ -41,16 +41,12 @@ def query_signals(
 
     params: dict = {"vehicle_id": vehicle_id, "signals": list(signals)}
 
-    # When `max_points` is set and the window is known, decimate in SQL: bucket
-    # each signal's rows by time and keep one representative per bucket. This
-    # caps the rows transferred + pivoted + serialized at ~max_points per signal
-    # (the map doesn't need every sample), which is the main fix for the
-    # raw-data timeout on wide windows. Without it the query is full-resolution.
+    # With max_points and a known window, decimate in SQL: keep one
+    # representative per time bucket so wide windows don't time out.
     bucket = _bucket_seconds(start, end, max_points) if max_points else None
 
-    # `timestamp` is the raw Int64 microsecond column; bucketing on it integer-
-    # divided by the bucket width avoids EXTRACT(EPOCH ...) (not a ClickHouse
-    # function) and keeps the grouping exact.
+    # `timestamp` is the raw Int64 microsecond column; integer-dividing it by the
+    # bucket width keeps the grouping exact without EXTRACT(EPOCH ...).
     bucket_expr = ""
     if bucket is not None:
         params["bm"] = max(int(bucket * 1_000_000), 1)
@@ -82,10 +78,7 @@ def query_signals(
 
     result = get_clickhouse().query_df(query_str, parameters=params)
 
-    # Empty window (or no matching signals) → query_df yields a frame with no
-    # `produced_at` column; bail with no dataframes rather than KeyError-ing.
-    # The callers (/query/pairs, record-style /signals) already handle an empty
-    # list as "no data".
+    # Empty window → no `produced_at` column; bail rather than KeyError-ing.
     if result.empty or "produced_at" not in result.columns:
         return []
 

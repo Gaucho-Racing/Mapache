@@ -1,6 +1,4 @@
-// TypeScript mirror of query/query/service/query_lang.py — kept in sync by
-// convention since the language is small. If the grammar grows we'll lift
-// these into a shared schema or push the builder rendering server-side.
+// TypeScript mirror of query/query/service/query_lang.py — keep in sync.
 
 export type Aggregator =
   | "count"
@@ -27,8 +25,7 @@ export const AGGREGATORS: { value: Aggregator; label: string }[] = [
   { value: "stddev", label: "stddev" },
 ];
 
-/** Aggregators that operate on row-counts. `count` is the only one today —
- *  it takes `signal` as the field. The rest need a numeric column. */
+/** Aggregators that operate on row-counts (only `count`, on `signal`). */
 export const ROW_COUNT_AGGS: ReadonlySet<Aggregator> = new Set(["count"]);
 
 export type FieldName = "signal" | "value" | "raw_value";
@@ -36,15 +33,12 @@ export type FieldName = "signal" | "value" | "raw_value";
 export const NUMERIC_FIELDS: FieldName[] = ["value", "raw_value"];
 export const COUNT_FIELD: FieldName = "signal";
 
-/** Columns the user can filter or group by. Kept narrow on purpose —
- *  `vehicle_id` is page-level and `produced_at` is timeframe-level. */
 export const FILTERABLE_COLUMNS = ["name"] as const;
 export const GROUPABLE_COLUMNS = ["name"] as const;
 export type FilterColumn = (typeof FILTERABLE_COLUMNS)[number];
 export type GroupColumn = (typeof GROUPABLE_COLUMNS)[number];
 
-/** Allowed `.rollup(<interval>)` values — mirror of ROLLUP_INTERVALS in
- *  the Python parser. Order is the display order in the builder dropdown. */
+/** Mirror of ROLLUP_INTERVALS; order is the builder dropdown order. */
 export const ROLLUP_INTERVALS = [
   "50ms", "100ms", "500ms",
   "1s", "10s", "30s",
@@ -83,17 +77,11 @@ export interface Query {
   field: FieldName;
   filters: Predicate[];
   groupBy: GroupColumn[];
-  /** Optional bucket-width override. When undefined, the page falls back
-   *  to its auto-picked interval (derived from the timeframe). */
+  /** Bucket-width override; undefined falls back to the auto interval. */
   rollup?: Rollup;
-  /** Optional outlier-rejection condition (.reject(...)). Matching raw
-   *  samples are dropped before aggregation → null gaps. */
   reject?: RejectNode;
-  /** Optional null-gap fill mode (.fill(...)). Display hint only. */
   fill?: FillMode;
-  /** Optional series name set via a trailing `-> name`. Names the single
-   *  result series (pie slice / legend) and exposes it as a variable for
-   *  expression lines. Mutually exclusive with `groupBy` (parser-enforced). */
+  /** Series name from a trailing `-> name`. Mutually exclusive with groupBy. */
   label?: string;
 }
 
@@ -104,26 +92,18 @@ export const DEFAULT_QUERY: Query = {
   groupBy: [],
 };
 
-/** Pick the right default field for a given aggregator — count uses
- *  `signal`, everything else falls back to `value`. Used when the builder
- *  swaps aggregators so the field stays valid without manual fixup. */
+/** Default field for an aggregator: count → `signal`, else `value`. */
 export function defaultFieldFor(fn: Aggregator): FieldName {
   return ROW_COUNT_AGGS.has(fn) ? COUNT_FIELD : "value";
 }
 
-/** Render the AST to canonical MQL v0.2 (method-chain syntax). Same-
- *  column equality predicates collapse into one `.where(col in (...))`
- *  call so the OR semantics are visible in the serialized form. Mirrors
- *  the Python parser's grammar — round-trips losslessly. */
+/** Render the AST to canonical MQL; round-trips losslessly through parseQuery. */
 export function serializeQuery(q: Query): string {
   let out = `${q.fn}(${q.field})`;
 
   if (q.filters.length > 0) {
-    // Group predicates by column AND op: a single `=` renders as `col = "x"`,
-    // multiple as `col in (...)`; a single `!=` as `col != "x"`, multiple as
-    // `col not in (...)`. Keying on `column|op` keeps each op's run together so
-    // the serialized form round-trips through parseQuery losslessly. Insertion
-    // order is preserved so the chip sequence maps 1:1 to the clauses.
+    // Group by column AND op: a single pred renders as `col = "x"`, multiple as
+    // `col in (...)` (or `not in` for `!=`). Insertion order maps chips 1:1.
     const byColOp: Map<string, Predicate[]> = new Map();
     for (const p of q.filters) {
       const key = `${p.column}|${p.op}`;
@@ -160,8 +140,6 @@ export function serializeQuery(q: Query): string {
     out += `.fill(${q.fill})`;
   }
 
-  // Right-assignment names the result series (and exposes it as a variable).
-  // A bare identifier — it doubles as the variable name in expression lines.
   if (q.label) {
     out += ` -> ${q.label}`;
   }
@@ -169,10 +147,8 @@ export function serializeQuery(q: Query): string {
   return out;
 }
 
-/** Render a reject tree to canonical text. Precedence is `or` < `and`; a
- *  child is parenthesized only when its operator binds looser than the
- *  parent's, so the output round-trips through `parseQuery` losslessly
- *  without gratuitous parens. */
+/** Render a reject tree to canonical text. Precedence `or` < `and`; a child is
+ *  parenthesized only when it binds looser than the parent (no gratuitous parens). */
 function serializeReject(n: RejectNode, parentPrec = 0): string {
   switch (n.kind) {
     case "cmp":
@@ -188,21 +164,14 @@ function serializeReject(n: RejectNode, parentPrec = 0): string {
 }
 
 function escapeString(s: string): string {
-  // v0 grammar doesn't define escapes, but a stray `"` would still break
-  // parsing. Strip them defensively — signal names don't legitimately
-  // contain double quotes, and surfacing a parse error to the user for a
-  // value they entered via a picker would be confusing.
+  // The grammar defines no escapes; strip stray `"` so a picker value can't
+  // break parsing (signal names never legitimately contain them).
   return `"${s.replace(/"/g, "")}"`;
 }
 
 // ---------------------------------------------------------------------------
-// Parser (text → AST) — mirror of query_lang.py's recursive-descent parser.
-//
-// The chip builder writes MQL via serializeQuery; the raw MQL editor lets the
-// user edit that text directly. parseQuery turns edited text back into the AST
-// so both surfaces stay two views of the same Query. Errors carry a 0-based
-// column so the editor can point at the offending character — the same
-// {message, position} shape the backend returns on a 400.
+// Parser (text → AST) — mirror of query_lang.py. Errors carry a 0-based column,
+// matching the {message, position} shape the backend returns on a 400.
 // ---------------------------------------------------------------------------
 
 export interface ParseError {
@@ -229,9 +198,8 @@ interface MqlToken {
   pos: number;
 }
 
-// Mirror of _TOKEN_RX. Order matters: interval before number (so `100ms`
-// keeps its unit), `->` before number (so the `-` isn't read as a sign) and
-// before the comparison ops, two-char comparison ops before single-char.
+// Mirror of _TOKEN_RX. Order matters: interval before number, `->` before
+// number/ops, two-char comparison ops before single-char.
 const TOKEN_RX =
   /\s+|("(?:[^"\\]|\\.)*")|(\d+(?:ms|[smhd]))|(->)|(-?\d+(?:\.\d+)?)|(>=|<=|!=|>|<|=)|([A-Za-z_][A-Za-z0-9_]*)|([().,])/y;
 
@@ -261,7 +229,6 @@ function tokenizeMql(s: string): MqlToken[] {
     else if (op !== undefined) out.push({ kind: "op", value: op, pos: i });
     else if (ident !== undefined) out.push({ kind: "ident", value: ident, pos: i });
     else if (punct !== undefined) out.push({ kind: "punct", value: punct, pos: i });
-    // else: whitespace match — skip.
     i = TOKEN_RX.lastIndex;
   }
   return out;
@@ -325,8 +292,7 @@ export function parseQuery(input: string): ParseResult {
 
     while (!c.eof) {
       const dot = c.peek()!;
-      // `-> name` ends the chain: a right-assignment naming the result series.
-      if (dot.kind === "arrow") break;
+      if (dot.kind === "arrow") break; // `-> name` ends the chain
       if (dot.kind !== "punct" || dot.value !== ".") {
         throw new MqlParseError(
           `unexpected '${dot.value}' — methods are chained with '.'`,
@@ -360,8 +326,7 @@ export function parseQuery(input: string): ParseResult {
       c.expectPunct(")");
     }
 
-    // Optional `-> name` right-assignment after the method chain. The name is a
-    // bare identifier so it doubles as a referenceable variable.
+    // Optional `-> name` right-assignment after the method chain.
     if (!c.eof) {
       const arrow = c.advance();
       labelPos = arrow.pos;
@@ -376,8 +341,6 @@ export function parseQuery(input: string): ParseResult {
       }
     }
 
-    // A grouped query already names each series by its group value, so naming a
-    // single result with `->` would be ambiguous — reject the combination.
     if (label !== undefined && groupBy.length > 0)
       throw new MqlParseError(
         "'->' can't be combined with '.by'; a breakdown is already labeled by its group values",
@@ -425,7 +388,6 @@ function parseWhereArgs(c: MqlCursor): Predicate[] {
   if (!FILTERABLE_SET.has(col))
     throw new MqlParseError(`can't filter on '${colTok.value}'`, colTok.pos);
   let t = c.peek();
-  // `not in (...)` — negated membership.
   let negatedIn = false;
   if (t && t.kind === "ident" && t.value.toLowerCase() === "not") {
     c.advance();
@@ -571,20 +533,15 @@ function parseRejectNumber(c: MqlCursor): number {
   return parseFloat(t.value);
 }
 
-/** True when a statement reads as a fetch query (`<agg>(...)…`) rather than a
- *  derived expression (`s0 / s1`, `current_ac^2`). Used by the widget to route
- *  each trace line: fetch queries hit /query/run, expressions evaluate
- *  in-browser via lib/expr.ts. A fetch query always begins with a known
- *  aggregator immediately followed by `(`; anything else is an expression. */
+/** True when a line reads as a fetch query (known aggregator followed by `(`)
+ *  rather than a derived expression. Routes each trace line in the widget. */
 export function looksLikeFetchQuery(input: string): boolean {
   const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(input);
   return m !== null && AGG_SET.has(m[1].toLowerCase());
 }
 
-/** Split a trailing `-> name` right-assignment off a line, returning the body
- *  and the assigned variable name (a bare identifier). Used for EXPRESSION
- *  lines, which don't pass through parseQuery — fetch lines carry `->` inside
- *  the MQL grammar instead. No arrow → `{ body: line, name: undefined }`. */
+/** Split a trailing `-> name` off an expression line (fetch lines carry `->`
+ *  inside the grammar instead). No arrow → `{ body: line }`. */
 export function splitAssignment(line: string): { body: string; name?: string } {
   const m = /^(.*?)\s*->\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(line);
   if (!m) return { body: line };

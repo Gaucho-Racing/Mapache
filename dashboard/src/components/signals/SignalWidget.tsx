@@ -74,8 +74,6 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Same as `Rollup` — kept as a separate alias so future "interval" usage
-// (e.g. backend response metadata typing) stays expressive.
 type Interval = Rollup;
 
 function authHeader() {
@@ -84,16 +82,13 @@ function authHeader() {
   };
 }
 
-// Auto-pick a bucket width based on the selected range. Targets roughly
-// 24–168 bars so the chart stays legible whether the user picks 15min or
-// 1 week. Backend's INTERVALS dict caps us at 1m on the small end and 1d
-// on the large end.
+// Auto-pick a bucket width targeting ~24–168 bars across the selected range.
 function autoInterval(rangeSeconds: number): Interval {
-  if (rangeSeconds <= 60 * 60)          return "1m";   // ≤ 1h     → 60 bars
-  if (rangeSeconds <= 4 * 60 * 60)      return "5m";   // ≤ 4h     → 48 bars
-  if (rangeSeconds <= 24 * 60 * 60)     return "15m";  // ≤ 1d     → 96 bars
-  if (rangeSeconds <= 3 * 24 * 60 * 60) return "1h";   // ≤ 3d     → 72 bars
-  if (rangeSeconds <= 7 * 24 * 60 * 60) return "2h";   // ≤ 1w     → 84 bars
+  if (rangeSeconds <= 60 * 60)          return "1m";
+  if (rangeSeconds <= 4 * 60 * 60)      return "5m";
+  if (rangeSeconds <= 24 * 60 * 60)     return "15m";
+  if (rangeSeconds <= 3 * 24 * 60 * 60) return "1h";
+  if (rangeSeconds <= 7 * 24 * 60 * 60) return "2h";
   return "1d";
 }
 
@@ -127,9 +122,8 @@ function formatLatency(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-// Stable-id generator for trace statements created by this widget (the seed
-// trace + "+ Add trace"). The MqlEditor mints its own ids on the text path;
-// both share the `tr_` prefix shape so nothing collides.
+// Stable-id generator for trace statements. Shares the `tr_` prefix with the
+// ids MqlEditor mints, which stay collision-free.
 let querySeq = 0;
 function newQueryId(): string {
   querySeq += 1;
@@ -145,10 +139,9 @@ function wildcardToRegex(pattern: string): RegExp {
   return new RegExp(`^${escaped}$`, "i");
 }
 
-/** Concrete signal names a fetch query targets, expanding `*` wildcards
- *  against the page's known signal list. The pairs path plots raw signals by
- *  name, so the aggregator/field are irrelevant — only the `name` filters
- *  matter. */
+/** Concrete signal names a fetch query targets, expanding `*` wildcards against
+ *  the known signal list. Only `name` filters matter (the pairs path plots by
+ *  name, ignoring aggregator/field). */
 function queryToSignalNames(q: Query, known: string[]): string[] {
   const out: string[] = [];
   for (const f of q.filters) {
@@ -177,7 +170,6 @@ type FetchResult = {
 };
 
 export interface SignalWidgetProps {
-  /** Page-level vehicle scope. */
   vehicleId: string;
   /** Re-run the query when the vehicle type flips (different fleet/schema). */
   vehicleType: string;
@@ -187,24 +179,17 @@ export interface SignalWidgetProps {
   startIso: string;
   endIso: string;
   rangeSeconds: number;
-  /** ECharts connection group — all widgets pass the same id so the hover
-   *  cursor + tooltip sync across panels. */
+  /** Shared `echarts.connect` group id, so hover/tooltip sync across panels. */
   groupId: string;
   /** Collapse the chart body while keeping the query config. */
   hidden: boolean;
   onToggleHide: () => void;
-  /** Remove this widget from the page. */
   onDelete: () => void;
-  /** Brush-select on this widget's chart bubbles up to set the shared
-   *  page timeframe. */
+  /** Brush-select bubbles up to set the shared page timeframe. */
   onBrushSelect: (start: Date, end: Date) => void;
-  /** Receives this widget's ECharts instance on ready (and `null` on
-   *  teardown) so the page can dispatch group-wide dataZoom (zoom out /
-   *  reset) through any live panel. */
+  /** Receives the ECharts instance (null on teardown) for group-wide dataZoom. */
   onChartReady?: (instance: ECharts | null) => void;
-  /** Left-drag gesture mode for the chart, owned by the page toggle:
-   *  "select" brushes a timeframe, "pan" slides the zoom window. Forwarded
-   *  straight to QueryChart. */
+  /** Left-drag mode: "select" brushes a timeframe, "pan" slides the zoom. */
   interactionMode?: "select" | "pan";
 }
 
@@ -223,57 +208,44 @@ export function SignalWidget({
   onChartReady,
   interactionMode,
 }: SignalWidgetProps) {
-  // The widget owns an ordered LIST of MQL trace statements. Each is classified
-  // at render via `looksLikeFetchQuery`: fetch statements hit /query/run;
-  // expression statements (`s0 / s1`, `current_ac^2`) evaluate in-browser over
-  // the fetched base series. The chip rows and the raw MQL editor are two views
-  // of THIS one list.
+  // Ordered list of MQL trace statements, classified at render via
+  // `looksLikeFetchQuery`: fetch statements hit /query/run; expression
+  // statements evaluate in-browser over the fetched base series. The chip rows
+  // and the raw MQL editor are two views of this one list.
   const [queries, setQueries] = useState<QueryStmt[]>([
     { id: newQueryId(), mql: "count(signal)" },
   ]);
-  // Swap the whole trace list to a single textarea (one statement per line).
   const [editAsMql, setEditAsMql] = useState(false);
-  // While a row's text field is focused, freeze that row's kind (fetch/expr) to
-  // what it was when editing began. A line's kind is otherwise re-derived per
-  // keystroke from `looksLikeFetchQuery`, which flips exactly at the `(` — so
-  // typing `count(` (or deleting the `(`) would swap the row's editing
-  // component and yank the caret. Freezing keeps the same input mounted until
-  // the user blurs, at which point the line is re-classified.
+  // While a row's field is focused, freeze its kind: `looksLikeFetchQuery`
+  // flips at the `(`, and re-classifying mid-type would swap the input element
+  // and yank the caret. Re-classified on blur.
   const [editingRow, setEditingRow] = useState<{
     id: string;
     kind: "fetch" | "expr";
   } | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
-  // Fetched base series, one entry per fetch statement (in trace order),
-  // concatenated below into `baseSeries`.
+  // Fetched base series, one entry per fetch statement in trace order.
   const [fetchResults, setFetchResults] = useState<FetchResult[]>([]);
-  // Per-trace y-scaling settings (T8), keyed by series label. Sparse: any
-  // label absent here uses the default (shared group "1", un-normalized).
+  // Per-trace y-scaling, keyed by series label. Sparse; absent = default.
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
   >({});
-  // Per-widget highlight conditions (T6), evaluated in-browser.
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  // Advanced options disclosure (T10): y-axis scaling + visibility, highlights.
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loadingSeries, setLoadingSeries] = useState(false);
 
-  // The render path the current chart type drives (see chartTypes.ts):
-  //  - "timeseries"  → /query/run, rendered by QueryChart (bar/line/area)
-  //  - "categorical" → /query/run @ 1d buckets, rendered by PlotChart (catbar/pie)
-  //  - "pairs"       → /query/pairs, rendered by PlotChart (scatter/path/3D)
+  // Render path for the current chart type (see chartTypes.ts): "timeseries" →
+  // QueryChart, "categorical" → PlotChart @ 1d, "pairs" → /query/pairs.
   const path = dataPath(chartType);
-  // Raw aligned samples for the pairs path (scatter/path/3D).
   const [pairsData, setPairsData] = useState<PairsResponse>({
     columns: ["produced_at"],
     rows: [],
   });
-  // Color-by dimension for scatter/path (render option, not MQL): "none",
-  // "time", or a signal name.
+  // Render option for scatter/path: "none", "time", or a signal name.
   const [colorBy, setColorBy] = useState<string>("none");
 
-  // Switch chart type, resetting the trace list to the target's default MQL when
-  // the current MQL can't carry across (crossing into/out of the pairs path).
+  // Reset the trace list to the target's default MQL when the current MQL can't
+  // carry across (crossing into/out of the pairs path).
   const changeChartType = (next: ChartType) => {
     if (!compatible(chartType, next)) {
       setQueries(CHART_TYPE_MAP[next].defaultQueries());
@@ -281,32 +253,26 @@ export function SignalWidget({
     setChartType(next);
   };
 
-  // --- Classify each statement once per `queries` change ---------------------
-  // A fetch statement carries its parsed Query (or a parse error); an
-  // expression statement is just its text. Done here so both the editing UI
-  // and the fetch effect read the same classification.
+  // Classify each statement once per `queries` change so the editing UI and the
+  // fetch effect read the same result. Fetch lines carry `-> name` inside the
+  // grammar; expression lines split it off here (`body`/`name`).
   const classified = useMemo(
     () =>
       queries.map((t) => {
         if (looksLikeFetchQuery(t.mql)) {
-          // Fetch lines carry `-> name` inside the MQL grammar (parseQuery
-          // sets query.label), so we don't pre-split them.
           const res = parseQuery(t.mql);
           return res.ok
             ? ({ kind: "fetch" as const, stmt: t, query: res.query })
             : ({ kind: "fetch" as const, stmt: t, parseError: res.error });
         }
-        // Expression lines never hit the backend, so the `-> name` assignment
-        // is split off here: `body` is the expression, `name` the variable.
         const { body, name } = splitAssignment(t.mql);
         return { kind: "expr" as const, stmt: t, body, name };
       }),
     [queries],
   );
 
-  // The fetch statements that are actually runnable: parse cleanly AND don't
-  // have an empty filter chip value (the old "don't fire on empty chip" guard,
-  // now per statement). The serialized form drives the fetch effect's deps.
+  // Runnable fetch statements: parse cleanly and have no empty filter value (an
+  // empty chip is valid but useless and would bombard the backend).
   const fetchPlan = useMemo(() => {
     return classified
       .filter(
@@ -317,21 +283,14 @@ export function SignalWidget({
         id: c.stmt.id,
         query: c.query,
         mql: serializeQuery(c.query),
-        // Skip until every filter has a value — a `... where name = ""` query
-        // is valid but useless and bombards the backend on every chip-add.
         runnable: c.query.filters.every((f) => f.value.trim() !== ""),
       }));
   }, [classified]);
 
-  // Effective shared interval (INVARIANT): all fetch statements in a widget are
-  // requested with ONE interval so they share the chart's single bucket axis
-  // (computeDerivedSeries relies on every base series sharing the same bucket
-  // array). We take the rollup of the FIRST fetch statement that sets one, else
-  // the auto interval from the timeframe. A per-statement `.every()` still
-  // parses, but only this first-set one drives the shared axis.
+  // INVARIANT: every fetch in a widget shares ONE interval so they share the
+  // bucket axis (computeDerivedSeries relies on it). Take the first statement's
+  // `.every`, else the auto interval. Categorical collapses to one 1d bucket.
   const interval = useMemo<Interval>(() => {
-    // Categorical (catbar/pie) collapses the whole window into one bucket per
-    // group, so each series' total is its bar/slice value.
     if (path === "categorical") return "1d";
     for (const p of fetchPlan) if (p.query.rollup) return p.query.rollup;
     return autoInterval(rangeSeconds);
@@ -339,12 +298,11 @@ export function SignalWidget({
 
   const intervalSec = intervalToSeconds(interval);
 
-  // A stable key over the runnable fetch statements + the shared interval, so
-  // the fetch effect fires only when the wire form actually changes.
   const runnableFetches = useMemo(
     () => fetchPlan.filter((p) => p.runnable),
     [fetchPlan],
   );
+  // Stable key over the wire form, so the fetch effect fires only on real change.
   const fetchKey = useMemo(
     () =>
       JSON.stringify({
@@ -353,16 +311,13 @@ export function SignalWidget({
       }),
     [runnableFetches, interval],
   );
-  // Defer the fetch trigger until typing settles. Editing the MQL line (e.g. a
-  // `-> name`) changes `fetchKey` on every keystroke; firing /query/run per
-  // character makes each response force a synchronous chart re-render that
-  // paces and drops the user's typing. Timeframe/vehicle/path deps stay
-  // un-debounced so those changes still refetch immediately.
+  // Debounce so editing the MQL line doesn't fire /query/run per keystroke
+  // (each response forces a synchronous re-render that drops typing). Timeframe/
+  // vehicle/path deps stay un-debounced so those refetch immediately.
   const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
 
-  // Run every runnable fetch statement in parallel against /query/run with the
-  // SAME shared interval, and collect per-statement series/errors. The
-  // concatenation order is preserved by mapping over `runnableFetches`.
+  // Run every runnable fetch in parallel against /query/run with the shared
+  // interval; concatenation order follows `runnableFetches`.
   const runFetches = async () => {
     setLoadingSeries(true);
     try {
@@ -387,8 +342,8 @@ export function SignalWidget({
               ms: Math.round(performance.now() - startedAt),
             };
           } catch (e) {
-            // Parser errors come back 400 with {message, position}; surface
-            // them inline under the offending statement and keep the rest.
+            // Parser errors come back 400 with {message, position} — surface
+            // inline under the offending statement and keep the rest.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const body: any = (e as any)?.response?.data?.data;
             const error =
@@ -410,25 +365,18 @@ export function SignalWidget({
 
   useEffect(() => {
     if (!vehicleId) return;
-    // The pairs path fetches /query/pairs (separate effect); skip the aggregate
-    // /query/run path there so we don't double-fetch. Categorical still runs
-    // here (at 1d buckets).
+    // The pairs path has its own /query/pairs effect; categorical runs here.
     if (path === "pairs") return;
     if (runnableFetches.length === 0) {
       setFetchResults([]);
       return;
     }
     runFetches();
-    // `fetchKey` is the wire form of every runnable fetch statement + the
-    // shared interval; depending on it means the effect fires only on real
-    // changes, not on reference identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
 
-  // --- Pairs path (scatter/path/3D) -----------------------------------------
-  // Each runnable trace resolves to ONE signal (the first name its `.where`
-  // filter targets); trace POSITION assigns the axis: line 1 → X, line 2 → Y,
-  // line 3 → Z. This keeps the pairs plots MQL-driven off the same trace list.
+  // Pairs path: each trace resolves to ONE signal (first `.where` name), and
+  // trace position assigns the axis (line 1 → X, 2 → Y, 3 → Z).
   const pairNames = useMemo(() => {
     const out: string[] = [];
     for (const p of runnableFetches) {
@@ -438,13 +386,12 @@ export function SignalWidget({
     return out;
   }, [runnableFetches, signalNames]);
 
-  // Enough axes resolved to plot: 2 for scatter/path (X,Y), 3 for 3D (X,Y,Z).
+  // Enough axes resolved to plot: 2 for scatter/path, 3 for 3D.
   const pairReady =
     path === "pairs" &&
     (chartType === "scatter3d" ? pairNames.length >= 3 : pairNames.length >= 2);
 
-  // The signal set a pairs fetch needs: every axis signal plus any color-by
-  // signal (scatter/path only). Deduped.
+  // Axis signals plus any color-by signal, deduped.
   const pairFetchSignals = useMemo(() => {
     if (path !== "pairs") return [];
     const set = new Set(pairNames);
@@ -457,8 +404,7 @@ export function SignalWidget({
     return [...set];
   }, [path, pairNames, chartType, colorBy]);
 
-  // Same per-keystroke concern as the time-series path: the axis signals come
-  // from the (live-edited) query lines, so debounce the pairs refetch too.
+  // Debounce the pairs refetch too — axis signals come from live-edited lines.
   const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
 
   useEffect(() => {
@@ -521,14 +467,12 @@ export function SignalWidget({
         colorBy: colorByOpt,
       };
     }
-    // categorical (catbar/pie): axes unused, data comes from runSeries.
+    // categorical: axes unused, data comes from runSeries.
     return { kind: chartType === "pie" ? "pie" : "catbar", ySignals: [] };
   }, [chartType, pairNames, colorBy]);
 
-  // --- Assemble base + derived series ---------------------------------------
-  // runSeries = every aggregate-fetched series concatenated IN TRACE ORDER (the
-  // order of runnable fetch statements). Derived expressions read variables from
-  // baseSeries (s0, s1, … by position); the chart stacks/ranks it.
+  // Every fetched series concatenated in trace order. Derived expressions read
+  // s0, s1, … from here by position.
   const runSeries = useMemo(() => {
     const byId = new Map(fetchResults.map((r) => [r.id, r]));
     const out: Series[] = [];
@@ -541,7 +485,7 @@ export function SignalWidget({
 
   const baseSeries = runSeries;
 
-  // Per-statement run/parse errors, keyed by statement id, for inline display.
+  // Per-statement run/parse errors keyed by statement id, for inline display.
   const fetchErrors = useMemo(() => {
     const out: Record<string, { message: string; position?: number }> = {};
     for (const c of classified) {
@@ -553,7 +497,7 @@ export function SignalWidget({
     return out;
   }, [classified, fetchResults]);
 
-  // Latency for the subtitle: the sum across every aggregate fetch statement.
+  // Subtitle latency: sum across every fetch statement.
   const seriesMs = useMemo(() => {
     const vals = fetchResults
       .map((r) => r.ms)
@@ -562,10 +506,9 @@ export function SignalWidget({
     return vals.reduce((a, b) => a + b, 0);
   }, [fetchResults]);
 
-  // Expression statements, in trace order, mapped to the DerivedTrace shape the
-  // evaluator expects. A `-> name` assignment sets both the legend label and
-  // (when present) registers the result as a referenceable variable for later
-  // expression lines; unnamed expressions fall back to their text as the label.
+  // Expression statements mapped to the evaluator's DerivedTrace shape. A
+  // `-> name` sets the label and registers a referenceable variable; unnamed
+  // expressions fall back to their text.
   const exprTraces = useMemo(
     () =>
       classified
@@ -579,16 +522,14 @@ export function SignalWidget({
     [classified],
   );
 
-  // Evaluate every expression statement against the fetched base series, in
-  // order — each named result is appended to the pool so a later expression can
-  // reference an earlier one (e.g. `ecu / other -> ratio`).
+  // Evaluate expressions in order; each named result is appended so a later
+  // expression can reference an earlier one (e.g. `ecu / other -> ratio`).
   const derivedResults = useMemo(
     () => computeDerivedSeries(baseSeries, exprTraces),
     [baseSeries, exprTraces],
   );
 
-  // Named derived series (those given a `-> name`) are referenceable variables,
-  // so surface them in the hint alongside the fetched base series.
+  // Named derived series are referenceable variables — surface them in the hint.
   const namedDerivedSeries = useMemo(() => {
     const named = new Set(
       exprTraces.filter((t) => t.name).map((t) => t.id),
@@ -598,7 +539,7 @@ export function SignalWidget({
       .map((r) => r.series as Series);
   }, [exprTraces, derivedResults]);
 
-  // Variable hint table (s0 = current_ac, ecu, other, …) shown near the rows.
+  // Variable hint (s0 = current_ac, …) shown near the rows.
   const seriesVariables = useMemo(
     () => buildSeriesVariables([...baseSeries, ...namedDerivedSeries]),
     [baseSeries, namedDerivedSeries],
@@ -612,21 +553,19 @@ export function SignalWidget({
     [derivedResults],
   );
 
-  // Expression errors keyed by statement id (merged with fetch errors for
-  // inline placement under their rows).
+  // Expression errors keyed by statement id, merged with fetch errors below.
   const exprErrors = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of derivedResults) if (r.error) out[r.id] = r.error;
     return out;
   }, [derivedResults]);
 
-  // Base series plus any derived queries — every trace the widget knows about.
   const plottedSeries = useMemo(
     () => [...baseSeries, ...derivedSeries],
     [baseSeries, derivedSeries],
   );
 
-  // What actually reaches the chart: drop any trace the user has hidden (T11).
+  // What reaches the chart: drop any hidden trace.
   const visibleSeries = useMemo(
     () =>
       plottedSeries.filter(
@@ -635,13 +574,12 @@ export function SignalWidget({
     [plottedSeries, axisSettings],
   );
 
-  // Highlight bands evaluated against the base series.
   const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
     () => evaluateHighlights(baseSeries, highlights),
     [baseSeries, highlights],
   );
 
-  // Narrow the (potentially stale) settings map to just the plotted labels.
+  // Narrow the (possibly stale) settings map to just the plotted labels.
   const axisConfig = useMemo(() => {
     const out: Record<string, AxisSetting> = {};
     for (const s of visibleSeries) {
@@ -651,8 +589,7 @@ export function SignalWidget({
     return out;
   }, [visibleSeries, axisSettings]);
 
-  // Per-label fill config: each fetch statement's `.fill` mode applies to every
-  // series that statement produces (keyed by the fetched series' label).
+  // Each fetch statement's `.fill` mode applies to every series it produces.
   const fillConfig = useMemo(() => {
     const out: Record<string, FillMode> = {};
     const fillById = new Map<string, FillMode>();
@@ -673,9 +610,7 @@ export function SignalWidget({
     [visibleSeries],
   );
 
-  // How many advanced editors are configured — a badge so collapsing the
-  // disclosure never hides active state. Counts highlights + any plotted trace
-  // whose y-axis setting differs from default.
+  // Badge count so collapsing the disclosure never hides active state.
   const advancedCount = useMemo(() => {
     const bands = highlights.filter((h) => h.expression.trim() !== "").length;
     let axes = 0;
@@ -686,14 +621,12 @@ export function SignalWidget({
     return bands + axes;
   }, [highlights, axisSettings, plottedSeries]);
 
-  // Patch one label's setting (merging over its current/default value).
   const updateAxisSetting = (label: string, patch: Partial<AxisSetting>) =>
     setAxisSettings((prev) => ({
       ...prev,
       [label]: { ...axisSettingFor(prev, label), ...patch },
     }));
 
-  // --- Trace list mutators --------------------------------------------------
   const updateQueryMql = (id: string, mql: string) =>
     setQueries((prev) => prev.map((t) => (t.id === id ? { ...t, mql } : t)));
 
@@ -702,34 +635,27 @@ export function SignalWidget({
 
   const removeQuery = (id: string) =>
     setQueries((prev) =>
-      // Never drop the last row — the widget always has at least one trace.
+      // Never drop the last row.
       prev.length <= 1 ? prev : prev.filter((t) => t.id !== id),
     );
 
-  // Last successfully-parsed query per fetch row. A fetch-looking line keeps
-  // rendering its chip builder even while its MQL is TRANSIENTLY unparseable
-  // (mid-typing in the editable MQL line), so the builder never unmounts and
-  // the caret/focus survive. The builder falls back to this cached query (or a
-  // default) for those keystrokes; the inline parse error still surfaces.
+  // Last successfully-parsed query per fetch row, so a transiently-unparseable
+  // edit doesn't unmount the chip builder and steal focus.
   const lastGoodQuery = useRef<Map<string, Query>>(new Map());
 
-  // Keep a local handle on this widget's ECharts instance for PNG export.
   const chartInstance = useRef<ECharts | null>(null);
   const handleChartReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
-    // Only the time-series chart shares the page hover/zoom `connect` group;
-    // pairs/categorical axes aren't the shared time axis, so they stay out.
+    // Only the time-series chart joins the shared connect group.
     onChartReady?.(instance);
   };
   const handlePlotReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
   };
 
-  // Categorical (catbar/pie) reuses the /query/run series: each series' total is
-  // its bar/slice value (PlotChart sums the points).
+  // Categorical reuses the /query/run series; PlotChart sums each to its total.
   const categoricalSeries = path === "categorical" ? runSeries : [];
 
-  // What the chart has to draw, per path.
   const hasData =
     path === "timeseries"
       ? visibleSeries.length > 0
@@ -737,8 +663,7 @@ export function SignalWidget({
         ? pairsData.rows.length > 0
         : categoricalSeries.length > 0;
 
-  // Underlying data for the export dialog, adapted to the Series shape its
-  // CSV/JSON serializers understand.
+  // Export data adapted to the Series shape the CSV/JSON serializers expect.
   const exportVisible =
     path === "pairs"
       ? pairsToSeries(pairsData)
@@ -760,8 +685,7 @@ export function SignalWidget({
     return acc;
   }, [baseSeries]);
 
-  // In the pairs path, label each fetch row by the axis its position maps to
-  // (line 1 → X, line 2 → Y, line 3 → Z for 3D; extra scatter rows are more Ys).
+  // Pairs path: label each fetch row by the axis its position maps to.
   const pairAxisLabels = useMemo(() => {
     const out: Record<string, string> = {};
     if (path !== "pairs") return out;
@@ -788,9 +712,8 @@ export function SignalWidget({
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-3">
-            {/* Trace list — one row per statement; both this and the raw MQL
-                editor write the same `queries`. The "Edit as MQL" toggle swaps
-                the whole list for a single textarea (one statement per line). */}
+            {/* Trace list — one row per statement; the "Edit as MQL" toggle
+                swaps it for a single textarea. Both write the same `queries`. */}
             <div className="flex flex-col gap-2">
               {editAsMql ? (
                 <MqlEditor queries={queries} onChange={setQueries} />
@@ -804,13 +727,9 @@ export function SignalWidget({
                     const kind =
                       editingRow?.id === id ? editingRow.kind : c.kind;
                     if (kind === "fetch") {
-                      // Fetch row → the chip builder, bound to the parsed Query.
-                      // We render the builder for ANY fetch-looking line (not
-                      // only ones that currently parse) so a transiently-invalid
-                      // MQL edit doesn't unmount it and steal focus; it falls
-                      // back to the last-good query (or a default) and shows the
-                      // parse error inline. The editable MQL line lets the user
-                      // type directly; either path updates this statement.
+                      // Chip builder for any fetch-looking line (even
+                      // transiently-unparseable ones), falling back to the
+                      // last-good query so the builder never unmounts mid-edit.
                       const parsed = "query" in c ? c.query : undefined;
                       if (parsed) lastGoodQuery.current.set(id, parsed);
                       const builderValue =
@@ -829,8 +748,7 @@ export function SignalWidget({
                         </QueryRow>
                       );
                     }
-                    // Expression row → raw input. Expression errors come from
-                    // the in-browser evaluator already formatted (no column).
+                    // Expression row → raw input.
                     const errMessage = exprErrors[id];
                     return (
                       <QueryRow key={id} onRemove={() => removeQuery(id)} disableRemove={onlyRow}>
@@ -890,9 +808,8 @@ export function SignalWidget({
               </button>
             </div>
 
-            {/* Advanced options (T10): per-trace y-axis scaling + visibility,
-                highlight bands. Time-series only — they operate on the shared
-                time/bucket axis the pairs and categorical charts don't have. */}
+            {/* Advanced options: per-trace y-axis scaling + visibility,
+                highlight bands. Time-series only (shared bucket axis). */}
             {path === "timeseries" && (
             <div className="flex flex-col gap-3">
               <button
@@ -932,8 +849,7 @@ export function SignalWidget({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Color-by (scatter/path only): a render option layered over the
-                pairs data, not part of the MQL. */}
+            {/* Color-by (scatter/path only) — a render option, not MQL. */}
             {(chartType === "scatter" || chartType === "path") && (
               <Select value={colorBy} onValueChange={setColorBy}>
                 <SelectTrigger className="h-8 w-[150px]" title="Color points by">
@@ -1060,8 +976,8 @@ export function SignalWidget({
   );
 }
 
-/** One row of the trace list: its editing surface (chip builder or raw input)
- *  plus a remove button, disabled when it's the only row. */
+/** One trace-list row: its editing surface plus a remove button (disabled when
+ *  it's the only row). */
 function QueryRow({
   children,
   onRemove,
@@ -1096,6 +1012,5 @@ function QueryRow({
   );
 }
 
-// Re-exported so the page (or tests) can build a fresh trace list from text if
-// needed; the widget itself sets queries directly.
+// Re-exported so the page/tests can build a trace list from text.
 export { textToQueries };

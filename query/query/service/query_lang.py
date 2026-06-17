@@ -32,17 +32,14 @@ import re
 from dataclasses import dataclass
 
 
-# Aggregators we support. The value (column-aware?) tells the validator
-# whether the aggregator needs a numeric `value`/`raw_value` field or can
-# operate on `signal` (i.e. row-count).
+# Aggregator -> requires a numeric field (vs operating on row-count).
 FUNCTIONS: dict[str, bool] = {
-    # name: requires_numeric_field
-    "count":  False,  # count(signal) — counts rows
+    "count":  False,
     "sum":    True,
     "avg":    True,
     "min":    True,
     "max":    True,
-    "last":   True,   # last value in the bucket (argMax on produced_at)
+    "last":   True,
     "p50":    True,
     "p95":    True,
     "p99":    True,
@@ -53,15 +50,11 @@ NUMERIC_FIELDS = {"value", "raw_value"}
 COUNT_FIELD = "signal"
 ALL_FIELDS = NUMERIC_FIELDS | {COUNT_FIELD}
 
-# Columns that may appear in a `where` predicate or `by` group. Kept
-# narrow on purpose — `vehicle_id` is page-level, `produced_at` is
+# Narrow on purpose: vehicle_id is page-level and produced_at is
 # timeframe-level, so neither belongs in the query string.
 FILTERABLE_COLUMNS = {"name"}
 GROUPABLE_COLUMNS = {"name"}
 
-# Canonical rollup interval names. Owned here (rather than in signals.py)
-# because the grammar references them — the executor's INTERVALS map keys
-# off this list to wire each name to its ClickHouse INTERVAL clause.
 ROLLUP_INTERVALS: tuple[str, ...] = (
     "50ms", "100ms", "500ms",
     "1s", "10s", "30s",
@@ -71,17 +64,14 @@ ROLLUP_INTERVALS: tuple[str, ...] = (
 )
 ALLOWED_ROLLUPS = frozenset(ROLLUP_INTERVALS)
 
-# How null gaps (sparse buckets, rejected outliers, native-resolution joins)
-# are rendered on the chart. Display-only — CSV export always keeps true NaN.
-# `gap` breaks the line, `last` holds the previous value, `linear` interpolates.
+# Null-gap rendering, display-only (CSV export keeps true NaN): `gap` breaks
+# the line, `last` holds the previous value, `linear` interpolates.
 FILL_MODES: tuple[str, ...] = ("gap", "last", "linear")
 ALLOWED_FILL_MODES = frozenset(FILL_MODES)
 
-# Metrics a `.reject(...)` condition can compare against a number. `value`
-# and `raw_value` are the raw sample columns; `sigma` is the distance of a
-# sample from its group's mean in standard deviations (computed in the
-# executor via window stats). Rejection drops matching *raw samples* before
-# aggregation so a spike can't skew a bucket's avg/last.
+# `.reject(...)` metrics. `sigma` is a sample's distance from its group mean in
+# standard deviations (computed in the executor). Rejection drops matching raw
+# samples before aggregation so a spike can't skew a bucket.
 REJECT_METRICS = {"value", "raw_value", "sigma"}
 _COMPARISON_OPS = {">", ">=", "<", "<=", "=", "!="}
 
@@ -101,24 +91,20 @@ class Predicate:
     value: str
 
 
-# --- Reject condition tree (.reject(...)) ----------------------------------
-# A small boolean tree the executor turns into a `WHERE NOT (<expr>)` clause:
-# rows where the condition holds are dropped. Leaves compare a metric to a
-# number (`value > 100`, `sigma > 3`) or test a range (`value outside (0, 5)`).
-# Kept as a typed tree (not a raw string) so the executor builds parameterized
-# SQL and never interpolates user input.
+# Reject condition tree. A typed boolean tree (not a raw string) so the
+# executor builds parameterized SQL and never interpolates user input.
 
 
 @dataclass(frozen=True)
 class RejectCmp:
-    metric: str   # one of REJECT_METRICS
-    op: str       # one of _COMPARISON_OPS
+    metric: str
+    op: str
     threshold: float
 
 
 @dataclass(frozen=True)
 class RejectRange:
-    metric: str   # "value" | "raw_value" (sigma ranges aren't meaningful)
+    metric: str  # "value" | "raw_value" (sigma ranges aren't meaningful)
     lo: float
     hi: float
     inside: bool  # True = `between` (reject inside); False = `outside`
@@ -126,7 +112,7 @@ class RejectRange:
 
 @dataclass(frozen=True)
 class RejectBool:
-    op: str       # "and" | "or"
+    op: str  # "and" | "or"
     left: "RejectNode"
     right: "RejectNode"
 
@@ -140,21 +126,12 @@ class Query:
     field: str
     filters: tuple[Predicate, ...] = ()
     group_by: tuple[str, ...] = ()
-    # Optional rollup interval (one of INTERVALS in signals.py). When None,
-    # the caller falls back to its auto-picked interval — typically a
-    # function of the requested time window.
+    # None = caller falls back to its auto-picked interval.
     rollup: str | None = None
-    # Optional outlier-rejection condition (.reject(...)). Matching raw
-    # samples are dropped before aggregation; the resulting empty buckets
-    # become null gaps. None = no rejection.
     reject: RejectNode | None = None
-    # Optional null-gap fill mode (.fill(...)), one of FILL_MODES. Display
-    # hint only — the executor passes it through; CSV export keeps true NaN.
     fill: str | None = None
-    # Optional series name set via a trailing `-> name`. Names the single result
-    # series so a stack of ungrouped queries reads as distinct buckets (e.g. an
-    # "ecu" slice vs an "other" slice in a pie). Rejected by the parser alongside
-    # `.by`, whose group values already name each series.
+    # Series name from a trailing `-> name`. Mutually exclusive with group_by,
+    # which already labels each series by its group value.
     label: str | None = None
 
 
@@ -184,7 +161,7 @@ _TOKEN_RX = re.compile(
 
 @dataclass
 class Token:
-    kind: str      # "ident", "string", "punct"
+    kind: str
     value: str
     pos: int
 
@@ -200,7 +177,6 @@ def _tokenize(s: str) -> list[Token]:
         if kind != "ws":
             value = m.group(kind)
             if kind == "string":
-                # Strip surrounding quotes; v0 doesn't handle escapes.
                 value = value[1:-1]
             out.append(Token(kind=kind, value=value, pos=i))
         i = m.end()
@@ -211,13 +187,9 @@ def _tokenize(s: str) -> list[Token]:
 # Parser (recursive descent over a token cursor)
 # ---------------------------------------------------------------------------
 
-# Method names recognized after the aggregator-call opener. Treated as
-# regular identifiers at the lexer level — the parser dispatches on them
-# inside the chain loop. Case-insensitive.
 _METHODS = {"where", "by", "every", "reject", "fill"}
 
-# Old-syntax identifiers we want to flag with a friendly migration error
-# instead of a confusing "unknown method". v0.2 cleanup.
+# Renamed methods, flagged with a migration error instead of "unknown method".
 _RENAMED_METHODS = {"rollup": "every"}
 
 
@@ -259,17 +231,10 @@ class _Cursor:
 
 
 def parse(s: str) -> Query:
-    """Parse an MQL string into a validated AST.
+    """Parse an MQL string into a validated AST (grammar in module docstring).
 
-    Grammar (v0.2):
-        <fn>(<field>) ( '.' <method> '(' <args> ')' )*
-
-    Methods are `.where(<pred>)`, `.by(<col>[, ...])`, `.every(<interval>)`.
-    Method order doesn't affect semantics — the parser collects them into
-    a flat AST that the executor applies canonically.
-
-    Raises QueryParseError with a column position so the UI can underline
-    the offending character.
+    Method order doesn't affect semantics. Raises QueryParseError with a column
+    position so the UI can underline the offending character.
     """
     s = s.strip()
     if not s:
@@ -294,22 +259,17 @@ def parse(s: str) -> Query:
     label: str | None = None
     label_seen_pos: int | None = None
 
-    # Method-call chain: zero or more `.method(args)` calls. Order is
-    # accepted in any sequence — the semantics are the same.
     while not c.eof:
         nxt = c.peek()
         assert nxt is not None
-        # `-> name` ends the chain: a right-assignment naming the result series.
-        if nxt.kind == "arrow":
+        if nxt.kind == "arrow":  # `-> name` ends the chain
             break
-        # If anything other than `.` appears here it's a leftover token
-        # from the old infix grammar or a typo — surface a clean error.
         if nxt.kind != "punct" or nxt.value != ".":
             raise QueryParseError(
                 f"unexpected '{nxt.value}' — methods are chained with '.'",
                 nxt.pos,
             )
-        c.advance()  # consume '.'
+        c.advance()
 
         method_tok = c.expect_ident()
         method = method_tok.value.lower()
@@ -357,8 +317,7 @@ def parse(s: str) -> Query:
             fill_seen_pos = method_tok.pos
         c.expect_punct(")")
 
-    # Optional `-> name` right-assignment after the method chain. The name is a
-    # bare identifier so it doubles as a referenceable variable on the frontend.
+    # Optional `-> name` right-assignment after the method chain.
     if not c.eof:
         arrow_tok = c.advance()
         label_seen_pos = arrow_tok.pos
@@ -377,8 +336,6 @@ def parse(s: str) -> Query:
                 f"unexpected '{extra.value}' after '-> {label}'", extra.pos
             )
 
-    # A grouped query already names each series by its group value, so naming a
-    # single result with `->` would be ambiguous — reject the combination.
     if label is not None and group_by:
         raise QueryParseError(
             "'->' can't be combined with '.by'; a breakdown is already "
@@ -464,7 +421,7 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
         and op_tok.value.lower() == "not"
     )
     if negated_in:
-        c.advance()  # consume `not`; the `in` keyword must follow
+        c.advance()
         in_tok = c.peek()
         if in_tok is None or in_tok.kind != "ident" or in_tok.value.lower() != "in":
             raise QueryParseError(
@@ -485,7 +442,7 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
         op = "!=" if negated_in else "="
         return [Predicate(column=col, op=op, value=v) for v in values]
 
-    # `=` / `!=` — single value, with optional negation.
+    # `=` / `!=` — single value.
     if op_tok and op_tok.kind == "op" and op_tok.value in ("=", "!="):
         c.advance()
         val_tok = c.peek()
@@ -667,8 +624,6 @@ def _parse_reject_cmp(c: _Cursor) -> RejectNode:
 
 
 def _parse_reject_number(c: _Cursor) -> float:
-    # The lexer folds an optional leading '-' into the number literal, so a
-    # negative threshold (e.g. value < -5) arrives as a single token.
     t = c.peek()
     if t is None or t.kind != "number":
         raise QueryParseError(
