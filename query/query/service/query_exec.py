@@ -39,31 +39,41 @@ def _build_filter_sql(
 ) -> list[str]:
     """Translate a list of Predicates into ClickHouse WHERE fragments.
 
-    Within a column, predicates are OR'd (multi-value any-of). Across
-    columns they're AND'd by virtue of being separate elements in the
-    final WHERE list. Values containing `*` are translated to LIKE
-    patterns by swapping `*` → `%`.
+    Within a column, equality (`=`) predicates are OR'd (multi-value any-of)
+    and inequality (`!=`) predicates are AND'd (none-of); the two groups are
+    then AND'd together. Across columns fragments are AND'd by being separate
+    elements in the final WHERE list. Values containing `*` are translated to
+    LIKE / NOT LIKE patterns by swapping `*` → `%`.
     """
     by_col: dict[str, list] = {}
     for p in filters:
         by_col.setdefault(p.column, []).append(p)
 
+    def _leaf(col: str, key: str, value: str, negate: bool) -> str:
+        if "*" in value:
+            # ClickHouse's LIKE uses `%` as the multi-char wildcard; `*` is
+            # what users naturally type. Single-char `_` and literal-`%`
+            # escaping aren't useful at the signal-name scale today, so we
+            # don't translate them.
+            params[key] = value.replace("*", "%")
+            return f"{col} NOT LIKE {{{key}:String}}" if negate else f"{col} LIKE {{{key}:String}}"
+        params[key] = value
+        return f"{col} != {{{key}:String}}" if negate else f"{col} = {{{key}:String}}"
+
     out: list[str] = []
     for col, preds in by_col.items():
-        sub: list[str] = []
-        for i, pred in enumerate(preds):
-            key = f"f_{col}_{i}"
-            if "*" in pred.value:
-                # ClickHouse's LIKE uses `%` as the multi-char wildcard;
-                # `*` is what users naturally type. Single-char `_` and
-                # literal-`%` escaping aren't useful at the signal-name
-                # scale today, so we don't translate them.
-                sub.append(f"{col} LIKE {{{key}:String}}")
-                params[key] = pred.value.replace("*", "%")
-            else:
-                sub.append(f"{col} = {{{key}:String}}")
-                params[key] = pred.value
-        out.append(sub[0] if len(sub) == 1 else f"({' OR '.join(sub)})")
+        eq = [p for p in preds if p.op == "="]
+        ne = [p for p in preds if p.op == "!="]
+        clauses: list[str] = []
+        # Any-of: OR the equality matches together.
+        if eq:
+            sub = [_leaf(col, f"f_{col}_eq_{i}", p.value, False) for i, p in enumerate(eq)]
+            clauses.append(sub[0] if len(sub) == 1 else f"({' OR '.join(sub)})")
+        # None-of: AND the negations together (exclude every listed pattern).
+        for i, p in enumerate(ne):
+            clauses.append(_leaf(col, f"f_{col}_ne_{i}", p.value, True))
+        if clauses:
+            out.append(clauses[0] if len(clauses) == 1 else f"({' AND '.join(clauses)})")
     return out
 
 
@@ -267,6 +277,7 @@ def run_query(
         start=start,
         end=end,
         step_ms=step_ms,
+        label=q.label,
     )
     return {"series": series, "interval": effective_interval}
 
@@ -278,6 +289,7 @@ def _shape_response(
     start: datetime,
     end: datetime,
     step_ms: int,
+    label: str | None = None,
 ) -> list[dict[str, Any]]:
     """Pivot ClickHouse rows into the multi-series response shape.
 
@@ -316,7 +328,14 @@ def _shape_response(
 
     out: list[dict[str, Any]] = []
     for group_vals, points_by_bucket in by_series.items():
-        tags = {col: group_vals[i] for i, col in enumerate(group_by)}
+        # `.as("...")` only ever reaches here without a group-by (the parser
+        # rejects the combination), so a label names the lone series directly.
+        # seriesLabel on the frontend renders the tag value verbatim.
+        tags = (
+            {"label": label}
+            if label and not group_by
+            else {col: group_vals[i] for i, col in enumerate(group_by)}
+        )
         points = [
             {
                 "bucket": utc_iso(b),

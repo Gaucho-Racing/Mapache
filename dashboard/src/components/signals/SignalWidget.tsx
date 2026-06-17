@@ -30,8 +30,8 @@ import {
 } from "@/components/signals/DerivedTraces";
 import {
   MqlEditor,
-  textToTraces,
-  type TraceStmt,
+  textToQueries,
+  type QueryStmt,
 } from "@/components/signals/MqlEditor";
 import {
   axisSettingFor,
@@ -56,8 +56,10 @@ import {
   type Query,
   type Rollup,
   serializeQuery,
+  splitAssignment,
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import axios from "axios";
 import {
   ChevronDown,
@@ -128,10 +130,10 @@ function formatLatency(ms: number): string {
 // Stable-id generator for trace statements created by this widget (the seed
 // trace + "+ Add trace"). The MqlEditor mints its own ids on the text path;
 // both share the `tr_` prefix shape so nothing collides.
-let traceSeq = 0;
-function newTraceId(): string {
-  traceSeq += 1;
-  return `tr_${traceSeq}_${Date.now().toString(36)}`;
+let querySeq = 0;
+function newQueryId(): string {
+  querySeq += 1;
+  return `tr_${querySeq}_${Date.now().toString(36)}`;
 }
 
 /** Compile a signal-name wildcard (`*` → any run) to an anchored regex,
@@ -226,11 +228,21 @@ export function SignalWidget({
   // expression statements (`s0 / s1`, `current_ac^2`) evaluate in-browser over
   // the fetched base series. The chip rows and the raw MQL editor are two views
   // of THIS one list.
-  const [traces, setTraces] = useState<TraceStmt[]>([
-    { id: newTraceId(), mql: "count(signal)" },
+  const [queries, setQueries] = useState<QueryStmt[]>([
+    { id: newQueryId(), mql: "count(signal)" },
   ]);
   // Swap the whole trace list to a single textarea (one statement per line).
   const [editAsMql, setEditAsMql] = useState(false);
+  // While a row's text field is focused, freeze that row's kind (fetch/expr) to
+  // what it was when editing began. A line's kind is otherwise re-derived per
+  // keystroke from `looksLikeFetchQuery`, which flips exactly at the `(` — so
+  // typing `count(` (or deleting the `(`) would swap the row's editing
+  // component and yank the caret. Freezing keeps the same input mounted until
+  // the user blurs, at which point the line is re-classified.
+  const [editingRow, setEditingRow] = useState<{
+    id: string;
+    kind: "fetch" | "expr";
+  } | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
   // Fetched base series, one entry per fetch statement (in trace order),
   // concatenated below into `baseSeries`.
@@ -264,27 +276,32 @@ export function SignalWidget({
   // the current MQL can't carry across (crossing into/out of the pairs path).
   const changeChartType = (next: ChartType) => {
     if (!compatible(chartType, next)) {
-      setTraces(CHART_TYPE_MAP[next].defaultTraces());
+      setQueries(CHART_TYPE_MAP[next].defaultQueries());
     }
     setChartType(next);
   };
 
-  // --- Classify each statement once per `traces` change ---------------------
+  // --- Classify each statement once per `queries` change ---------------------
   // A fetch statement carries its parsed Query (or a parse error); an
   // expression statement is just its text. Done here so both the editing UI
   // and the fetch effect read the same classification.
   const classified = useMemo(
     () =>
-      traces.map((t) => {
+      queries.map((t) => {
         if (looksLikeFetchQuery(t.mql)) {
+          // Fetch lines carry `-> name` inside the MQL grammar (parseQuery
+          // sets query.label), so we don't pre-split them.
           const res = parseQuery(t.mql);
           return res.ok
             ? ({ kind: "fetch" as const, stmt: t, query: res.query })
             : ({ kind: "fetch" as const, stmt: t, parseError: res.error });
         }
-        return { kind: "expr" as const, stmt: t };
+        // Expression lines never hit the backend, so the `-> name` assignment
+        // is split off here: `body` is the expression, `name` the variable.
+        const { body, name } = splitAssignment(t.mql);
+        return { kind: "expr" as const, stmt: t, body, name };
       }),
-    [traces],
+    [queries],
   );
 
   // The fetch statements that are actually runnable: parse cleanly AND don't
@@ -293,7 +310,7 @@ export function SignalWidget({
   const fetchPlan = useMemo(() => {
     return classified
       .filter(
-        (c): c is { kind: "fetch"; stmt: TraceStmt; query: Query } =>
+        (c): c is { kind: "fetch"; stmt: QueryStmt; query: Query } =>
           c.kind === "fetch" && "query" in c && c.query !== undefined,
       )
       .map((c) => ({
@@ -336,6 +353,12 @@ export function SignalWidget({
       }),
     [runnableFetches, interval],
   );
+  // Defer the fetch trigger until typing settles. Editing the MQL line (e.g. a
+  // `-> name`) changes `fetchKey` on every keystroke; firing /query/run per
+  // character makes each response force a synchronous chart re-render that
+  // paces and drops the user's typing. Timeframe/vehicle/path deps stay
+  // un-debounced so those changes still refetch immediately.
+  const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
 
   // Run every runnable fetch statement in parallel against /query/run with the
   // SAME shared interval, and collect per-statement series/errors. The
@@ -400,7 +423,7 @@ export function SignalWidget({
     // shared interval; depending on it means the effect fires only on real
     // changes, not on reference identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleId, vehicleType, rangeSeconds, fetchKey, startIso, endIso, path]);
+  }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
 
   // --- Pairs path (scatter/path/3D) -----------------------------------------
   // Each runnable trace resolves to ONE signal (the first name its `.where`
@@ -434,6 +457,10 @@ export function SignalWidget({
     return [...set];
   }, [path, pairNames, chartType, colorBy]);
 
+  // Same per-keystroke concern as the time-series path: the axis signals come
+  // from the (live-edited) query lines, so debounce the pairs refetch too.
+  const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
+
   useEffect(() => {
     if (path !== "pairs") return;
     if (!vehicleId || !pairReady) {
@@ -461,7 +488,7 @@ export function SignalWidget({
     vehicleId,
     vehicleType,
     pairReady,
-    pairFetchSignals.join(","),
+    debouncedPairKey,
     startIso,
     endIso,
   ]);
@@ -536,30 +563,45 @@ export function SignalWidget({
   }, [fetchResults]);
 
   // Expression statements, in trace order, mapped to the DerivedTrace shape the
-  // evaluator expects. The label is the expression text itself (it doubles as
-  // the legend/tooltip name, matching the old derived-trace default).
+  // evaluator expects. A `-> name` assignment sets both the legend label and
+  // (when present) registers the result as a referenceable variable for later
+  // expression lines; unnamed expressions fall back to their text as the label.
   const exprTraces = useMemo(
     () =>
       classified
         .filter((c) => c.kind === "expr")
         .map((c) => ({
           id: c.stmt.id,
-          label: c.stmt.mql.trim(),
-          expression: c.stmt.mql,
+          name: c.name,
+          label: c.name ?? c.body.trim(),
+          expression: c.body,
         })),
     [classified],
   );
 
-  // Variable hint table (s0 = current_ac, …) shown near the expression rows.
-  const seriesVariables = useMemo(
-    () => buildSeriesVariables(baseSeries),
-    [baseSeries],
-  );
-
-  // Evaluate every expression statement against the fetched base series.
+  // Evaluate every expression statement against the fetched base series, in
+  // order — each named result is appended to the pool so a later expression can
+  // reference an earlier one (e.g. `ecu / other -> ratio`).
   const derivedResults = useMemo(
     () => computeDerivedSeries(baseSeries, exprTraces),
     [baseSeries, exprTraces],
+  );
+
+  // Named derived series (those given a `-> name`) are referenceable variables,
+  // so surface them in the hint alongside the fetched base series.
+  const namedDerivedSeries = useMemo(() => {
+    const named = new Set(
+      exprTraces.filter((t) => t.name).map((t) => t.id),
+    );
+    return derivedResults
+      .filter((r) => named.has(r.id) && r.series)
+      .map((r) => r.series as Series);
+  }, [exprTraces, derivedResults]);
+
+  // Variable hint table (s0 = current_ac, ecu, other, …) shown near the rows.
+  const seriesVariables = useMemo(
+    () => buildSeriesVariables([...baseSeries, ...namedDerivedSeries]),
+    [baseSeries, namedDerivedSeries],
   );
 
   const derivedSeries = useMemo(
@@ -578,7 +620,7 @@ export function SignalWidget({
     return out;
   }, [derivedResults]);
 
-  // Base series plus any derived traces — every trace the widget knows about.
+  // Base series plus any derived queries — every trace the widget knows about.
   const plottedSeries = useMemo(
     () => [...baseSeries, ...derivedSeries],
     [baseSeries, derivedSeries],
@@ -652,14 +694,14 @@ export function SignalWidget({
     }));
 
   // --- Trace list mutators --------------------------------------------------
-  const updateTraceMql = (id: string, mql: string) =>
-    setTraces((prev) => prev.map((t) => (t.id === id ? { ...t, mql } : t)));
+  const updateQueryMql = (id: string, mql: string) =>
+    setQueries((prev) => prev.map((t) => (t.id === id ? { ...t, mql } : t)));
 
-  const addTrace = () =>
-    setTraces((prev) => [...prev, { id: newTraceId(), mql: "avg(value)" }]);
+  const addQuery = () =>
+    setQueries((prev) => [...prev, { id: newQueryId(), mql: "avg(value)" }]);
 
-  const removeTrace = (id: string) =>
-    setTraces((prev) =>
+  const removeQuery = (id: string) =>
+    setQueries((prev) =>
       // Never drop the last row — the widget always has at least one trace.
       prev.length <= 1 ? prev : prev.filter((t) => t.id !== id),
     );
@@ -747,17 +789,21 @@ export function SignalWidget({
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-3">
             {/* Trace list — one row per statement; both this and the raw MQL
-                editor write the same `traces`. The "Edit as MQL" toggle swaps
+                editor write the same `queries`. The "Edit as MQL" toggle swaps
                 the whole list for a single textarea (one statement per line). */}
             <div className="flex flex-col gap-2">
               {editAsMql ? (
-                <MqlEditor traces={traces} onChange={setTraces} />
+                <MqlEditor queries={queries} onChange={setQueries} />
               ) : (
                 <div className="flex flex-col gap-3">
                   {classified.map((c) => {
                     const id = c.stmt.id;
-                    const onlyRow = traces.length <= 1;
-                    if (c.kind === "fetch") {
+                    const onlyRow = queries.length <= 1;
+                    // Honor a frozen kind while this row is being typed in, so
+                    // crossing the `(` boundary doesn't swap the input element.
+                    const kind =
+                      editingRow?.id === id ? editingRow.kind : c.kind;
+                    if (kind === "fetch") {
                       // Fetch row → the chip builder, bound to the parsed Query.
                       // We render the builder for ANY fetch-looking line (not
                       // only ones that currently parse) so a transiently-invalid
@@ -770,28 +816,32 @@ export function SignalWidget({
                       const builderValue =
                         parsed ?? lastGoodQuery.current.get(id) ?? DEFAULT_QUERY;
                       return (
-                        <TraceRow key={id} onRemove={() => removeTrace(id)} disableRemove={onlyRow} axisLabel={pairAxisLabels[id]}>
+                        <QueryRow key={id} onRemove={() => removeQuery(id)} disableRemove={onlyRow} axisLabel={pairAxisLabels[id]}>
                           <QueryBuilder
                             value={builderValue}
-                            onChange={(next) => updateTraceMql(id, serializeQuery(next))}
-                            onMqlChange={(mql) => updateTraceMql(id, mql)}
+                            onChange={(next) => updateQueryMql(id, serializeQuery(next))}
+                            onMqlChange={(mql) => updateQueryMql(id, mql)}
+                            onMqlFocus={() => setEditingRow({ id, kind: "fetch" })}
+                            onMqlBlur={() => setEditingRow(null)}
                             signalNames={signalNames}
                             error={fetchErrors[id] ?? null}
                           />
-                        </TraceRow>
+                        </QueryRow>
                       );
                     }
                     // Expression row → raw input. Expression errors come from
                     // the in-browser evaluator already formatted (no column).
                     const errMessage = exprErrors[id];
                     return (
-                      <TraceRow key={id} onRemove={() => removeTrace(id)} disableRemove={onlyRow}>
+                      <QueryRow key={id} onRemove={() => removeQuery(id)} disableRemove={onlyRow}>
                         <div className="flex flex-col gap-1">
                           <input
                             value={c.stmt.mql}
-                            onChange={(e) => updateTraceMql(id, e.target.value)}
+                            onChange={(e) => updateQueryMql(id, e.target.value)}
+                            onFocus={() => setEditingRow({ id, kind: "expr" })}
+                            onBlur={() => setEditingRow(null)}
                             spellCheck={false}
-                            placeholder="expression (e.g. s0 / s1) or fetch query"
+                            placeholder="expression (e.g. ecu / other -> ratio) or fetch query"
                             className={cn(
                               "h-8 w-full rounded-md border bg-background px-2.5 font-mono text-xs outline-none focus:border-primary/40",
                               errMessage && "border-destructive/50",
@@ -803,7 +853,7 @@ export function SignalWidget({
                             </p>
                           ) : null}
                         </div>
-                      </TraceRow>
+                      </QueryRow>
                     );
                   })}
 
@@ -821,11 +871,11 @@ export function SignalWidget({
 
                   <button
                     type="button"
-                    onClick={addTrace}
+                    onClick={addQuery}
                     className="inline-flex h-7 w-fit items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground"
                   >
                     <Plus className="h-3 w-3" />
-                    Add trace
+                    Add query
                   </button>
                 </div>
               )}
@@ -970,7 +1020,7 @@ export function SignalWidget({
             !hasData ? (
               <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
                 {path === "pairs"
-                  ? "Set the axis signals (one per trace line) to plot"
+                  ? "Set the axis signals (one per query line) to plot"
                   : "No data in this window"}
               </div>
             ) : (
@@ -1012,7 +1062,7 @@ export function SignalWidget({
 
 /** One row of the trace list: its editing surface (chip builder or raw input)
  *  plus a remove button, disabled when it's the only row. */
-function TraceRow({
+function QueryRow({
   children,
   onRemove,
   disableRemove,
@@ -1036,8 +1086,8 @@ function TraceRow({
         type="button"
         onClick={onRemove}
         disabled={disableRemove}
-        aria-label="Remove trace"
-        title={disableRemove ? "A widget needs at least one trace" : "Remove trace"}
+        aria-label="Remove query"
+        title={disableRemove ? "A widget needs at least one query" : "Remove query"}
         className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
       >
         <X className="h-3.5 w-3.5" />
@@ -1047,5 +1097,5 @@ function TraceRow({
 }
 
 // Re-exported so the page (or tests) can build a fresh trace list from text if
-// needed; the widget itself sets traces directly.
-export { textToTraces };
+// needed; the widget itself sets queries directly.
+export { textToQueries };

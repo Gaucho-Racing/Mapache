@@ -1,4 +1,4 @@
-import { newStmtId, type TraceStmt } from "@/components/signals/MqlEditor";
+import { newStmtId, type QueryStmt } from "@/components/signals/MqlEditor";
 import {
   AreaChart,
   BarChart3,
@@ -45,19 +45,19 @@ export interface ChartTypeDef {
   inline: boolean;
   /** Trace list to seed when switching to this type from an incompatible one.
    *  A factory (not a constant) so every reset mints fresh statement ids. */
-  defaultTraces: () => TraceStmt[];
+  defaultQueries: () => QueryStmt[];
 }
 
 /** The default a fresh widget / a compatible time-series or categorical switch
  *  lands on — the same `count(signal)` you see on first opening Signals. */
-function defaultRunTraces(): TraceStmt[] {
+function defaultRunQueries(): QueryStmt[] {
   return [{ id: newStmtId(), mql: "count(signal)" }];
 }
 
 /** Pairs plots resolve one signal per trace line by position (X, Y[, Z]); seed
  *  empty `name` filters so the user fills the axis signals. `n` lines: 2 for
  *  scatter/path, 3 for 3D scatter. */
-function defaultPairTraces(n: number): () => TraceStmt[] {
+function defaultPairQueries(n: number): () => QueryStmt[] {
   return () =>
     Array.from({ length: n }, () => ({
       id: newStmtId(),
@@ -66,14 +66,14 @@ function defaultPairTraces(n: number): () => TraceStmt[] {
 }
 
 export const CHART_TYPES: ChartTypeDef[] = [
-  { type: "bar",       label: "Bar",          icon: BarChart3,          path: "timeseries",  inline: true,  defaultTraces: defaultRunTraces },
-  { type: "line",      label: "Line",         icon: LineChart,          path: "timeseries",  inline: true,  defaultTraces: defaultRunTraces },
-  { type: "area",      label: "Area",         icon: AreaChart,          path: "timeseries",  inline: true,  defaultTraces: defaultRunTraces },
-  { type: "scatter",   label: "Scatter",      icon: ScatterChart,       path: "pairs",       inline: false, defaultTraces: defaultPairTraces(2) },
-  { type: "path",      label: "Path",         icon: Spline,             path: "pairs",       inline: false, defaultTraces: defaultPairTraces(2) },
-  { type: "scatter3d", label: "3D",           icon: Box,                path: "pairs",       inline: false, defaultTraces: defaultPairTraces(3) },
-  { type: "catbar",    label: "Category",     icon: BarChartHorizontal, path: "categorical", inline: false, defaultTraces: defaultRunTraces },
-  { type: "pie",       label: "Pie",          icon: PieChart,           path: "categorical", inline: false, defaultTraces: defaultRunTraces },
+  { type: "bar",       label: "Bar",          icon: BarChart3,          path: "timeseries",  inline: true,  defaultQueries: defaultRunQueries },
+  { type: "line",      label: "Line",         icon: LineChart,          path: "timeseries",  inline: true,  defaultQueries: defaultRunQueries },
+  { type: "area",      label: "Area",         icon: AreaChart,          path: "timeseries",  inline: true,  defaultQueries: defaultRunQueries },
+  { type: "scatter",   label: "Scatter",      icon: ScatterChart,       path: "pairs",       inline: false, defaultQueries: defaultPairQueries(2) },
+  { type: "path",      label: "Path",         icon: Spline,             path: "pairs",       inline: false, defaultQueries: defaultPairQueries(2) },
+  { type: "scatter3d", label: "3D",           icon: Box,                path: "pairs",       inline: false, defaultQueries: defaultPairQueries(3) },
+  { type: "catbar",    label: "Category",     icon: BarChartHorizontal, path: "categorical", inline: false, defaultQueries: defaultRunQueries },
+  { type: "pie",       label: "Pie",          icon: PieChart,           path: "categorical", inline: false, defaultQueries: defaultRunQueries },
 ];
 
 export const CHART_TYPE_MAP: Record<ChartType, ChartTypeDef> = Object.fromEntries(
@@ -89,7 +89,7 @@ export function dataPath(type: ChartType): DataPath {
 /** Whether the current MQL trace list can carry across a type switch. Both
  *  `/query/run` paths share the MQL grammar so time-series ↔ categorical is
  *  lossless; pairs uses position-as-axis raw samples, so crossing into or out of
- *  it resets to the target's default traces. */
+ *  it resets to the target's default queries. */
 export function compatible(from: ChartType, to: ChartType): boolean {
   const a = dataPath(from);
   const b = dataPath(to);

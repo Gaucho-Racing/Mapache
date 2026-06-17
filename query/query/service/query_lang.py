@@ -1,14 +1,19 @@
 """Tiny query language for the signals chart.
 
 Grammar (v0.3 — method-chain):
-    <fn>(<field>) ( '.' <method> '(' <args> ')' )*
+    <fn>(<field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
     methods: .where(<pred>) .by(<col>,...) .every(<interval>)
              .reject(<bool>) .fill(<mode>)
+    A trailing `-> name` names the result series (and, on the frontend,
+    exposes it as a referenceable variable).
 
 Examples:
     count(signal)
     count(signal).by(name)
     avg(value).where(name = "ecu_acc_pedal")
+    count(signal).where(name = "ecu*") -> ecu
+    count(signal).where(name != "ecu*") -> other
+    avg(value).where(name not in ("a", "b"))
     last(value).where(name in ("a", "b")).reject(sigma > 3).every(100ms)
     avg(value).reject(value outside (0, 100)).fill(last)
 
@@ -92,7 +97,7 @@ class QueryParseError(ValueError):
 @dataclass(frozen=True)
 class Predicate:
     column: str
-    op: str  # always "=" for v0
+    op: str  # "=" (match) or "!=" (negate). `in`/`not in` desugar to a list.
     value: str
 
 
@@ -146,6 +151,11 @@ class Query:
     # Optional null-gap fill mode (.fill(...)), one of FILL_MODES. Display
     # hint only — the executor passes it through; CSV export keeps true NaN.
     fill: str | None = None
+    # Optional series name set via a trailing `-> name`. Names the single result
+    # series so a stack of ungrouped queries reads as distinct buckets (e.g. an
+    # "ecu" slice vs an "other" slice in a pie). Rejected by the parser alongside
+    # `.by`, whose group values already name each series.
+    label: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +172,7 @@ _TOKEN_RX = re.compile(
       (?P<ws>\s+)
     | (?P<string>"(?:[^"\\]|\\.)*")
     | (?P<interval>\d+(?:ms|[smhd]))
+    | (?P<arrow>->)
     | (?P<number>-?\d+(?:\.\d+)?)
     | (?P<op>>=|<=|!=|>|<|=)
     | (?P<ident>[A-Za-z_][A-Za-z0-9_]*)
@@ -280,12 +291,17 @@ def parse(s: str) -> Query:
     reject_seen_pos: int | None = None
     fill: str | None = None
     fill_seen_pos: int | None = None
+    label: str | None = None
+    label_seen_pos: int | None = None
 
     # Method-call chain: zero or more `.method(args)` calls. Order is
     # accepted in any sequence — the semantics are the same.
     while not c.eof:
         nxt = c.peek()
         assert nxt is not None
+        # `-> name` ends the chain: a right-assignment naming the result series.
+        if nxt.kind == "arrow":
+            break
         # If anything other than `.` appears here it's a leftover token
         # from the old infix grammar or a typo — surface a clean error.
         if nxt.kind != "punct" or nxt.value != ".":
@@ -341,6 +357,35 @@ def parse(s: str) -> Query:
             fill_seen_pos = method_tok.pos
         c.expect_punct(")")
 
+    # Optional `-> name` right-assignment after the method chain. The name is a
+    # bare identifier so it doubles as a referenceable variable on the frontend.
+    if not c.eof:
+        arrow_tok = c.advance()
+        label_seen_pos = arrow_tok.pos
+        name_tok = c.peek()
+        if name_tok is None or name_tok.kind != "ident":
+            raise QueryParseError(
+                "expected a variable name after '->'",
+                name_tok.pos if name_tok else c._tail_pos(),
+            )
+        c.advance()
+        label = name_tok.value
+        if not c.eof:
+            extra = c.peek()
+            assert extra is not None
+            raise QueryParseError(
+                f"unexpected '{extra.value}' after '-> {label}'", extra.pos
+            )
+
+    # A grouped query already names each series by its group value, so naming a
+    # single result with `->` would be ambiguous — reject the combination.
+    if label is not None and group_by:
+        raise QueryParseError(
+            "'->' can't be combined with '.by'; a breakdown is already "
+            "labeled by its group values",
+            label_seen_pos or 0,
+        )
+
     return Query(
         fn=fn,
         field=field_name,
@@ -349,6 +394,7 @@ def parse(s: str) -> Query:
         rollup=rollup,
         reject=reject,
         fill=fill,
+        label=label,
     )
 
 
@@ -395,9 +441,10 @@ def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
 def _parse_where_args(c: _Cursor) -> list[Predicate]:
     """Parse the args inside one `.where(...)` call.
 
-    Single predicate: `<col> = <string>`. Multi-value: `<col> in
-    (<string>, <string>, ...)` — desugared to a list of equality
-    predicates that the executor unions (OR within a column).
+    Match: `<col> = <string>` or `<col> in (<string>, ...)` — the latter
+    desugars to a list of `=` predicates the executor unions (OR within a
+    column). Negation: `<col> != <string>` or `<col> not in (<string>, ...)`
+    — desugars to a list of `!=` predicates the executor AND's (none-of).
     """
     col_tok = c.expect_ident()
     col = col_tok.value.lower()
@@ -409,6 +456,22 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
         )
 
     op_tok = c.peek()
+
+    # `in (...)` / `not in (...)` — membership, with optional negation.
+    negated_in = (
+        op_tok is not None
+        and op_tok.kind == "ident"
+        and op_tok.value.lower() == "not"
+    )
+    if negated_in:
+        c.advance()  # consume `not`; the `in` keyword must follow
+        in_tok = c.peek()
+        if in_tok is None or in_tok.kind != "ident" or in_tok.value.lower() != "in":
+            raise QueryParseError(
+                "expected 'in' after 'not'",
+                in_tok.pos if in_tok else c._tail_pos(),
+            )
+        op_tok = in_tok
     if op_tok and op_tok.kind == "ident" and op_tok.value.lower() == "in":
         c.advance()
         c.expect_punct("(")
@@ -419,9 +482,11 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
                 "'in' requires at least one value",
                 op_tok.pos,
             )
-        return [Predicate(column=col, op="=", value=v) for v in values]
+        op = "!=" if negated_in else "="
+        return [Predicate(column=col, op=op, value=v) for v in values]
 
-    if op_tok and op_tok.kind == "op" and op_tok.value == "=":
+    # `=` / `!=` — single value, with optional negation.
+    if op_tok and op_tok.kind == "op" and op_tok.value in ("=", "!="):
         c.advance()
         val_tok = c.peek()
         if val_tok is None or val_tok.kind != "string":
@@ -430,10 +495,10 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
                 val_tok.pos if val_tok else c._tail_pos(),
             )
         c.advance()
-        return [Predicate(column=col, op="=", value=val_tok.value)]
+        return [Predicate(column=col, op=op_tok.value, value=val_tok.value)]
 
     raise QueryParseError(
-        "expected '=' or 'in'",
+        "expected '=', '!=', 'in', or 'not in'",
         op_tok.pos if op_tok else c._tail_pos(),
     )
 

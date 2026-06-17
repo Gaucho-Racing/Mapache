@@ -144,11 +144,17 @@ export interface DerivedResult {
  *  than throwing. */
 export function computeDerivedSeries(
   series: Series[],
-  traces: DerivedTrace[],
+  traces: (DerivedTrace & { name?: string })[],
 ): DerivedResult[] {
   // The bucket axis is shared across every base series (server zero-fills),
   // so the first series defines the bucket strings the derived series reuse.
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
+
+  // Evaluate in order against a growing pool: each NAMED result is appended so
+  // a later expression can reference an earlier one by name (`ecu / other ->
+  // ratio`, then `ratio * 2`). Unnamed expressions don't enter the pool — their
+  // label is raw expression text, not a clean variable to reference.
+  const pool = [...series];
 
   return traces.map((trace) => {
     const label = trace.label.trim() || trace.expression.trim() || "derived";
@@ -161,7 +167,7 @@ export function computeDerivedSeries(
 
     // One shared compile-and-validate path with highlights (see
     // `compileAgainstSeries`); a failure carries the formatted message.
-    const evaluator = compileAgainstSeries(trace.expression, series);
+    const evaluator = compileAgainstSeries(trace.expression, pool);
     if (!evaluator.ok || !evaluator.evalAt) {
       return { id: trace.id, error: evaluator.error };
     }
@@ -173,10 +179,9 @@ export function computeDerivedSeries(
       return { bucket, value: Number.isFinite(out) ? out : null };
     });
 
-    return {
-      id: trace.id,
-      series: { tags: { [DERIVED_KEY]: label }, points },
-    };
+    const computed: Series = { tags: { [DERIVED_KEY]: label }, points };
+    if (trace.name) pool.push(computed);
+    return { id: trace.id, series: computed };
   });
 }
 

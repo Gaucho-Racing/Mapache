@@ -73,7 +73,8 @@ export type RejectNode =
 
 export interface Predicate {
   column: FilterColumn;
-  op: "=";
+  /** "=" matches; "!=" negates. `in`/`not in` desugar to a list of these. */
+  op: "=" | "!=";
   value: string;
 }
 
@@ -90,6 +91,10 @@ export interface Query {
   reject?: RejectNode;
   /** Optional null-gap fill mode (.fill(...)). Display hint only. */
   fill?: FillMode;
+  /** Optional series name set via a trailing `-> name`. Names the single
+   *  result series (pie slice / legend) and exposes it as a variable for
+   *  expression lines. Mutually exclusive with `groupBy` (parser-enforced). */
+  label?: string;
 }
 
 export const DEFAULT_QUERY: Query = {
@@ -114,21 +119,27 @@ export function serializeQuery(q: Query): string {
   let out = `${q.fn}(${q.field})`;
 
   if (q.filters.length > 0) {
-    // Group same-column equality predicates: a single value renders as
-    // `col = "x"`, multiple values as `col in ("a", "b", ...)`. We
-    // preserve the order each column was first introduced so the chip
-    // sequence in the builder maps 1:1 to the serialized clauses.
-    const byCol: Map<FilterColumn, Predicate[]> = new Map();
+    // Group predicates by column AND op: a single `=` renders as `col = "x"`,
+    // multiple as `col in (...)`; a single `!=` as `col != "x"`, multiple as
+    // `col not in (...)`. Keying on `column|op` keeps each op's run together so
+    // the serialized form round-trips through parseQuery losslessly. Insertion
+    // order is preserved so the chip sequence maps 1:1 to the clauses.
+    const byColOp: Map<string, Predicate[]> = new Map();
     for (const p of q.filters) {
-      const list = byCol.get(p.column) ?? [];
+      const key = `${p.column}|${p.op}`;
+      const list = byColOp.get(key) ?? [];
       list.push(p);
-      byCol.set(p.column, list);
+      byColOp.set(key, list);
     }
-    for (const [col, preds] of byCol) {
-      const inner =
-        preds.length === 1
-          ? `${col} = ${escapeString(preds[0].value)}`
-          : `${col} in (${preds.map((p) => escapeString(p.value)).join(", ")})`;
+    for (const preds of byColOp.values()) {
+      const { column: col, op } = preds[0];
+      const vals = preds.map((p) => escapeString(p.value));
+      let inner: string;
+      if (preds.length === 1) {
+        inner = `${col} ${op} ${vals[0]}`;
+      } else {
+        inner = `${col} ${op === "!=" ? "not in" : "in"} (${vals.join(", ")})`;
+      }
       out += `.where(${inner})`;
     }
   }
@@ -147,6 +158,12 @@ export function serializeQuery(q: Query): string {
 
   if (q.fill) {
     out += `.fill(${q.fill})`;
+  }
+
+  // Right-assignment names the result series (and exposes it as a variable).
+  // A bare identifier — it doubles as the variable name in expression lines.
+  if (q.label) {
+    out += ` -> ${q.label}`;
   }
 
   return out;
@@ -202,6 +219,7 @@ type TokKind =
   | "interval"
   | "number"
   | "op"
+  | "arrow"
   | "ident"
   | "punct";
 
@@ -212,9 +230,10 @@ interface MqlToken {
 }
 
 // Mirror of _TOKEN_RX. Order matters: interval before number (so `100ms`
-// keeps its unit), two-char comparison ops before single-char.
+// keeps its unit), `->` before number (so the `-` isn't read as a sign) and
+// before the comparison ops, two-char comparison ops before single-char.
 const TOKEN_RX =
-  /\s+|("(?:[^"\\]|\\.)*")|(\d+(?:ms|[smhd]))|(-?\d+(?:\.\d+)?)|(>=|<=|!=|>|<|=)|([A-Za-z_][A-Za-z0-9_]*)|([().,])/y;
+  /\s+|("(?:[^"\\]|\\.)*")|(\d+(?:ms|[smhd]))|(->)|(-?\d+(?:\.\d+)?)|(>=|<=|!=|>|<|=)|([A-Za-z_][A-Za-z0-9_]*)|([().,])/y;
 
 class MqlParseError extends Error {
   position: number;
@@ -234,9 +253,10 @@ function tokenizeMql(s: string): MqlToken[] {
     if (!m || m.index !== i) {
       throw new MqlParseError(`unexpected character '${s[i]}'`, i);
     }
-    const [, str, interval, num, op, ident, punct] = m;
+    const [, str, interval, arrow, num, op, ident, punct] = m;
     if (str !== undefined) out.push({ kind: "string", value: str.slice(1, -1), pos: i });
     else if (interval !== undefined) out.push({ kind: "interval", value: interval, pos: i });
+    else if (arrow !== undefined) out.push({ kind: "arrow", value: arrow, pos: i });
     else if (num !== undefined) out.push({ kind: "number", value: num, pos: i });
     else if (op !== undefined) out.push({ kind: "op", value: op, pos: i });
     else if (ident !== undefined) out.push({ kind: "ident", value: ident, pos: i });
@@ -300,9 +320,13 @@ export function parseQuery(input: string): ParseResult {
     let rollup: Rollup | undefined;
     let reject: RejectNode | undefined;
     let fill: FillMode | undefined;
+    let label: string | undefined;
+    let labelPos = 0;
 
     while (!c.eof) {
       const dot = c.peek()!;
+      // `-> name` ends the chain: a right-assignment naming the result series.
+      if (dot.kind === "arrow") break;
       if (dot.kind !== "punct" || dot.value !== ".") {
         throw new MqlParseError(
           `unexpected '${dot.value}' — methods are chained with '.'`,
@@ -336,7 +360,31 @@ export function parseQuery(input: string): ParseResult {
       c.expectPunct(")");
     }
 
-    return { ok: true, query: { fn, field, filters, groupBy, rollup, reject, fill } };
+    // Optional `-> name` right-assignment after the method chain. The name is a
+    // bare identifier so it doubles as a referenceable variable.
+    if (!c.eof) {
+      const arrow = c.advance();
+      labelPos = arrow.pos;
+      const nameTok = c.peek();
+      if (!nameTok || nameTok.kind !== "ident")
+        throw new MqlParseError("expected a variable name after '->'", nameTok ? nameTok.pos : c.tailPos());
+      c.advance();
+      label = nameTok.value;
+      if (!c.eof) {
+        const extra = c.peek()!;
+        throw new MqlParseError(`unexpected '${extra.value}' after '-> ${label}'`, extra.pos);
+      }
+    }
+
+    // A grouped query already names each series by its group value, so naming a
+    // single result with `->` would be ambiguous — reject the combination.
+    if (label !== undefined && groupBy.length > 0)
+      throw new MqlParseError(
+        "'->' can't be combined with '.by'; a breakdown is already labeled by its group values",
+        labelPos,
+      );
+
+    return { ok: true, query: { fn, field, filters, groupBy, rollup, reject, fill, label } };
   } catch (e) {
     if (e instanceof MqlParseError) return { ok: false, error: { message: e.message, position: e.position } };
     return { ok: false, error: { message: e instanceof Error ? e.message : "parse error", position: 0 } };
@@ -376,23 +424,34 @@ function parseWhereArgs(c: MqlCursor): Predicate[] {
   const col = colTok.value.toLowerCase();
   if (!FILTERABLE_SET.has(col))
     throw new MqlParseError(`can't filter on '${colTok.value}'`, colTok.pos);
-  const t = c.peek();
+  let t = c.peek();
+  // `not in (...)` — negated membership.
+  let negatedIn = false;
+  if (t && t.kind === "ident" && t.value.toLowerCase() === "not") {
+    c.advance();
+    const inTok = c.peek();
+    if (!inTok || inTok.kind !== "ident" || inTok.value.toLowerCase() !== "in")
+      throw new MqlParseError("expected 'in' after 'not'", inTok ? inTok.pos : c.tailPos());
+    negatedIn = true;
+    t = inTok;
+  }
   if (t && t.kind === "ident" && t.value.toLowerCase() === "in") {
     c.advance();
     c.expectPunct("(");
     const vals = parseStringList(c);
     c.expectPunct(")");
-    return vals.map((v) => ({ column: col as FilterColumn, op: "=" as const, value: v }));
+    const op = negatedIn ? ("!=" as const) : ("=" as const);
+    return vals.map((v) => ({ column: col as FilterColumn, op, value: v }));
   }
-  if (t && t.kind === "op" && t.value === "=") {
+  if (t && t.kind === "op" && (t.value === "=" || t.value === "!=")) {
     c.advance();
     const valTok = c.peek();
     if (!valTok || valTok.kind !== "string")
       throw new MqlParseError('expected a quoted string (e.g. "ecu_acc_pedal")', valTok ? valTok.pos : c.tailPos());
     c.advance();
-    return [{ column: col as FilterColumn, op: "=", value: valTok.value }];
+    return [{ column: col as FilterColumn, op: t.value as "=" | "!=", value: valTok.value }];
   }
-  throw new MqlParseError("expected '=' or 'in'", t ? t.pos : c.tailPos());
+  throw new MqlParseError("expected '=', '!=', 'in', or 'not in'", t ? t.pos : c.tailPos());
 }
 
 function parseStringList(c: MqlCursor): string[] {
@@ -520,4 +579,14 @@ function parseRejectNumber(c: MqlCursor): number {
 export function looksLikeFetchQuery(input: string): boolean {
   const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(input);
   return m !== null && AGG_SET.has(m[1].toLowerCase());
+}
+
+/** Split a trailing `-> name` right-assignment off a line, returning the body
+ *  and the assigned variable name (a bare identifier). Used for EXPRESSION
+ *  lines, which don't pass through parseQuery — fetch lines carry `->` inside
+ *  the MQL grammar instead. No arrow → `{ body: line, name: undefined }`. */
+export function splitAssignment(line: string): { body: string; name?: string } {
+  const m = /^(.*?)\s*->\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(line);
+  if (!m) return { body: line };
+  return { body: m[1], name: m[2] };
 }

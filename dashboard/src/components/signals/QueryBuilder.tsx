@@ -14,8 +14,6 @@ import {
   FILL_MODES,
   type FilterColumn,
   FILTERABLE_COLUMNS,
-  type GroupColumn,
-  GROUPABLE_COLUMNS,
   NUMERIC_FIELDS,
   type Predicate,
   type Query,
@@ -46,6 +44,12 @@ interface QueryBuilderProps {
    *  parent re-parses (and may surface an error via `error`). When absent the
    *  preview stays a read-only `<code>` exactly as before. */
   onMqlChange?: (mql: string) => void;
+  /** Focus lifecycle of the editable MQL line. The parent uses these to FREEZE
+   *  this row as a fetch row while the user is typing in the line, so deleting
+   *  the `(` (which momentarily makes the text stop looking like a fetch query)
+   *  doesn't unmount the builder and steal the caret mid-edit. */
+  onMqlFocus?: () => void;
+  onMqlBlur?: () => void;
 }
 
 export function QueryBuilder({
@@ -54,6 +58,8 @@ export function QueryBuilder({
   signalNames,
   error,
   onMqlChange,
+  onMqlFocus,
+  onMqlBlur,
 }: QueryBuilderProps) {
   const fieldOptions: FieldName[] = ROW_COUNT_AGGS.has(value.fn)
     ? [COUNT_FIELD]
@@ -97,19 +103,19 @@ export function QueryBuilder({
     });
   }
 
-  function addGroup() {
-    // Only one groupable column today; if it's already in the list bail
-    // out instead of creating a duplicate the SQL would reject anyway.
-    const next = GROUPABLE_COLUMNS.find((c) => !value.groupBy.includes(c));
-    if (!next) return;
-    onChange({ ...value, groupBy: [...value.groupBy, next] });
-  }
-
-  function removeGroup(col: GroupColumn) {
-    onChange({
-      ...value,
-      groupBy: value.groupBy.filter((c) => c !== col),
-    });
+  // `.by(name)` is the only grouping today: with it on, the query returns one
+  // series PER matching signal (a breakdown); off, one combined series. We
+  // surface this single choice as a toggle rather than a column picker. `->`
+  // can't combine with `.by` (a breakdown is already labeled by its group
+  // values), so turning break-out on clears any label.
+  const breakout = value.groupBy.length > 0;
+  function setBreakout(on: boolean) {
+    if (on) {
+      const { label: _drop, ...rest } = value;
+      onChange({ ...rest, groupBy: ["name"] });
+    } else {
+      onChange({ ...value, groupBy: [] });
+    }
   }
 
   function setRollup(next: Rollup | undefined) {
@@ -129,18 +135,35 @@ export function QueryBuilder({
     onChange(next ? { ...rest, fill: next } : rest);
   }
 
-  const canAddGroup = value.groupBy.length < GROUPABLE_COLUMNS.length;
+  function setLabel(next: string | undefined) {
+    // The label is a `-> name` variable: keep it to identifier characters so
+    // it parses and can be referenced from expression lines.
+    const ident = next?.replace(/[^A-Za-z0-9_]/g, "");
+    const { label: _drop, ...rest } = value;
+    onChange(ident ? { ...rest, label: ident } : rest);
+  }
 
-  // Editable MQL line (two-way chips↔text). Local text state seeded from the
-  // serialized AST; re-synced whenever the chips change the serialized form,
-  // but NOT on our own keystrokes (that would fight the caret). We compare the
-  // incoming serialized value against the current text and only overwrite when
-  // they differ — so a chip edit updates the line, and typing flows out via
-  // onMqlChange without bouncing back.
+  // Editable MQL line (two-way chips↔text). Local text state is the user's
+  // source of truth while they type; we only re-seed it from the serialized AST
+  // when a CHIP changed the query — never on the user's own keystrokes. Without
+  // this gate the canonical re-serialization (normalized spacing, or a fallback
+  // to the last-good query when the text transiently fails to parse) would yank
+  // the caret to the end and even re-populate a box the user just cleared,
+  // making free rewriting impossible. Mirrors MqlEditor's `lastEmitted` guard.
   const serialized = serializeQuery(value);
   const [mqlText, setMqlText] = useState(serialized);
   const lastSerialized = useRef(serialized);
+  // Set on every text keystroke; consumed by the re-sync effect to distinguish
+  // our own edit echo (skip the overwrite) from a chip-driven change (apply it).
+  const fromTextEdit = useRef(false);
   useEffect(() => {
+    if (fromTextEdit.current) {
+      // Our own typing flowed out and came back as a (possibly normalized)
+      // serialized form — don't overwrite what the user is editing.
+      fromTextEdit.current = false;
+      lastSerialized.current = serialized;
+      return;
+    }
     if (serialized !== lastSerialized.current) {
       setMqlText(serialized);
       lastSerialized.current = serialized;
@@ -177,14 +200,15 @@ export function QueryBuilder({
             <Hint>all signals</Hint>
           ) : (
             value.filters.map((pred, i) => {
-              // Adjacent filters on the same column union (OR semantics);
-              // show a tiny "or" between them so the user sees this rather
-              // than reading the visual sequence as AND.
+              // Adjacent filters on the same column combine: equality matches
+              // union ("or"), negations intersect ("and" — exclude all). Show
+              // the matching connector so the sequence doesn't read ambiguously.
               const prev = i > 0 ? value.filters[i - 1] : null;
               const sameColAsPrev = prev !== null && prev.column === pred.column;
+              const connector = pred.op === "!=" ? "and" : "or";
               return (
                 <span key={i} className="inline-flex items-center gap-2">
-                  {sameColAsPrev ? <Connector>or</Connector> : null}
+                  {sameColAsPrev ? <Connector>{connector}</Connector> : null}
                   <FilterChip
                     value={pred}
                     onChange={(next) => updateFilter(i, next)}
@@ -198,19 +222,7 @@ export function QueryBuilder({
           <AddChip label="filter" onClick={addFilter} />
         </Clause>
 
-        <Clause keyword="grouped by">
-          {value.groupBy.length === 0 ? <Hint>nothing</Hint> : null}
-          {value.groupBy.map((col) => (
-            <GroupChip
-              key={col}
-              column={col}
-              onRemove={() => removeGroup(col)}
-            />
-          ))}
-          {canAddGroup ? (
-            <AddChip label="group" onClick={addGroup} />
-          ) : null}
-        </Clause>
+        <BreakoutToggle value={breakout} onChange={setBreakout} />
 
         <Clause keyword="every">
           <RollupChip value={value.rollup} onChange={setRollup} />
@@ -223,6 +235,15 @@ export function QueryBuilder({
         <Clause keyword="fill">
           <FillChip value={value.fill} onChange={setFill} />
         </Clause>
+
+        {/* `-> name` names the single result series (one slice/legend entry)
+            and exposes it as a variable. Hidden while breaking out — a
+            breakdown is already labeled by its per-signal group values. */}
+        {!breakout ? (
+          <Clause keyword="→">
+            <LabelChip value={value.label} onChange={setLabel} />
+          </Clause>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
@@ -235,9 +256,12 @@ export function QueryBuilder({
           <input
             value={mqlText}
             onChange={(e) => {
+              fromTextEdit.current = true;
               setMqlText(e.target.value);
               onMqlChange(e.target.value);
             }}
+            onFocus={onMqlFocus}
+            onBlur={onMqlBlur}
             spellCheck={false}
             className={cn(
               "block w-full break-all bg-transparent font-mono text-xs text-foreground/80 outline-none",
@@ -519,6 +543,94 @@ function FillChip({
 }
 
 // ---------------------------------------------------------------------------
+// Break-out toggle — the single grouping choice (`.by(name)`). On = one series
+// per matching signal (a breakdown); off = one combined series. Replaces the
+// old column picker, which only ever offered "name".
+// ---------------------------------------------------------------------------
+
+function BreakoutToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 rounded border-input accent-primary"
+      />
+      by name
+    </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Label chip (`-> name`) — name the result series and expose it as a variable.
+// Unset reads "name" (the series falls back to its tag-derived name, e.g.
+// "value" for an ungrouped query). A name is what lets a stack of queries
+// render as distinct pie slices / legend entries and be referenced from
+// expression lines. Input is restricted to identifier characters by `setLabel`.
+// ---------------------------------------------------------------------------
+
+function LabelChip({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  // Re-seed the draft from the AST whenever it changes (e.g. the MQL line edits
+  // `-> name` directly) so the popover input mirrors the current value.
+  useEffect(() => setDraft(value ?? ""), [value]);
+  const isDefault = !value;
+  const commit = () => {
+    onChange(draft);
+    setOpen(false);
+  };
+  return (
+    <Popover open={open} onOpenChange={(o) => { if (!o) commit(); setOpen(o); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            isDefault && "text-muted-foreground",
+          )}
+        >
+          {value ?? "name"}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[220px] p-2">
+        <Input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              setDraft(value ?? "");
+              setOpen(false);
+            }
+          }}
+          placeholder="variable name (e.g. ecu)"
+          className="h-8 font-mono text-xs"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Reject chip (W1) — outlier rejection. Two independent toggles combine into a
 // RejectNode:
 //   - statistical outliers → `sigma > N`
@@ -690,28 +802,6 @@ function RejectChip({
   );
 }
 
-function GroupChip({
-  column,
-  onRemove,
-}: {
-  column: GroupColumn;
-  onRemove: () => void;
-}) {
-  return (
-    <span className={cn(CHIP_BASE, "gap-1.5 pr-1 font-medium")}>
-      {column}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        title="Remove group"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
-  );
-}
-
 function FilterChip({
   value,
   onChange,
@@ -743,7 +833,9 @@ function FilterChip({
             className="inline-flex items-center gap-1.5 rounded-sm hover:text-primary"
           >
             <span className="font-medium">{value.column}</span>
-            <span className="text-muted-foreground">is</span>
+            <span className="text-muted-foreground">
+              {value.op === "!=" ? "is not" : "is"}
+            </span>
             {filled ? (
               <span>{value.value}</span>
             ) : (
@@ -826,7 +918,14 @@ function FilterEditor({
           options={FILTERABLE_COLUMNS.map((c) => ({ value: c, label: c }))}
           onSelect={(c) => onChange({ ...value, column: c as FilterColumn })}
         />
-        <span className="text-xs text-muted-foreground">is</span>
+        <SelectChip
+          label={value.op === "!=" ? "is not" : "is"}
+          options={[
+            { value: "=", label: "is" },
+            { value: "!=", label: "is not" },
+          ]}
+          onSelect={(op) => onChange({ ...value, op: op as "=" | "!=" })}
+        />
         <Input
           autoFocus
           value={search}
