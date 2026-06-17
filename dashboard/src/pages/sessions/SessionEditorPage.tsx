@@ -22,6 +22,11 @@ import {
 } from "@/models/session";
 import { SegmentManager } from "@/lib/sessions/segments";
 import { normalizeCoordinates } from "@/lib/sessions/geo";
+import {
+  DEFAULT_OUTLIER_CONFIG,
+  OutlierConfig,
+  detectOutliers,
+} from "@/lib/sessions/outliers";
 import { processLaps } from "@/lib/sessions/lapEngine";
 import { Vec2 } from "@/lib/sessions/intersect";
 import {
@@ -39,6 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import TrackCanvas, { BaseMap } from "./editor/TrackCanvas";
 import SignalPicker from "./editor/SignalPicker";
+import OutlierControls from "./editor/OutlierControls";
 import SignalTimeChart from "./editor/SignalTimeChart";
 import CalibrationControls from "./editor/CalibrationControls";
 import TimelineCrop from "./editor/TimelineCrop";
@@ -49,6 +55,12 @@ import DateSelector, { dayKey } from "./editor/DateSelector";
 // Convert a point's epoch-seconds timestamp into an ISO string for the API.
 function tsToIso(tsSeconds: number): string {
   return new Date(tsSeconds * 1000).toISOString();
+}
+
+// First signal whose name matches `re` (e.g. /latitude/i), or "" if none. Used
+// to autofill the lat/lon pickers when a session has no saved analysis.
+function matchSignal(names: string[], re: RegExp): string {
+  return names.find((n) => re.test(n)) ?? "";
 }
 
 // Derive the persisted lap shape from the lap-engine result. `crossingIndices`
@@ -138,6 +150,8 @@ export function SessionEditorPage() {
   const [latField, setLatField] = useState("");
   const [lonField, setLonField] = useState("");
   const [normMode, setNormMode] = useState<NormMode>(NormMode.LocalCartesian);
+  const [outlierCfg, setOutlierCfg] =
+    useState<OutlierConfig>(DEFAULT_OUTLIER_CONFIG);
 
   const [rawGeo, setRawGeo] = useState<GeoPoint[]>([]);
   const [allPoints, setAllPoints] = useState<Point[]>([]);
@@ -193,7 +207,8 @@ export function SessionEditorPage() {
       setActiveSeg(1);
 
       const analysis = target.session?.analysis;
-      if (hasAnalysis(analysis)) {
+      const restoredFromAnalysis = hasAnalysis(analysis);
+      if (restoredFromAnalysis) {
         setLatField(analysis.lat_field || "");
         setLonField(analysis.lon_field || "");
         setNormMode((analysis.norm_mode as NormMode) || NormMode.LocalCartesian);
@@ -217,6 +232,12 @@ export function SessionEditorPage() {
           target.endTime,
         );
         setSignalNames(names);
+        // No saved analysis: autofill the lat/lon pickers from the first
+        // matching signal so the user need not reselect them every time.
+        if (!restoredFromAnalysis) {
+          setLatField(matchSignal(names, /latitude/i));
+          setLonField(matchSignal(names, /longitude/i));
+        }
         setStatus(`${names.length} signals available`);
       } catch (e) {
         setStatus("Failed to fetch signal names");
@@ -326,13 +347,29 @@ export function SessionEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latField, lonField, windowStart, windowEnd, vehicleId]);
 
+  // -- Outlier detection: split raw GPS into inliers / excluded --------------
+  // Runs before normalization so a far-off "bus noise" point can't collapse the
+  // track. Recomputed reactively; not persisted.
+  const outlierFlags = useMemo(
+    () => detectOutliers(rawGeo, outlierCfg),
+    [rawGeo, outlierCfg],
+  );
+  const inlierGeo = useMemo(
+    () => rawGeo.filter((_, i) => !outlierFlags[i]),
+    [rawGeo, outlierFlags],
+  );
+  const excludedGeo = useMemo(
+    () => rawGeo.filter((_, i) => outlierFlags[i]),
+    [rawGeo, outlierFlags],
+  );
+
   // -- Normalize whenever raw data or norm mode changes ----------------------
   useEffect(() => {
-    if (rawGeo.length === 0) {
+    if (inlierGeo.length === 0) {
       setAllPoints([]);
       return;
     }
-    const pts = normalizeCoordinates(rawGeo, normMode);
+    const pts = normalizeCoordinates(inlierGeo, normMode);
     setAllPoints(pts);
 
     const tsMin = pts[0].ts;
@@ -348,7 +385,7 @@ export function SessionEditorPage() {
       setCropStartTs(tsMin);
       setCropEndTs(tsMax);
     }
-  }, [rawGeo, normMode]);
+  }, [inlierGeo, normMode]);
 
   // -- Calibration: fetch selected signals over the window -------------------
   useEffect(() => {
@@ -406,7 +443,7 @@ export function SessionEditorPage() {
       maxLat = -Infinity,
       minLon = Infinity,
       maxLon = -Infinity;
-    for (const p of rawGeo) {
+    for (const p of inlierGeo) {
       if (p.ts < cropStartTs || p.ts > cropEndTs) continue;
       if (p.lat < minLat) minLat = p.lat;
       if (p.lat > maxLat) maxLat = p.lat;
@@ -415,7 +452,7 @@ export function SessionEditorPage() {
     }
     if (!isFinite(minLat)) return null;
     return { minLat, maxLat, minLon, maxLon };
-  }, [rawGeo, cropStartTs, cropEndTs]);
+  }, [inlierGeo, cropStartTs, cropEndTs]);
 
   // Threshold for point removal: a fraction of the data's diagonal extent.
   const removeThreshold = useMemo(() => {
@@ -712,6 +749,7 @@ export function SessionEditorPage() {
                 setCropStartTs(s);
                 setCropEndTs(e);
               }}
+              markers={mode === "lap" ? excludedGeo.map((p) => p.ts) : undefined}
             />
           )}
           <div className="text-xs text-neutral-400">{status}</div>
@@ -759,6 +797,13 @@ export function SessionEditorPage() {
                     setNormMode(n.normMode);
                   }}
                 />
+                <div className="mt-4">
+                  <OutlierControls
+                    config={outlierCfg}
+                    onChange={setOutlierCfg}
+                    excluded={excludedGeo}
+                  />
+                </div>
               </div>
 
               <div>
