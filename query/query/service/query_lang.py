@@ -1,19 +1,24 @@
 """Tiny query language for the signals chart.
 
-Grammar (v0):
-    <fn>(<field>) [where <col> = "<val>" (and ...)?] [by (<col>(, <col>)*)]
+Grammar (v0.3 — method-chain):
+    <fn>(<field>) ( '.' <method> '(' <args> ')' )*
+    methods: .where(<pred>) .by(<col>,...) .every(<interval>)
+             .reject(<bool>) .fill(<mode>)
 
 Examples:
     count(signal)
-    count(signal) by (name)
-    avg(value) where name = "ecu_acc_pedal"
-    p95(value) where name = "bcu_12v_voltage"
-    max(value) where name = "ecu_acc_pedal" by (name)
+    count(signal).by(name)
+    avg(value).where(name = "ecu_acc_pedal")
+    last(value).where(name in ("a", "b")).reject(sigma > 3).every(100ms)
+    avg(value).reject(value outside (0, 100)).fill(last)
 
 This is intentionally small. We want it to feel like Datadog's metric
 query syntax (one aggregator + filters + group-by + automatic time
 bucketing from the page's timeframe), not a full SQL dialect. The
 ClickHouse query is built in `query_exec.py` from the parsed AST.
+
+Kept mirrored with the TypeScript copy in dashboard/src/lib/query.ts — any
+grammar change here must land there too.
 """
 
 from __future__ import annotations
@@ -53,13 +58,27 @@ GROUPABLE_COLUMNS = {"name"}
 # because the grammar references them — the executor's INTERVALS map keys
 # off this list to wire each name to its ClickHouse INTERVAL clause.
 ROLLUP_INTERVALS: tuple[str, ...] = (
-    "16ms", "50ms", "100ms", "500ms",
+    "50ms", "100ms", "500ms",
     "1s", "10s", "30s",
     "1m", "5m", "15m", "30m",
     "1h", "2h", "6h",
     "1d",
 )
 ALLOWED_ROLLUPS = frozenset(ROLLUP_INTERVALS)
+
+# How null gaps (sparse buckets, rejected outliers, native-resolution joins)
+# are rendered on the chart. Display-only — CSV export always keeps true NaN.
+# `gap` breaks the line, `last` holds the previous value, `linear` interpolates.
+FILL_MODES: tuple[str, ...] = ("gap", "last", "linear")
+ALLOWED_FILL_MODES = frozenset(FILL_MODES)
+
+# Metrics a `.reject(...)` condition can compare against a number. `value`
+# and `raw_value` are the raw sample columns; `sigma` is the distance of a
+# sample from its group's mean in standard deviations (computed in the
+# executor via window stats). Rejection drops matching *raw samples* before
+# aggregation so a spike can't skew a bucket's avg/last.
+REJECT_METRICS = {"value", "raw_value", "sigma"}
+_COMPARISON_OPS = {">", ">=", "<", "<=", "=", "!="}
 
 
 class QueryParseError(ValueError):
@@ -77,6 +96,39 @@ class Predicate:
     value: str
 
 
+# --- Reject condition tree (.reject(...)) ----------------------------------
+# A small boolean tree the executor turns into a `WHERE NOT (<expr>)` clause:
+# rows where the condition holds are dropped. Leaves compare a metric to a
+# number (`value > 100`, `sigma > 3`) or test a range (`value outside (0, 5)`).
+# Kept as a typed tree (not a raw string) so the executor builds parameterized
+# SQL and never interpolates user input.
+
+
+@dataclass(frozen=True)
+class RejectCmp:
+    metric: str   # one of REJECT_METRICS
+    op: str       # one of _COMPARISON_OPS
+    threshold: float
+
+
+@dataclass(frozen=True)
+class RejectRange:
+    metric: str   # "value" | "raw_value" (sigma ranges aren't meaningful)
+    lo: float
+    hi: float
+    inside: bool  # True = `between` (reject inside); False = `outside`
+
+
+@dataclass(frozen=True)
+class RejectBool:
+    op: str       # "and" | "or"
+    left: "RejectNode"
+    right: "RejectNode"
+
+
+RejectNode = RejectCmp | RejectRange | RejectBool
+
+
 @dataclass(frozen=True)
 class Query:
     fn: str
@@ -87,19 +139,33 @@ class Query:
     # the caller falls back to its auto-picked interval — typically a
     # function of the requested time window.
     rollup: str | None = None
+    # Optional outlier-rejection condition (.reject(...)). Matching raw
+    # samples are dropped before aggregation; the resulting empty buckets
+    # become null gaps. None = no rejection.
+    reject: RejectNode | None = None
+    # Optional null-gap fill mode (.fill(...)), one of FILL_MODES. Display
+    # hint only — the executor passes it through; CSV export keeps true NaN.
+    fill: str | None = None
 
 
 # ---------------------------------------------------------------------------
 # Tokenizer
 # ---------------------------------------------------------------------------
 
+# Token order matters: `interval` (e.g. 100ms) must precede `number` so a
+# trailing unit isn't split off, and the two-char comparison ops are folded
+# into one `op` group whose regex tries `>=`/`<=`/`!=` before the single-char
+# forms. `=` lives in `op` (not `punct`) so the parser treats `name = "x"` and
+# `value > 3` uniformly.
 _TOKEN_RX = re.compile(
     r"""
       (?P<ws>\s+)
     | (?P<string>"(?:[^"\\]|\\.)*")
     | (?P<interval>\d+(?:ms|[smhd]))
+    | (?P<number>-?\d+(?:\.\d+)?)
+    | (?P<op>>=|<=|!=|>|<|=)
     | (?P<ident>[A-Za-z_][A-Za-z0-9_]*)
-    | (?P<punct>[().=,])
+    | (?P<punct>[(),.])
     """,
     re.VERBOSE,
 )
@@ -137,7 +203,7 @@ def _tokenize(s: str) -> list[Token]:
 # Method names recognized after the aggregator-call opener. Treated as
 # regular identifiers at the lexer level — the parser dispatches on them
 # inside the chain loop. Case-insensitive.
-_METHODS = {"where", "by", "every"}
+_METHODS = {"where", "by", "every", "reject", "fill"}
 
 # Old-syntax identifiers we want to flag with a friendly migration error
 # instead of a confusing "unknown method". v0.2 cleanup.
@@ -210,6 +276,10 @@ def parse(s: str) -> Query:
     group_by: list[str] = []
     rollup: str | None = None
     every_seen_pos: int | None = None
+    reject: RejectNode | None = None
+    reject_seen_pos: int | None = None
+    fill: str | None = None
+    fill_seen_pos: int | None = None
 
     # Method-call chain: zero or more `.method(args)` calls. Order is
     # accepted in any sequence — the semantics are the same.
@@ -253,6 +323,22 @@ def parse(s: str) -> Query:
                 )
             rollup = _parse_every_args(c)
             every_seen_pos = method_tok.pos
+        elif method == "reject":
+            if reject_seen_pos is not None:
+                raise QueryParseError(
+                    "'.reject' specified more than once; combine conditions "
+                    "with 'and'/'or' inside one .reject(...)",
+                    method_tok.pos,
+                )
+            reject = _parse_reject_args(c)
+            reject_seen_pos = method_tok.pos
+        elif method == "fill":
+            if fill_seen_pos is not None:
+                raise QueryParseError(
+                    "'.fill' specified more than once", method_tok.pos
+                )
+            fill = _parse_fill_args(c)
+            fill_seen_pos = method_tok.pos
         c.expect_punct(")")
 
     return Query(
@@ -261,6 +347,8 @@ def parse(s: str) -> Query:
         filters=tuple(filters),
         group_by=tuple(group_by),
         rollup=rollup,
+        reject=reject,
+        fill=fill,
     )
 
 
@@ -333,7 +421,7 @@ def _parse_where_args(c: _Cursor) -> list[Predicate]:
             )
         return [Predicate(column=col, op="=", value=v) for v in values]
 
-    if op_tok and op_tok.kind == "punct" and op_tok.value == "=":
+    if op_tok and op_tok.kind == "op" and op_tok.value == "=":
         c.advance()
         val_tok = c.peek()
         if val_tok is None or val_tok.kind != "string":
@@ -411,3 +499,115 @@ def _parse_every_args(c: _Cursor) -> str:
             iv_tok.pos,
         )
     return iv_tok.value
+
+
+def _parse_fill_args(c: _Cursor) -> str:
+    """Parse a single fill-mode identifier (gap | last | linear)."""
+    mode_tok = c.expect_ident()
+    mode = mode_tok.value.lower()
+    if mode not in ALLOWED_FILL_MODES:
+        raise QueryParseError(
+            f"invalid fill mode '{mode_tok.value}'; valid: "
+            + ", ".join(FILL_MODES),
+            mode_tok.pos,
+        )
+    return mode
+
+
+# --- Reject condition parser -----------------------------------------------
+# Grammar (precedence low→high), reusing the same cursor:
+#   or   := and ('or' and)*
+#   and  := cmp ('and' cmp)*
+#   cmp  := metric <op> number
+#         | metric ('between' | 'outside') '(' number ',' number ')'
+#         | '(' or ')'
+
+
+def _parse_reject_args(c: _Cursor) -> RejectNode:
+    node = _parse_reject_or(c)
+    return node
+
+
+def _parse_reject_or(c: _Cursor) -> RejectNode:
+    left = _parse_reject_and(c)
+    while True:
+        t = c.peek()
+        if t and t.kind == "ident" and t.value.lower() == "or":
+            c.advance()
+            right = _parse_reject_and(c)
+            left = RejectBool(op="or", left=left, right=right)
+        else:
+            return left
+
+
+def _parse_reject_and(c: _Cursor) -> RejectNode:
+    left = _parse_reject_cmp(c)
+    while True:
+        t = c.peek()
+        if t and t.kind == "ident" and t.value.lower() == "and":
+            c.advance()
+            right = _parse_reject_cmp(c)
+            left = RejectBool(op="and", left=left, right=right)
+        else:
+            return left
+
+
+def _parse_reject_cmp(c: _Cursor) -> RejectNode:
+    t = c.peek()
+    if t and t.kind == "punct" and t.value == "(":
+        c.advance()
+        inner = _parse_reject_or(c)
+        c.expect_punct(")")
+        return inner
+
+    metric_tok = c.expect_ident()
+    metric = metric_tok.value.lower()
+    if metric not in REJECT_METRICS:
+        raise QueryParseError(
+            f"can't reject on '{metric_tok.value}'; valid metrics: "
+            + ", ".join(sorted(REJECT_METRICS)),
+            metric_tok.pos,
+        )
+
+    nxt = c.peek()
+    # Range form: metric between/outside (lo, hi)
+    if nxt and nxt.kind == "ident" and nxt.value.lower() in ("between", "outside"):
+        kw_tok = c.advance()
+        if metric == "sigma":
+            raise QueryParseError(
+                "'sigma' ranges aren't meaningful; use 'sigma > N'",
+                kw_tok.pos,
+            )
+        c.expect_punct("(")
+        lo = _parse_reject_number(c)
+        c.expect_punct(",")
+        hi = _parse_reject_number(c)
+        c.expect_punct(")")
+        return RejectRange(
+            metric=metric, lo=lo, hi=hi, inside=kw_tok.value.lower() == "between"
+        )
+
+    # Comparison form: metric <op> number
+    if nxt is None or nxt.kind != "op":
+        raise QueryParseError(
+            "expected a comparison (e.g. value > 100) or 'between'/'outside'",
+            nxt.pos if nxt else c._tail_pos(),
+        )
+    op = nxt.value
+    if op not in _COMPARISON_OPS:
+        raise QueryParseError(f"invalid comparison operator '{op}'", nxt.pos)
+    c.advance()
+    threshold = _parse_reject_number(c)
+    return RejectCmp(metric=metric, op=op, threshold=threshold)
+
+
+def _parse_reject_number(c: _Cursor) -> float:
+    # The lexer folds an optional leading '-' into the number literal, so a
+    # negative threshold (e.g. value < -5) arrives as a single token.
+    t = c.peek()
+    if t is None or t.kind != "number":
+        raise QueryParseError(
+            "expected a number", t.pos if t else c._tail_pos()
+        )
+    c.advance()
+    return float(t.value)

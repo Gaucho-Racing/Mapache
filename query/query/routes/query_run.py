@@ -90,6 +90,33 @@ async def post_query_run(
                 status_code=400, detail="start must be before end"
             )
 
+        # Guard against a pathological range × interval. The executor zero/null-
+        # fills a bucket axis spanning [start, end) in Python, so e.g. a multi-
+        # day window at a 100 ms interval is millions of buckets per series —
+        # enough to OOM the service. Reject it up front with a clear, actionable
+        # message instead. The chart can't render that many points anyway.
+        # `.every(...)` on the query overrides the request-level interval.
+        effective_interval = ast.rollup or body.interval
+        if effective_interval in INTERVALS:
+            step_ms = INTERVALS[effective_interval][1]
+            bucket_count = int(
+                (end_dt - start_dt).total_seconds() * 1000 // step_ms
+            )
+            MAX_BUCKETS = 50_000
+            if bucket_count > MAX_BUCKETS:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": (
+                            f"range too large for a {effective_interval} "
+                            f"interval (~{bucket_count:,} buckets, max "
+                            f"{MAX_BUCKETS:,}) — widen the interval or shorten "
+                            f"the time range"
+                        ),
+                        "position": 0,
+                    },
+                )
+
         result = run_query(
             ast,
             vehicle_id=body.vehicle_id,

@@ -82,6 +82,13 @@ def query_signals(
 
     result = get_clickhouse().query_df(query_str, parameters=params)
 
+    # Empty window (or no matching signals) → query_df yields a frame with no
+    # `produced_at` column; bail with no dataframes rather than KeyError-ing.
+    # The callers (/query/pairs, record-style /signals) already handle an empty
+    # list as "no data".
+    if result.empty or "produced_at" not in result.columns:
+        return []
+
     result["produced_at"] = pd.to_datetime(result["produced_at"], utc=True)
 
     pivoted = result.pivot_table(index="produced_at", columns="name", values="value", aggfunc="first")
