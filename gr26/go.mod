@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.103.1
 	github.com/eclipse/paho.golang v0.23.0
 	github.com/fatih/color v1.18.0
-	github.com/gaucho-racing/mapache/mapache-go/v3 v3.4.0
+	github.com/gaucho-racing/mapache/mapache-go/v3 v3.5.0
 	github.com/gaucho-racing/ulid-go v1.1.0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
