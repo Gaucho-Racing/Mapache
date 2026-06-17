@@ -2,10 +2,49 @@ import { Input } from "@/components/ui/input";
 import { type Series } from "./QueryChart";
 import {
   compileAgainstSeries,
+  type ExtraVariables,
   type SeriesVariable,
 } from "./DerivedTraces";
+import type { Lap } from "@/models/session";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
+
+/** The pseudo-variable name exposed to highlight conditions when laps are
+ *  available, e.g. `lap % 2 = 1`. */
+export const LAP_VAR = "lap";
+
+/** Build a per-bucket `lap` extra-variable from a session's laps. Maps each
+ *  bucket index to the lap_number whose [start_time, end_time] contains the
+ *  bucket's timestamp. Bucket timestamps are sorted ascending, so a single
+ *  pointer advances over the (lap_number-ordered) laps — O(buckets + laps).
+ *  Buckets outside any lap resolve to NaN, so `lap % 2 = 1` is simply false
+ *  there (no band). */
+function buildLapExtra(series: Series[], laps: Lap[]): ExtraVariables | null {
+  const buckets = series[0]?.points ?? [];
+  if (buckets.length === 0 || laps.length === 0) return null;
+
+  const ordered = [...laps].sort((a, b) => a.lap_number - b.lap_number);
+  const lapByBucket = new Array<number>(buckets.length).fill(NaN);
+
+  let lapIdx = 0;
+  for (let i = 0; i < buckets.length; i++) {
+    const t = new Date(buckets[i].bucket).getTime();
+    // Advance past laps that ended before this bucket's timestamp.
+    while (lapIdx < ordered.length && new Date(ordered[lapIdx].end_time).getTime() < t) {
+      lapIdx++;
+    }
+    if (lapIdx >= ordered.length) break;
+    const lap = ordered[lapIdx];
+    if (t >= new Date(lap.start_time).getTime()) {
+      lapByBucket[i] = lap.lap_number;
+    }
+  }
+
+  return {
+    names: [LAP_VAR],
+    valueAt: (i) => ({ [LAP_VAR]: lapByBucket[i] }),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Highlight regions (T6)
@@ -58,11 +97,16 @@ export interface HighlightRanges {
 export function evaluateHighlights(
   series: Series[],
   highlights: Highlight[],
+  laps?: Lap[] | null,
 ): { ranges: HighlightRanges[]; errors: Record<string, string> } {
   // Shared bucket axis (server zero-fills every series), so the first series
   // defines how many bucket indices there are to walk.
   const bucketCount = series[0]?.points.length ?? 0;
   const errors: Record<string, string> = {};
+
+  // When laps are present, expose a per-bucket `lap` pseudo-variable so
+  // conditions like `lap % 2 = 1` (alternate by lap) work.
+  const lapExtra = laps && laps.length > 0 ? buildLapExtra(series, laps) : null;
 
   const ranges = highlights.map((h): HighlightRanges => {
     if (h.expression.trim() === "") {
@@ -70,7 +114,7 @@ export function evaluateHighlights(
       return { id: h.id, color: h.color, ranges: [] };
     }
 
-    const evaluator = compileAgainstSeries(h.expression, series);
+    const evaluator = compileAgainstSeries(h.expression, series, lapExtra ?? undefined);
     if (!evaluator.ok || !evaluator.evalAt) {
       // Compile / unknown-variable error → no bands; surface why in the editor.
       if (evaluator.error) errors[h.id] = evaluator.error;
@@ -117,6 +161,9 @@ interface HighlightsProps {
   variables: SeriesVariable[];
   /** Per-highlight parse/unknown-variable errors keyed by id. */
   errors: Record<string, string>;
+  /** When true, the `lap` pseudo-variable is available: show the
+   *  "alternate by lap" shortcut and list `lap` in the vars hint. */
+  lapsAvailable?: boolean;
 }
 
 /** Compact editor for highlight regions, styled to match the derived-traces /
@@ -126,13 +173,14 @@ export function Highlights({
   onChange,
   variables,
   errors,
+  lapsAvailable = false,
 }: HighlightsProps) {
-  function add() {
+  function add(expression = "") {
     onChange([
       ...highlights,
       {
         id: newHighlightId(),
-        expression: "",
+        expression,
         color: DEFAULT_HIGHLIGHT_COLOR,
       },
     ]);
@@ -214,7 +262,7 @@ export function Highlights({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={add}
+          onClick={() => add()}
           className={cn(
             "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
           )}
@@ -222,9 +270,22 @@ export function Highlights({
           <Plus className="h-3 w-3" />
           highlight
         </button>
+        {lapsAvailable ? (
+          <button
+            type="button"
+            onClick={() => add(`${LAP_VAR} % 2 = 1`)}
+            title="Highlight every other lap"
+            className={cn(
+              "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+            )}
+          >
+            <Plus className="h-3 w-3" />
+            alternate by lap
+          </button>
+        ) : null}
       </div>
 
-      {variables.length > 0 ? (
+      {variables.length > 0 || lapsAvailable ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
           <span className="uppercase tracking-wider">vars</span>
           {variables.map((v) => (
@@ -232,6 +293,7 @@ export function Highlights({
               {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
             </code>
           ))}
+          {lapsAvailable ? <code className="font-mono">{LAP_VAR}</code> : null}
         </div>
       ) : null}
     </div>

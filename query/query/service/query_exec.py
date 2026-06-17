@@ -183,6 +183,12 @@ def run_query(
     }
     where.extend(_build_filter_sql(q.filters, params))
 
+    # Snapshot the base filters/params (vehicle_id, time window, q.filters)
+    # before the reject branches append reject thresholds, so the companion
+    # reject-stats query can build an independent, non-colliding predicate.
+    where_base = list(where)
+    base_params = dict(params)
+
     group_by_cols = ["bucket"] + [f"series_{c}" for c in q.group_by]
 
     # Reject matching RAW samples before GROUP BY so a spike can't skew a bucket
@@ -238,7 +244,103 @@ def run_query(
         step_ms=step_ms,
         label=q.label,
     )
-    return {"series": series, "interval": effective_interval}
+
+    reject_stats = None
+    if q.reject is not None:
+        reject_stats = _run_reject_stats(
+            q=q,
+            base_where=where_base,
+            base_params=base_params,
+        )
+
+    return {
+        "series": series,
+        "interval": effective_interval,
+        "reject_stats": reject_stats,
+    }
+
+
+def _run_reject_stats(
+    q: Query,
+    base_where: list[str],
+    base_params: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Stats over the raw samples the reject WOULD CUT (the inverse predicate).
+
+    Mirrors the main query's series grouping so each entry maps to one series.
+    Uses its own params copy so the reject thresholds bound here can't collide
+    with the param keys already bound by the main query.
+    """
+    assert q.reject is not None
+    # Field the reject targets numerically; `count(signal)` has no numeric field
+    # so fall back to `value`, mirroring the executor's sigma_col logic.
+    field = q.field if q.field in ("value", "raw_value") else "value"
+
+    params = dict(base_params)
+    where = list(base_where)
+
+    select_parts: list[str] = []
+    for col in q.group_by:
+        select_parts.append(f"{col} AS series_{col}")
+    select_parts.extend(
+        [
+            "count() AS cut_count",
+            f"min({field}) AS cut_min",
+            f"max({field}) AS cut_max",
+            f"avg({field}) AS cut_avg",
+        ]
+    )
+    group_by_cols = [f"series_{c}" for c in q.group_by]
+
+    if _reject_uses_sigma(q.reject):
+        if q.group_by:
+            partition = "PARTITION BY " + ", ".join(q.group_by)
+        else:
+            partition = ""
+        reject_expr = _build_reject_sql(q.reject, params, sigma_col=field)
+        inner_select = (
+            f"SELECT *, produced_at, "
+            f"avg({field}) OVER ({partition}) AS _mean, "
+            f"stddevPop({field}) OVER ({partition}) AS _std "
+            f"FROM signal WHERE {' AND '.join(where)}"
+        )
+        # Keep the rows the reject matches (no NOT): coalesce so a degenerate
+        # group's NULL comparison counts as "not cut", matching the main query.
+        sql = f"""
+            SELECT {', '.join(select_parts)}
+            FROM ({inner_select})
+            WHERE coalesce(({reject_expr}), 0)
+            {("GROUP BY " + ", ".join(group_by_cols)) if group_by_cols else ""}
+        """
+    else:
+        reject_expr = _build_reject_sql(q.reject, params, sigma_col="value")
+        where.append(f"({reject_expr})")
+        sql = f"""
+            SELECT {', '.join(select_parts)}
+            FROM signal
+            WHERE {' AND '.join(where)}
+            {("GROUP BY " + ", ".join(group_by_cols)) if group_by_cols else ""}
+        """
+
+    rows = get_clickhouse().query(sql, parameters=params).result_rows
+    n_groups = len(q.group_by)
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        group_vals = tuple(row[0:n_groups])
+        cut_count, cut_min, cut_max, cut_avg = row[n_groups:n_groups + 4]
+        if not cut_count:
+            continue
+        tags = {col: group_vals[i] for i, col in enumerate(q.group_by)}
+        out.append(
+            {
+                "tags": tags,
+                "cut_count": _coerce_number(cut_count),
+                "min": _coerce_number(cut_min),
+                "max": _coerce_number(cut_max),
+                "avg": _coerce_number(cut_avg),
+            }
+        )
+    return out
 
 
 def _shape_response(

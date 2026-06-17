@@ -28,6 +28,17 @@ import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+/** Per-series summary of the raw samples a `.reject(...)` clause cut before
+ *  aggregation. One entry per series (single entry with empty `tags` when the
+ *  query has no group-by). Returned by /query/run as `reject_stats`. */
+export interface RejectStatsEntry {
+  tags: Record<string, string | null>;
+  cut_count: number;
+  min: number | null;
+  max: number | null;
+  avg: number | null;
+}
+
 interface QueryBuilderProps {
   value: Query;
   onChange: (next: Query) => void;
@@ -35,6 +46,8 @@ interface QueryBuilderProps {
   signalNames: string[];
   /** Parser/execution error from the most recent run, shown under the preview. */
   error?: { message: string; position?: number } | null;
+  /** Cut-summary from the most recent run, shown in the reject chip popover. */
+  rejectStats?: RejectStatsEntry[] | null;
   /** Opt-in editable MQL line: when provided, the preview becomes a controlled
    *  `<input>` that calls `onMqlChange` for the parent to re-parse. */
   onMqlChange?: (mql: string) => void;
@@ -49,6 +62,7 @@ export function QueryBuilder({
   onChange,
   signalNames,
   error,
+  rejectStats,
   onMqlChange,
   onMqlFocus,
   onMqlBlur,
@@ -204,7 +218,11 @@ export function QueryBuilder({
         </Clause>
 
         <Clause keyword="reject">
-          <RejectChip value={value.reject} onChange={setReject} />
+          <RejectChip
+            value={value.reject}
+            onChange={setReject}
+            stats={rejectStats ?? null}
+          />
         </Clause>
 
         <Clause keyword="fill">
@@ -315,7 +333,7 @@ function Hint({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 const CHIP_BASE =
-  "inline-flex h-7 items-center gap-1 rounded-md border bg-background px-2.5 text-xs font-mono transition-colors";
+  "inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-md border bg-background px-2.5 text-xs font-mono transition-colors";
 
 function SelectChip({
   label,
@@ -658,12 +676,29 @@ function rejectSummary(ui: RejectUiState): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
+/** Compact, null-safe number for the cut summary (≤2 decimals, no trailing
+ *  zeros). */
+function formatCutNumber(n: number | null): string {
+  if (n === null || Number.isNaN(n)) return "–";
+  return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+}
+
+/** Series label for a cut-summary entry — the `name` tag, else the first tag
+ *  value, else "all" (an empty-tags entry means the query has no group-by). */
+function cutEntryLabel(tags: Record<string, string | null>): string {
+  if (tags.name) return tags.name;
+  for (const v of Object.values(tags)) if (v) return v;
+  return "all";
+}
+
 function RejectChip({
   value,
   onChange,
+  stats,
 }: {
   value: RejectNode | undefined;
   onChange: (next: RejectNode | undefined) => void;
+  stats: RejectStatsEntry[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const ui = rejectToUi(value);
@@ -736,6 +771,30 @@ function RejectChip({
               className="h-7 flex-1 font-mono text-xs"
             />
           </div>
+
+          {/* Read-only cut summary from the most recent run. */}
+          {stats && stats.length > 0 ? (
+            <>
+              <div className="border-t" />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">samples cut</span>
+                {stats.map((s, i) => (
+                  <div key={i} className="text-xs text-muted-foreground">
+                    <span className="font-mono text-foreground/80">
+                      {cutEntryLabel(s.tags)}
+                    </span>
+                    {" — cut "}
+                    {formatCutNumber(s.cut_count)}
+                    {" · range "}
+                    {formatCutNumber(s.min)}–{formatCutNumber(s.max)}
+                    {" (avg "}
+                    {formatCutNumber(s.avg)}
+                    {")"}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>

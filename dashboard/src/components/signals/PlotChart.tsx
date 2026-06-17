@@ -3,7 +3,6 @@ import { ScatterChart, LineChart, PieChart, BarChart } from "echarts/charts";
 import {
   GridComponent,
   TooltipComponent,
-  VisualMapComponent,
   LegendComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
@@ -26,7 +25,6 @@ echarts.use([
   BarChart,
   GridComponent,
   TooltipComponent,
-  VisualMapComponent,
   LegendComponent,
   Scatter3DChart,
   Grid3DComponent,
@@ -41,7 +39,7 @@ export type PlotKind = Extract<
 >;
 
 /** Sparse config driving the chart. Which fields matter depends on `kind`:
- *  - scatter/path: xSignal + ySignals (one or more), optional colorBy.
+ *  - scatter/path: xSignal + ySignals (one or more).
  *  - scatter3d: xSignal + ySignals[0] (y) + zSignal (z).
  *  - catbar/pie: neither — those read the categorical `/query/run` series. */
 export interface PlotConfig {
@@ -49,9 +47,6 @@ export interface PlotConfig {
   xSignal?: string;
   ySignals: string[];
   zSignal?: string;
-  /** "time" colors points along the row order (time), or a signal name colors
-   *  by that signal's value. Only meaningful for scatter/path. */
-  colorBy?: "time" | string;
 }
 
 /** Resolve an HSL CSS custom property to an `hsl(...)` string (mirrors
@@ -203,26 +198,14 @@ export function PlotChart({
 
     // --- scatter / path: XY from /query/pairs ---
     const x = config.xSignal;
-    const colorBy = config.colorBy;
-    const colorBySignal =
-      colorBy && colorBy !== "time" ? colorBy : undefined;
-
-    // colorBy tags each point with a 3rd dim the visualMap reads: row index
-    // (time proxy — rows are in produced_at order) or a signal's value.
-    const colorDim = colorBy ? 2 : undefined;
 
     const series = config.ySignals.map((ySig, si) => {
       const pts: number[][] = [];
-      pairs.rows.forEach((r, ri) => {
+      pairs.rows.forEach((r) => {
         const xv = num(r, x);
         const yv = num(r, ySig);
         if (xv === null || yv === null) return;
-        if (colorBy === "time") pts.push([xv, yv, ri]);
-        else if (colorBySignal) {
-          const cv = num(r, colorBySignal);
-          if (cv === null) return;
-          pts.push([xv, yv, cv]);
-        } else pts.push([xv, yv]);
+        pts.push([xv, yv]);
       });
       const color = PALETTE[si % PALETTE.length];
       if (config.kind === "path") {
@@ -245,26 +228,10 @@ export function PlotChart({
       };
     });
 
-    // visualMap color range over every plotted point's color dimension.
-    let cMin = Infinity;
-    let cMax = -Infinity;
-    if (colorDim !== undefined) {
-      for (const s of series) {
-        for (const p of s.data) {
-          const c = p[colorDim];
-          if (typeof c === "number") {
-            if (c < cMin) cMin = c;
-            if (c > cMax) cMax = c;
-          }
-        }
-      }
-    }
-    const hasColor = colorDim !== undefined && cMin <= cMax;
-
     return {
       animation: false,
       tooltip: { trigger: "item", ...baseTooltip },
-      grid: { top: 16, right: hasColor ? 72 : 16, bottom: 40, left: 56 },
+      grid: { top: 16, right: 16, bottom: 40, left: 56 },
       xAxis: {
         type: "value",
         name: x,
@@ -285,24 +252,6 @@ export function PlotChart({
         axisLabel: { color: axisLabelColor },
         splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
       },
-      ...(hasColor
-        ? {
-            visualMap: {
-              type: "continuous" as const,
-              dimension: colorDim,
-              min: cMin,
-              max: cMax,
-              calculable: true,
-              right: 8,
-              top: "center",
-              text: [colorBySignal ?? "late", colorBySignal ? "" : "early"],
-              textStyle: { color: axisLabelColor },
-              inRange: {
-                color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"],
-              },
-            },
-          }
-        : {}),
       series,
     };
   }, [config, pairs, categorical]);

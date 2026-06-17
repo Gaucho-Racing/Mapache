@@ -126,6 +126,9 @@ async def post_query_run(
             status_code=200,
             content={
                 "series": result["series"],
+                # Per-series summary of raw samples a `.reject(...)` clause cut;
+                # null when the query has no reject.
+                "reject_stats": result.get("reject_stats"),
                 "metadata": {
                     "query": body.query,
                     "start": utc_iso(start_dt),

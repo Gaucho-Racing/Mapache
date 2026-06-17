@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Series } from "@/components/signals/QueryChart";
+import { seriesLabel, type Series } from "@/components/signals/QueryChart";
 import {
   copyChartToClipboard,
   downloadChartPng,
@@ -78,11 +78,24 @@ export function ExportDialog({
   const [bg, setBg] = useState<BgKey>("light");
   const [scale, setScale] = useState("2");
   const [includeHidden, setIncludeHidden] = useState(false);
+  const [includeHeaders, setIncludeHeaders] = useState(true);
+  const [includeLabels, setIncludeLabels] = useState(false);
 
   // Image export needs a live instance, which a collapsed chart doesn't have.
   const imageDisabled = chartHidden || !getInstance();
 
   const safeName = filename.trim() || defaultFilename;
+
+  // Title is the export filename; x is the shared time bucket axis, and y is
+  // the lone series label when unambiguous, else a generic "value".
+  const chartLabels = () => ({
+    title: safeName,
+    xName: "time",
+    yName:
+      visibleSeries.length === 1
+        ? seriesLabel(visibleSeries[0].tags)
+        : "value",
+  });
 
   const downloadPng = () => {
     const inst = getInstance();
@@ -90,16 +103,21 @@ export function ExportDialog({
     downloadChartPng(inst, `${safeName}.png`, {
       backgroundColor: resolveBackground(bg),
       pixelRatio: Number(scale),
+      labels: includeLabels ? chartLabels() : undefined,
     });
   };
 
   const dataSeries = includeHidden ? allSeries : visibleSeries;
 
   const downloadCsv = () =>
-    downloadText(seriesToCsv(dataSeries), `${safeName}.csv`, "text/csv");
+    downloadText(
+      seriesToCsv(dataSeries, includeHeaders),
+      `${safeName}.csv`,
+      "text/csv",
+    );
   const downloadJson = () =>
     downloadText(
-      seriesToJson(dataSeries),
+      seriesToJson(dataSeries, includeHeaders),
       `${safeName}.json`,
       "application/json",
     );
@@ -110,6 +128,7 @@ export function ExportDialog({
     try {
       await copyChartToClipboard(inst, {
         backgroundColor: resolveBackground(bg),
+        labels: includeLabels ? chartLabels() : undefined,
       });
       toast.success("Chart copied to clipboard");
     } catch {
@@ -200,6 +219,16 @@ export function ExportDialog({
                 Copy to clipboard
               </Button>
             </div>
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={includeLabels}
+                onChange={(e) => setIncludeLabels(e.target.checked)}
+                disabled={imageDisabled}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              Include title &amp; axis labels
+            </label>
             {imageDisabled && (
               <div className="text-xs text-muted-foreground">
                 Show the chart to export or copy its image.
@@ -218,6 +247,15 @@ export function ExportDialog({
                 className="h-4 w-4 rounded border-input accent-primary"
               />
               Include hidden traces
+            </label>
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={includeHeaders}
+                onChange={(e) => setIncludeHeaders(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              Include header row
             </label>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={downloadCsv}>
