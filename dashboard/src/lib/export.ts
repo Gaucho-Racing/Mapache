@@ -1,9 +1,8 @@
 import type { ECharts } from "echarts/core";
 import { seriesLabel, type Series } from "@/components/signals/QueryChart";
 
-// Trigger a browser download for an in-memory payload. Works for both a Blob
-// (CSV text) and a ready-made data URL (the PNG ECharts hands back). Object
-// URLs are revoked on the next tick so the click has time to start.
+// Trigger a browser download for an object URL or data URL. Object URLs are
+// revoked next tick so the click has time to start.
 function triggerDownload(href: string, filename: string, isObjectUrl: boolean) {
   const a = document.createElement("a");
   a.href = href;
@@ -20,23 +19,15 @@ export function downloadText(text: string, filename: string, mime: string) {
   triggerDownload(URL.createObjectURL(blob), filename, true);
 }
 
-// Escape one CSV field: wrap in quotes and double any embedded quotes when the
-// value contains a comma, quote, or newline (RFC 4180). Plain values pass
-// through untouched so numeric columns stay clean.
+// Escape one CSV field per RFC 4180; plain values pass through untouched.
 function csvField(value: string): string {
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 }
 
-/** Shape the plotted series into a CSV string: a leading `time` column (the
- *  shared, server-aligned bucket ISO axis) followed by one column per series,
- *  labeled exactly as the chart legend reads it (`seriesLabel`). The values are
- *  the true, un-normalized bucket values — normalization is a display-only
- *  rescale, so the export always carries real numbers. Null buckets render as
- *  empty cells. Base series and derived/expression traces are columns alike.
- *
- *  Every series shares the same bucket axis (the backend zero-fills), so the
- *  first series' buckets define the rows and the rest index-align onto them. */
+/** Plotted series → CSV: a leading `time` column (the shared bucket axis) plus
+ *  one column per series, labeled as the legend reads it. Values are the true
+ *  un-normalized numbers; null buckets are empty cells. */
 export function seriesToCsv(series: Series[]): string {
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
   const header = ["time", ...series.map((s) => seriesLabel(s.tags))];
@@ -51,14 +42,47 @@ export function seriesToCsv(series: Series[]): string {
   return [header.map(csvField).join(","), ...rows].join("\n");
 }
 
-/** Export an ECharts instance as a PNG download. `getDataURL` renders the
- *  current on-screen chart to a data URL at 2x for a crisp image; a white
- *  background keeps it legible outside the app's dark theme. */
-export function downloadChartPng(instance: ECharts, filename: string) {
-  const url = instance.getDataURL({
-    type: "png",
-    pixelRatio: 2,
-    backgroundColor: "#fff",
+/** Plotted series → JSON: one row object per bucket, keyed `time` plus one
+ *  entry per series. Same semantics as `seriesToCsv`; null buckets → `null`. */
+export function seriesToJson(series: Series[]): string {
+  const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
+  const rows = buckets.map((bucket, bi) => {
+    const row: Record<string, string | number | null> = { time: bucket };
+    for (const s of series) {
+      const v = s.points[bi]?.value;
+      row[seriesLabel(s.tags)] = v === undefined ? null : v;
+    }
+    return row;
   });
+  return JSON.stringify(rows, null, 2);
+}
+
+export interface ChartPngOptions {
+  /** Any CSS color or "transparent". */
+  backgroundColor?: string;
+  /** Raster scale for hi-DPI crispness. */
+  pixelRatio?: number;
+}
+
+/** Export an ECharts instance as a PNG download (white bg at 2x by default). */
+export function downloadChartPng(
+  instance: ECharts,
+  filename: string,
+  opts: ChartPngOptions = {},
+) {
+  const { backgroundColor = "#fff", pixelRatio = 2 } = opts;
+  const url = instance.getDataURL({ type: "png", pixelRatio, backgroundColor });
   triggerDownload(url, filename, false);
+}
+
+/** Render the chart to a PNG and write it to the clipboard. Throws on failure
+ *  so the caller can surface a toast. */
+export async function copyChartToClipboard(
+  instance: ECharts,
+  opts: { backgroundColor?: string } = {},
+): Promise<void> {
+  const { backgroundColor = "#fff" } = opts;
+  const url = instance.getDataURL({ type: "png", pixelRatio: 2, backgroundColor });
+  const blob = await (await fetch(url)).blob();
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
 }

@@ -4,32 +4,21 @@ import { compileExpression, type DerivedTrace } from "@/lib/expr";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Variable model
-//
-// Each fetched base series becomes a variable the expression can reference.
-// Two aliases are exposed per series:
-//   - a positional alias `s0, s1, …` (always available, stable by index), and
-//   - a friendly alias derived from the series label (`current_ac`) *when*
-//     that label sanitizes to a valid, unique identifier.
-// The friendly alias is what makes an expression read naturally
-// (`current_ac^2`); the positional alias is the always-there fallback.
-// ---------------------------------------------------------------------------
+// Variable model: each base series is referenceable by a positional alias
+// (`s0, s1, …`, always present) and, when its label sanitizes to a unique valid
+// identifier, a friendly alias (`current_ac`).
 
 export interface SeriesVariable {
   /** Positional alias — always present. */
   index: string;
-  /** Friendly alias from the series label, or null if it didn't sanitize to
-   *  a valid/unique identifier. */
+  /** Friendly alias, or null if the label didn't sanitize to a unique ident. */
   friendly: string | null;
   /** Human label of the underlying series (for the hint UI). */
   label: string;
 }
 
-/** Sanitize a series label to a candidate identifier: lowercase, collapse
- *  runs of non-`[a-z0-9_]` to `_`, trim leading/trailing underscores. Returns
- *  null when nothing valid survives or the result starts with a digit (we
- *  prefix-guard rather than mangle further). */
+/** Sanitize a series label to a candidate identifier, or null if nothing valid
+ *  survives or it starts with a digit. */
 function sanitizeIdent(label: string): string | null {
   const cleaned = label
     .toLowerCase()
@@ -40,12 +29,9 @@ function sanitizeIdent(label: string): string | null {
   return cleaned;
 }
 
-/** Build the variable table for a set of base series. Friendly aliases are
- *  only assigned when unique across the set *and* not colliding with a
- *  positional alias (`s0, s1, …`); on any collision we drop the friendly
- *  alias for the affected series and the user falls back to `sN`. */
+/** Build the variable table. A friendly alias is assigned only when unique
+ *  across the set and not colliding with a positional alias; else `sN` only. */
 export function buildSeriesVariables(series: Series[]): SeriesVariable[] {
-  // First pass: tally candidate friendly idents so we can detect dupes.
   const candidates = series.map((s) => sanitizeIdent(seriesLabel(s.tags)));
   const counts = new Map<string, number>();
   for (const c of candidates) {
@@ -64,13 +50,9 @@ export function buildSeriesVariables(series: Series[]): SeriesVariable[] {
   });
 }
 
-/** Compile an expression against a set of base series, sharing the variable
- *  model (positional `sN` + friendly aliases) and up-front unknown-variable
- *  validation used by BOTH derived traces and highlights. On success returns a
- *  per-bucket evaluator `evalAt(i)` that builds the variable map for bucket
- *  index `i` (each base series' value, null → 0, under both its aliases) and
- *  evaluates the compiled expression — yielding NaN for non-finite results.
- *  This is the single code path so the two features can't drift apart. */
+/** Compile an expression against the base series, with the shared variable
+ *  model and unknown-variable validation used by both derived traces and
+ *  highlights. On success returns a per-bucket evaluator `evalAt(i)`. */
 export interface SeriesEvaluator {
   ok: boolean;
   /** Present when `!ok` — already formatted for inline display. */
@@ -113,8 +95,7 @@ export function compileAgainstSeries(
 
   const compiled = result.compiled;
   const evalAt = (i: number): number => {
-    // Build the per-bucket variable map: each base series contributes its
-    // value at index `i` under both its positional and friendly aliases.
+    // Each base series contributes its value at `i` under both its aliases.
     const vars: Record<string, number> = {};
     for (let si = 0; si < series.length; si++) {
       const value = series[si].points[i]?.value ?? 0;
@@ -136,32 +117,28 @@ export interface DerivedResult {
   error?: string;
 }
 
-/** Compute derived series from the fetched base series + the user's traces.
- *  Each trace is compiled once, then evaluated per bucket index, building the
- *  per-bucket variable map from each base series' value at that index (null →
- *  0, matching the chart's existing null handling). Unknown variable refs and
- *  non-finite results yield null points (the chart renders null → 0) rather
- *  than throwing. */
+/** Compute derived series from the base series + the user's traces. Each trace
+ *  is compiled once then evaluated per bucket; unknown refs and non-finite
+ *  results yield null points rather than throwing. */
 export function computeDerivedSeries(
   series: Series[],
-  traces: DerivedTrace[],
+  traces: (DerivedTrace & { name?: string })[],
 ): DerivedResult[] {
-  // The bucket axis is shared across every base series (server zero-fills),
-  // so the first series defines the bucket strings the derived series reuse.
+  // Shared (server-zero-filled) bucket axis; the derived series reuse it.
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
+
+  // Growing pool: each named result is appended so a later expression can
+  // reference an earlier one (`ecu / other -> ratio`, then `ratio * 2`).
+  const pool = [...series];
 
   return traces.map((trace) => {
     const label = trace.label.trim() || trace.expression.trim() || "derived";
 
     if (trace.expression.trim() === "") {
-      // An empty expression isn't an error worth shouting about — just skip
-      // it (no series, no message) so the row can sit there mid-edit.
-      return { id: trace.id };
+      return { id: trace.id }; // skip empty rows mid-edit
     }
 
-    // One shared compile-and-validate path with highlights (see
-    // `compileAgainstSeries`); a failure carries the formatted message.
-    const evaluator = compileAgainstSeries(trace.expression, series);
+    const evaluator = compileAgainstSeries(trace.expression, pool);
     if (!evaluator.ok || !evaluator.evalAt) {
       return { id: trace.id, error: evaluator.error };
     }
@@ -173,10 +150,9 @@ export function computeDerivedSeries(
       return { bucket, value: Number.isFinite(out) ? out : null };
     });
 
-    return {
-      id: trace.id,
-      series: { tags: { [DERIVED_KEY]: label }, points },
-    };
+    const computed: Series = { tags: { [DERIVED_KEY]: label }, points };
+    if (trace.name) pool.push(computed);
+    return { id: trace.id, series: computed };
   });
 }
 
@@ -199,8 +175,7 @@ interface DerivedTracesProps {
   errors: Record<string, string>;
 }
 
-/** Compact editor for derived/expression traces, styled to match the query
- *  builder's chip/sentence language. Lives below the QueryBuilder. */
+/** Compact editor for derived/expression traces. */
 export function DerivedTraces({
   traces,
   onChange,
