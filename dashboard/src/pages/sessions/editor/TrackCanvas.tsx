@@ -4,13 +4,15 @@ import { Vec2 } from "@/lib/sessions/intersect";
 import { SEGMENT_NAMES } from "@/lib/sessions/segments";
 import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 
+export type BaseMap = "satellite" | "streets" | "none";
+
 interface TrackCanvasProps {
   points: Point[];
   // segments[n] = list of [x,y] world coords (n: 1=S/F, 2-9 sectors)
   segments: Record<number, Vec2[]>;
   activeSegment: number;
   lapNumbers?: number[];
-  showSatellite: boolean;
+  baseMap: BaseMap;
   // Lat/lon bounding box of the currently-shown points.
   geoBounds?: {
     minLat: number;
@@ -25,7 +27,16 @@ interface TrackCanvasProps {
 
 const MAPBOX_MAX_DIM = 1280;
 
-function satelliteUrl(
+const BASE_MAP_STYLE: Record<Exclude<BaseMap, "none">, string> = {
+  satellite: "mapbox/satellite-v9",
+  streets: "mapbox/streets-v12",
+};
+
+// Mapbox Static Images API for a geographic bbox. Passing a width/height whose
+// aspect ratio matches the bbox keeps Mapbox from expanding the bbox to fill a
+// mismatched canvas, which is what makes the image line up with the track.
+function staticImageUrl(
+  style: string,
   bounds: { minLat: number; maxLat: number; minLon: number; maxLon: number },
   w: number,
   h: number,
@@ -33,7 +44,7 @@ function satelliteUrl(
   const W = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(w)));
   const H = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(h)));
   const bbox = `[${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}]`;
-  return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${bbox}/${W}x${H}@2x?access_token=${MAPBOX_ACCESS_TOKEN}&attribution=false&logo=false`;
+  return `https://api.mapbox.com/styles/v1/${style}/static/${bbox}/${W}x${H}@2x?access_token=${MAPBOX_ACCESS_TOKEN}&attribution=false&logo=false`;
 }
 
 const SEGMENT_COLORS: Record<number, string> = {
@@ -64,17 +75,21 @@ interface Transform {
   height: number;
 }
 
-function computeTransform(
+interface WorldBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function worldBoundsOf(
   points: Point[],
   segments: Record<number, Vec2[]>,
-  w: number,
-  h: number,
-): Transform {
+): WorldBounds | null {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
     maxY = -Infinity;
-
   const consider = (x: number, y: number) => {
     if (x < minX) minX = x;
     if (x > maxX) maxX = x;
@@ -85,24 +100,31 @@ function computeTransform(
   for (const pts of Object.values(segments)) {
     for (const pt of pts) consider(pt[0], pt[1]);
   }
+  if (!isFinite(minX)) return null;
+  return { minX, maxX, minY, maxY };
+}
 
-  if (!isFinite(minX)) {
+function computeTransform(
+  wb: WorldBounds | null,
+  w: number,
+  h: number,
+): Transform {
+  if (!wb) {
     return { scale: 1, offsetX: w / 2, offsetY: h / 2, height: h };
   }
-
-  const dataW = maxX - minX || 1;
-  const dataH = maxY - minY || 1;
+  const dataW = wb.maxX - wb.minX || 1;
+  const dataH = wb.maxY - wb.minY || 1;
   const pad = 0.9;
   const scale = Math.min((w / dataW) * pad, (h / dataH) * pad);
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
+  const cx = (wb.minX + wb.maxX) / 2;
+  const cy = (wb.minY + wb.maxY) / 2;
   const offsetX = w / 2 - cx * scale;
   const offsetY = h / 2 + cy * scale; // y flipped
   return { scale, offsetX, offsetY, height: h };
 }
 
 function worldToScreen(t: Transform, x: number, y: number): [number, number] {
-  return [x * t.scale + t.offsetX, t.height - (y * t.scale + (t.height - t.offsetY))];
+  return [x * t.scale + t.offsetX, t.offsetY - y * t.scale];
 }
 
 function screenToWorld(t: Transform, sx: number, sy: number): Vec2 {
@@ -111,12 +133,39 @@ function screenToWorld(t: Transform, sx: number, sy: number): Vec2 {
   return [x, y];
 }
 
+// Linear map from the world bbox (any of the normalization projections) to the
+// geographic bbox of the same points. Used to figure out which lat/lon the
+// canvas corners correspond to so the base map can cover the whole viewport.
+function canvasGeoBounds(
+  t: Transform,
+  wb: WorldBounds,
+  geo: { minLat: number; maxLat: number; minLon: number; maxLon: number },
+  w: number,
+  h: number,
+) {
+  const dx = wb.maxX - wb.minX || 1;
+  const dy = wb.maxY - wb.minY || 1;
+  const lonAt = (x: number) =>
+    geo.minLon + ((x - wb.minX) / dx) * (geo.maxLon - geo.minLon);
+  const latAt = (y: number) =>
+    geo.minLat + ((y - wb.minY) / dy) * (geo.maxLat - geo.minLat);
+
+  const [xTL, yTL] = screenToWorld(t, 0, 0);
+  const [xBR, yBR] = screenToWorld(t, w, h);
+  return {
+    minLon: lonAt(Math.min(xTL, xBR)),
+    maxLon: lonAt(Math.max(xTL, xBR)),
+    minLat: latAt(Math.min(yTL, yBR)),
+    maxLat: latAt(Math.max(yTL, yBR)),
+  };
+}
+
 export default function TrackCanvas({
   points,
   segments,
   activeSegment,
   lapNumbers,
-  showSatellite,
+  baseMap,
   geoBounds,
   onAddPoint,
   onRemovePoint,
@@ -129,16 +178,28 @@ export default function TrackCanvas({
     offsetY: 0,
     height: 0,
   });
-  const [satImg, setSatImg] = useState<HTMLImageElement | null>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [baseImg, setBaseImg] = useState<HTMLImageElement | null>(null);
+
+  // Track the container size so both the draw and the base-map fetch react to
+  // resizes (which change the world->screen transform, hence the bbox).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () =>
+      setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    const { w, h } = size;
+    if (!canvas || w === 0 || h === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = container.clientWidth;
-    const h = container.clientHeight;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
     canvas.style.width = `${w}px`;
@@ -149,25 +210,14 @@ export default function TrackCanvas({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
 
-    const t = computeTransform(points, segments, w, h);
+    const wb = worldBoundsOf(points, segments);
+    const t = computeTransform(wb, w, h);
     transformRef.current = t;
 
-    // Satellite underlay: align the Mapbox bbox image to the world bbox of the
-    // points, which corresponds geographically to geoBounds.
-    if (showSatellite && satImg && points.length > 0) {
-      let minX = Infinity,
-        maxX = -Infinity,
-        minY = Infinity,
-        maxY = -Infinity;
-      for (const p of points) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-      }
-      const [left, top] = worldToScreen(t, minX, maxY);
-      const [right, bottom] = worldToScreen(t, maxX, minY);
-      ctx.drawImage(satImg, left, top, right - left, bottom - top);
+    // Base map underlay fills the whole canvas; it is fetched for exactly the
+    // canvas's geographic extent so it stays registered with the track.
+    if (baseMap !== "none" && baseImg) {
+      ctx.drawImage(baseImg, 0, 0, w, h);
     }
 
     // Track polyline.
@@ -235,39 +285,40 @@ export default function TrackCanvas({
         }
       }
     }
-  }, [points, segments, activeSegment, lapNumbers, showSatellite, satImg]);
+  }, [points, segments, activeSegment, lapNumbers, baseMap, baseImg, size]);
 
-  // Fetch the satellite image whenever the view bounds or toggle change. No
-  // persistent cache — a new image is requested each time the inputs change.
+  // Fetch the base-map image whenever the view, size, or style change. The
+  // image covers the canvas's geographic extent, so it always fills the canvas.
   useEffect(() => {
-    setSatImg(null);
+    setBaseImg(null);
+    const { w, h } = size;
     if (
-      !showSatellite ||
+      baseMap === "none" ||
       !geoBounds ||
       !MAPBOX_ACCESS_TOKEN ||
-      points.length === 0
+      points.length === 0 ||
+      w === 0 ||
+      h === 0
     ) {
       return;
     }
-    const container = containerRef.current;
+    const wb = worldBoundsOf(points, segments);
+    if (!wb) return;
+    const t = computeTransform(wb, w, h);
+    const bbox = canvasGeoBounds(t, wb, geoBounds, w, h);
+
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => setSatImg(img);
-    img.src = satelliteUrl(
-      geoBounds,
-      container?.clientWidth ?? MAPBOX_MAX_DIM,
-      container?.clientHeight ?? MAPBOX_MAX_DIM,
-    );
+    img.onload = () => setBaseImg(img);
+    img.src = staticImageUrl(BASE_MAP_STYLE[baseMap], bbox, w, h);
     return () => {
       img.onload = null;
     };
-  }, [showSatellite, geoBounds, points.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseMap, geoBounds, points, size]);
 
   useEffect(() => {
     draw();
-    const onResize = () => draw();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
   }, [draw]);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

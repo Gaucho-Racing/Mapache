@@ -37,7 +37,7 @@ import {
   saveSessionLaps,
 } from "@/lib/sessions/api";
 import { cn } from "@/lib/utils";
-import TrackCanvas from "./editor/TrackCanvas";
+import TrackCanvas, { BaseMap } from "./editor/TrackCanvas";
 import SignalPicker from "./editor/SignalPicker";
 import SignalTimeChart from "./editor/SignalTimeChart";
 import CalibrationControls from "./editor/CalibrationControls";
@@ -137,7 +137,7 @@ export function SessionEditorPage() {
   const [signalNames, setSignalNames] = useState<string[]>([]);
   const [latField, setLatField] = useState("");
   const [lonField, setLonField] = useState("");
-  const [normMode, setNormMode] = useState<NormMode>(NormMode.WGS84);
+  const [normMode, setNormMode] = useState<NormMode>(NormMode.LocalCartesian);
 
   const [rawGeo, setRawGeo] = useState<GeoPoint[]>([]);
   const [allPoints, setAllPoints] = useState<Point[]>([]);
@@ -159,7 +159,7 @@ export function SessionEditorPage() {
   const [newSessionName, setNewSessionName] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [showSatellite, setShowSatellite] = useState(true);
+  const [baseMap, setBaseMap] = useState<BaseMap>("satellite");
 
   // -- Calibration mode: signals-vs-time -------------------------------------
   const [calSignals, setCalSignals] = useState<string[]>([]);
@@ -196,7 +196,7 @@ export function SessionEditorPage() {
       if (hasAnalysis(analysis)) {
         setLatField(analysis.lat_field || "");
         setLonField(analysis.lon_field || "");
-        setNormMode((analysis.norm_mode as NormMode) || NormMode.WGS84);
+        setNormMode((analysis.norm_mode as NormMode) || NormMode.LocalCartesian);
         segMgrRef.current.loadFromPayload(analysis.segments || {});
         savedCropRef.current =
           analysis.crop_start_ts && analysis.crop_end_ts
@@ -681,7 +681,7 @@ export function SessionEditorPage() {
                 points={croppedPoints}
                 segments={segmentsSnapshot}
                 activeSegment={activeSeg}
-                showSatellite={showSatellite}
+                baseMap={baseMap}
                 geoBounds={croppedGeoBounds}
                 lapNumbers={
                   lapResult &&
@@ -787,22 +787,31 @@ export function SessionEditorPage() {
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="text-xs text-neutral-400">
-                  Satellite view
+                <div className="text-xs text-neutral-400">Base map</div>
+                <div className="flex gap-1">
+                  {(
+                    [
+                      ["satellite", "Satellite"],
+                      ["streets", "Streets"],
+                      ["none", "None"],
+                    ] as [BaseMap, string][]
+                  ).map(([mode, label]) => (
+                    <Button
+                      key={mode}
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        "h-7 text-xs",
+                        baseMap === mode
+                          ? "bg-gradient-to-br from-gr-pink to-gr-purple text-white"
+                          : "text-neutral-400",
+                      )}
+                      onClick={() => setBaseMap(mode)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={cn(
-                    "h-7 text-xs",
-                    showSatellite
-                      ? "bg-gradient-to-br from-gr-pink to-gr-purple text-white"
-                      : "text-neutral-400",
-                  )}
-                  onClick={() => setShowSatellite((v) => !v)}
-                >
-                  {showSatellite ? "On" : "Off"}
-                </Button>
               </div>
 
               <div>
