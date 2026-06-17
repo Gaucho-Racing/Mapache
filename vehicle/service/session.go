@@ -7,9 +7,9 @@ import (
 	"github.com/gaucho-racing/mapache/vehicle/database"
 )
 
-func GetAllSessions() []mapache.Session {
+func GetAllSessionsPaged(limit, offset int) []mapache.Session {
 	var sessions []mapache.Session
-	database.DB.Find(&sessions)
+	database.DB.Order("start_time DESC").Limit(limit).Offset(offset).Find(&sessions)
 	for i := range sessions {
 		populateSession(&sessions[i])
 	}

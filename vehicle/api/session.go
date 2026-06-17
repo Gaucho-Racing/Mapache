@@ -32,7 +32,18 @@ func GetAllSessions(c *gin.Context) {
 		result := service.GetSessionsByVehicleIDPaged(param, limit, offset)
 		c.JSON(http.StatusOK, result)
 	} else {
-		result := service.GetAllSessions()
+		// Unfiltered reads materialize every session (plus its laps/markers),
+		// so cap the global path to the most recent page instead of the whole
+		// table. Callers can walk older sessions with limit/offset.
+		limit, _ := strconv.Atoi(c.Query("limit"))
+		if limit <= 0 || limit > maxSessionsPageLimit {
+			limit = maxSessionsPageLimit
+		}
+		offset, _ := strconv.Atoi(c.Query("offset"))
+		if offset < 0 {
+			offset = 0
+		}
+		result := service.GetAllSessionsPaged(limit, offset)
 		c.JSON(http.StatusOK, result)
 	}
 }

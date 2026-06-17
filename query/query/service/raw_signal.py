@@ -24,6 +24,11 @@ from query.database.clickhouse import get_clickhouse
 
 DEFAULT_MAX_POINTS = 5000
 
+# Hard ceiling on the decimation target. The bucket width is span/max_points, so
+# an unbounded max_points collapses buckets to near-zero width and the row count
+# (and the pivot dicts/lists built from it) grows without limit. Clamp it.
+MAX_MAX_POINTS = 50_000
+
 
 def _parse_ts(value: str | None) -> datetime | None:
     if value is None:
@@ -73,49 +78,49 @@ def query_signal_records(
 
     start_dt = _parse_ts(start)
     end_dt = _parse_ts(end)
+    # Require a bounded window. Without one there is no decimation bucket, so the
+    # query would stream every raw sample for these signals across all time into
+    # memory — the main OOM vector on this endpoint.
+    if start_dt is None or end_dt is None:
+        raise ValueError("start and end are required")
+    if not max_points or max_points <= 0:
+        max_points = DEFAULT_MAX_POINTS
+    max_points = min(max_points, MAX_MAX_POINTS)
     bucket = _bucket_seconds(start_dt, end_dt, max_points)
+    if bucket is None:
+        raise ValueError("end must be after start")
 
     params: dict[str, Any] = {"vehicle_id": vehicle_id, "signals": list(signals)}
     where = ["vehicle_id = {vehicle_id:String}", "name IN {signals:Array(String)}"]
-    if start_dt is not None:
-        where.append("produced_at > {start:DateTime64(6)}")
-        params["start"] = start_dt
-    if end_dt is not None:
-        where.append("produced_at < {end:DateTime64(6)}")
-        params["end"] = end_dt
+    where.append("produced_at > {start:DateTime64(6)}")
+    params["start"] = start_dt
+    where.append("produced_at < {end:DateTime64(6)}")
+    params["end"] = end_dt
 
-    if bucket is not None:
-        # Decimate: keep the earliest sample per (name, time-bucket) via argMin,
-        # which ties the kept value to that earliest produced_at so the pair is
-        # consistent. The bucket timestamp uses a distinct alias (bucket_ts) so
-        # it does not collide with the real `produced_at` column referenced in
-        # WHERE/GROUP BY — reusing `produced_at` as the alias makes ClickHouse
-        # resolve those references to the aggregate and fail with
-        # ILLEGAL_AGGREGATION.
-        #
-        # Bucket on the microsecond epoch with an integer divisor: the bucket
-        # width is fractional seconds (e.g. 0.12s), and intDiv requires an
-        # integer divisor — and toUnixTimestamp() truncates to whole seconds,
-        # which would collapse all sub-second buckets. toUnixTimestamp64Micro
-        # keeps full DateTime64(6) precision.
-        params["bucket"] = max(1, round(bucket * 1_000_000))
-        sql = f"""
-        SELECT
-            min(produced_at) AS bucket_ts,
-            name,
-            argMin(value, produced_at) AS value
-        FROM signal
-        WHERE {' AND '.join(where)}
-        GROUP BY name, intDiv(toUnixTimestamp64Micro(produced_at), {{bucket:Int64}})
-        ORDER BY bucket_ts ASC
-        """
-    else:
-        sql = f"""
-        SELECT produced_at, name, value
-        FROM signal
-        WHERE {' AND '.join(where)}
-        ORDER BY produced_at ASC
-        """
+    # Decimate: keep the earliest sample per (name, time-bucket) via argMin,
+    # which ties the kept value to that earliest produced_at so the pair is
+    # consistent. The bucket timestamp uses a distinct alias (bucket_ts) so it
+    # does not collide with the real `produced_at` column referenced in
+    # WHERE/GROUP BY — reusing `produced_at` as the alias makes ClickHouse
+    # resolve those references to the aggregate and fail with
+    # ILLEGAL_AGGREGATION.
+    #
+    # Bucket on the microsecond epoch with an integer divisor: the bucket width
+    # is fractional seconds (e.g. 0.12s), and intDiv requires an integer divisor
+    # — and toUnixTimestamp() truncates to whole seconds, which would collapse
+    # all sub-second buckets. toUnixTimestamp64Micro keeps full DateTime64(6)
+    # precision.
+    params["bucket"] = max(1, round(bucket * 1_000_000))
+    sql = f"""
+    SELECT
+        min(produced_at) AS bucket_ts,
+        name,
+        argMin(value, produced_at) AS value
+    FROM signal
+    WHERE {' AND '.join(where)}
+    GROUP BY name, intDiv(toUnixTimestamp64Micro(produced_at), {{bucket:Int64}})
+    ORDER BY bucket_ts ASC
+    """
 
     logger.info(f"Raw signal query: {sql} | Params: {params}")
     result = get_clickhouse().query(sql, parameters=params)
