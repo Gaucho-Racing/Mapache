@@ -27,13 +27,50 @@ type Session struct {
 	StartTime   time.Time `json:"start_time" gorm:"precision:6"`
 	EndTime     time.Time `json:"end_time" gorm:"precision:6"`
 	// Analysis holds the Lapache lap-analysis result as a jsonb blob.
-	Analysis JSON      `json:"analysis" gorm:"type:jsonb;default:'{}'"`
-	Markers  []Marker  `json:"markers" gorm:"-"`
-	Segments []Segment `json:"segments" gorm:"-"`
+	Analysis   JSON        `json:"analysis" gorm:"type:jsonb;default:'{}'"`
+	Markers    []Marker    `json:"markers" gorm:"-"`
+	Segments   []Segment   `json:"segments" gorm:"-"`
+	Laps       []Lap       `json:"laps" gorm:"-"`
+	LapSummary *LapSummary `json:"lap_summary" gorm:"-"`
 }
 
 func (Session) TableName() string {
 	return "session"
+}
+
+type Lap struct {
+	ID         string    `json:"id" gorm:"primaryKey"`
+	SessionID  string    `json:"session_id" gorm:"index"`
+	LapNumber  int       `json:"lap_number"`
+	StartTime  time.Time `json:"start_time" gorm:"precision:6"`
+	EndTime    time.Time `json:"end_time" gorm:"precision:6"`
+	DurationMs int64     `json:"duration_ms"`
+	IsBest     bool      `json:"is_best"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime;precision:6"`
+	Sectors    []Sector  `json:"sectors" gorm:"-"`
+}
+
+func (Lap) TableName() string {
+	return "session_lap"
+}
+
+type Sector struct {
+	ID           string `json:"id" gorm:"primaryKey"`
+	LapID        string `json:"lap_id" gorm:"index"`
+	SessionID    string `json:"session_id" gorm:"index"`
+	SectorNumber int    `json:"sector_number"`
+	DurationMs   int64  `json:"duration_ms"`
+}
+
+func (Sector) TableName() string {
+	return "session_sector"
+}
+
+type LapSummary struct {
+	Count   int   `json:"count"`
+	BestMs  int64 `json:"best_ms"`
+	AvgMs   int64 `json:"avg_ms"`
+	WorstMs int64 `json:"worst_ms"`
 }
 
 type Marker struct {
