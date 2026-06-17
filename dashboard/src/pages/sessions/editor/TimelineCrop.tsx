@@ -4,6 +4,8 @@ interface TimelineCropProps {
   cropStartTs: number;
   cropEndTs: number;
   onChange: (cropStartTs: number, cropEndTs: number) => void;
+  // Epoch-second timestamps of excluded outliers, drawn as red ticks.
+  markers?: number[];
 }
 
 function fmt(ts: number): string {
@@ -19,6 +21,7 @@ export default function TimelineCrop({
   cropStartTs,
   cropEndTs,
   onChange,
+  markers,
 }: TimelineCropProps) {
   const span = extentEndTs - extentStartTs || 1;
   const toFrac = (ts: number) => ((ts - extentStartTs) / span) * 1000;
@@ -33,6 +36,17 @@ export default function TimelineCrop({
         <span>Crop: {fmt(cropStartTs)}</span>
         <span>{fmt(cropEndTs)}</span>
       </div>
+      {markers && markers.length > 0 ? (
+        <div className="relative h-2" title={`${markers.length} excluded outliers`}>
+          {markers.map((ts, i) => (
+            <span
+              key={i}
+              className="absolute top-0 h-2 w-px bg-red-500"
+              style={{ left: `${(toFrac(ts) / 1000) * 100}%` }}
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">
         <input
           type="range"
