@@ -10,6 +10,8 @@ import {
   COUNT_FIELD,
   defaultFieldFor,
   type FieldName,
+  type FillMode,
+  FILL_MODES,
   type FilterColumn,
   FILTERABLE_COLUMNS,
   type GroupColumn,
@@ -17,6 +19,7 @@ import {
   NUMERIC_FIELDS,
   type Predicate,
   type Query,
+  type RejectNode,
   type Rollup,
   ROLLUP_INTERVALS,
   ROW_COUNT_AGGS,
@@ -25,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 interface QueryBuilderProps {
   value: Query;
@@ -38,6 +41,11 @@ interface QueryBuilderProps {
    *  serialized preview; the builder itself stays interactive so the user
    *  can keep iterating. */
   error?: { message: string; position?: number } | null;
+  /** Opt-in editable MQL line. When provided, the serialized-MQL preview
+   *  becomes a controlled `<input>`: typing calls `onMqlChange(text)` and the
+   *  parent re-parses (and may surface an error via `error`). When absent the
+   *  preview stays a read-only `<code>` exactly as before. */
+  onMqlChange?: (mql: string) => void;
 }
 
 export function QueryBuilder({
@@ -45,6 +53,7 @@ export function QueryBuilder({
   onChange,
   signalNames,
   error,
+  onMqlChange,
 }: QueryBuilderProps) {
   const fieldOptions: FieldName[] = ROW_COUNT_AGGS.has(value.fn)
     ? [COUNT_FIELD]
@@ -110,7 +119,33 @@ export function QueryBuilder({
     onChange(next ? { ...rest, rollup: next } : rest);
   }
 
+  function setReject(next: RejectNode | undefined) {
+    const { reject: _drop, ...rest } = value;
+    onChange(next ? { ...rest, reject: next } : rest);
+  }
+
+  function setFill(next: FillMode | undefined) {
+    const { fill: _drop, ...rest } = value;
+    onChange(next ? { ...rest, fill: next } : rest);
+  }
+
   const canAddGroup = value.groupBy.length < GROUPABLE_COLUMNS.length;
+
+  // Editable MQL line (two-way chips↔text). Local text state seeded from the
+  // serialized AST; re-synced whenever the chips change the serialized form,
+  // but NOT on our own keystrokes (that would fight the caret). We compare the
+  // incoming serialized value against the current text and only overwrite when
+  // they differ — so a chip edit updates the line, and typing flows out via
+  // onMqlChange without bouncing back.
+  const serialized = serializeQuery(value);
+  const [mqlText, setMqlText] = useState(serialized);
+  const lastSerialized = useRef(serialized);
+  useEffect(() => {
+    if (serialized !== lastSerialized.current) {
+      setMqlText(serialized);
+      lastSerialized.current = serialized;
+    }
+  }, [serialized]);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -180,20 +215,45 @@ export function QueryBuilder({
         <Clause keyword="every">
           <RollupChip value={value.rollup} onChange={setRollup} />
         </Clause>
+
+        <Clause keyword="reject">
+          <RejectChip value={value.reject} onChange={setReject} />
+        </Clause>
+
+        <Clause keyword="fill">
+          <FillChip value={value.fill} onChange={setFill} />
+        </Clause>
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           MQL
         </span>
-        <code
-          className={cn(
-            "block break-all font-mono text-xs text-foreground/80",
-            error && "text-destructive",
-          )}
-        >
-          {serializeQuery(value)}
-        </code>
+        {onMqlChange ? (
+          // Editable: typing flows out to the parent, which re-parses. The
+          // chips re-sync this line whenever they change the serialized form.
+          <input
+            value={mqlText}
+            onChange={(e) => {
+              setMqlText(e.target.value);
+              onMqlChange(e.target.value);
+            }}
+            spellCheck={false}
+            className={cn(
+              "block w-full break-all bg-transparent font-mono text-xs text-foreground/80 outline-none",
+              error && "text-destructive",
+            )}
+          />
+        ) : (
+          <code
+            className={cn(
+              "block break-all font-mono text-xs text-foreground/80",
+              error && "text-destructive",
+            )}
+          >
+            {serialized}
+          </code>
+        )}
       </div>
       {error ? (
         <p className="text-xs text-destructive">
@@ -391,6 +451,240 @@ function RollupChip({
             {iv}
           </button>
         ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fill chip (W4) — pick the null-gap fill mode. Unset = "gap" (the default the
+// chart already applies), so an untouched widget reads "fill gap" without
+// serializing a `.fill(...)` clause.
+// ---------------------------------------------------------------------------
+
+function FillChip({
+  value,
+  onChange,
+}: {
+  value: FillMode | undefined;
+  onChange: (next: FillMode | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isDefault = !value;
+  const label = value ?? "gap";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            isDefault && "text-muted-foreground",
+          )}
+        >
+          {label}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[200px] p-1">
+        {FILL_MODES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              // "gap" is the implicit default — clear the clause instead of
+              // serializing a redundant `.fill(gap)`.
+              onChange(m === "gap" ? undefined : m);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs font-mono hover:bg-accent",
+              label === m && "bg-accent",
+            )}
+          >
+            {m}
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {m === "gap"
+                ? "break at gaps"
+                : m === "last"
+                  ? "hold last value"
+                  : "bridge linearly"}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reject chip (W1) — outlier rejection. Two independent toggles combine into a
+// RejectNode:
+//   - statistical outliers → `sigma > N`
+//   - hard limits → `value outside (min, max)` (or a single comparison when
+//     only one bound is set).
+// When both are on they OR together (reject if statistical OR out of bounds).
+// Nothing enabled → reject undefined (no `.reject(...)` clause).
+//
+// We derive the editor's UI state by *reading* the current RejectNode rather
+// than holding a parallel copy, so a `.reject(...)` typed into the MQL line
+// round-trips into the popover's controls.
+// ---------------------------------------------------------------------------
+
+interface RejectUiState {
+  sigmaOn: boolean;
+  sigmaN: number;
+  min: string;
+  max: string;
+}
+
+/** Read a RejectNode back into the chip's UI state. Recognizes exactly the
+ *  shapes this chip writes (a `sigma > N` leaf and/or a value range/single
+ *  comparison, possibly OR'd); anything else falls back to defaults so the
+ *  controls stay usable even over a hand-authored tree. */
+function rejectToUi(node: RejectNode | undefined): RejectUiState {
+  const ui: RejectUiState = { sigmaOn: false, sigmaN: 3, min: "", max: "" };
+  const visit = (n: RejectNode) => {
+    if (n.kind === "bool") {
+      visit(n.left);
+      visit(n.right);
+    } else if (n.kind === "cmp" && n.metric === "sigma") {
+      ui.sigmaOn = true;
+      ui.sigmaN = n.threshold;
+    } else if (n.kind === "cmp" && (n.metric === "value" || n.metric === "raw_value")) {
+      // single-bound hard limit: `value < min` or `value > max`
+      if (n.op === "<" || n.op === "<=") ui.min = String(n.threshold);
+      else if (n.op === ">" || n.op === ">=") ui.max = String(n.threshold);
+    } else if (n.kind === "range" && !n.inside) {
+      ui.min = String(n.lo);
+      ui.max = String(n.hi);
+    }
+  };
+  if (node) visit(node);
+  return ui;
+}
+
+/** Build a RejectNode from the chip's UI state (or undefined when nothing is
+ *  enabled). Combines an enabled sigma leaf with any hard-limit leaf via OR. */
+function uiToReject(ui: RejectUiState): RejectNode | undefined {
+  const leaves: RejectNode[] = [];
+  if (ui.sigmaOn) {
+    leaves.push({ kind: "cmp", metric: "sigma", op: ">", threshold: ui.sigmaN });
+  }
+  const hasMin = ui.min.trim() !== "" && !Number.isNaN(Number(ui.min));
+  const hasMax = ui.max.trim() !== "" && !Number.isNaN(Number(ui.max));
+  if (hasMin && hasMax) {
+    leaves.push({
+      kind: "range",
+      metric: "value",
+      lo: Number(ui.min),
+      hi: Number(ui.max),
+      inside: false,
+    });
+  } else if (hasMin) {
+    // Only a floor set → reject anything below it.
+    leaves.push({ kind: "cmp", metric: "value", op: "<", threshold: Number(ui.min) });
+  } else if (hasMax) {
+    leaves.push({ kind: "cmp", metric: "value", op: ">", threshold: Number(ui.max) });
+  }
+  if (leaves.length === 0) return undefined;
+  return leaves.reduce((left, right) => ({ kind: "bool", op: "or", left, right }));
+}
+
+/** One-line summary of the active reject for the chip face (e.g.
+ *  "σ>3 · outside 0–100"). */
+function rejectSummary(ui: RejectUiState): string | null {
+  const parts: string[] = [];
+  if (ui.sigmaOn) parts.push(`σ>${ui.sigmaN}`);
+  const hasMin = ui.min.trim() !== "";
+  const hasMax = ui.max.trim() !== "";
+  if (hasMin && hasMax) parts.push(`outside ${ui.min}–${ui.max}`);
+  else if (hasMin) parts.push(`<${ui.min}`);
+  else if (hasMax) parts.push(`>${ui.max}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function RejectChip({
+  value,
+  onChange,
+}: {
+  value: RejectNode | undefined;
+  onChange: (next: RejectNode | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ui = rejectToUi(value);
+  const summary = rejectSummary(ui);
+
+  // Apply a patched UI state straight through to a RejectNode so the chip is a
+  // pure view of `value` — no local copy to drift.
+  const apply = (patch: Partial<RejectUiState>) =>
+    onChange(uiToReject({ ...ui, ...patch }));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            !summary && "text-muted-foreground",
+          )}
+        >
+          {summary ?? "none"}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[260px] p-3">
+        <div className="flex flex-col gap-3">
+          {/* Statistical outliers → sigma > N */}
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={ui.sigmaOn}
+              onChange={(e) => apply({ sigmaOn: e.target.checked })}
+              className="h-3.5 w-3.5 rounded border-input accent-primary"
+            />
+            <span>remove statistical outliers</span>
+          </label>
+          {ui.sigmaOn ? (
+            <div className="flex items-center gap-2 pl-6 text-xs">
+              <span className="text-muted-foreground">beyond</span>
+              <Input
+                type="number"
+                value={ui.sigmaN}
+                onChange={(e) =>
+                  apply({ sigmaN: Number(e.target.value) || 0 })
+                }
+                className="h-7 w-16 font-mono text-xs"
+              />
+              <span className="text-muted-foreground">σ</span>
+            </div>
+          ) : null}
+
+          <div className="border-t" />
+
+          {/* Hard limits → value range / single comparison */}
+          <span className="text-xs text-muted-foreground">hard limits</span>
+          <div className="flex items-center gap-2 text-xs">
+            <Input
+              type="number"
+              placeholder="min"
+              value={ui.min}
+              onChange={(e) => apply({ min: e.target.value })}
+              className="h-7 flex-1 font-mono text-xs"
+            />
+            <span className="text-muted-foreground">to</span>
+            <Input
+              type="number"
+              placeholder="max"
+              value={ui.max}
+              onChange={(e) => apply({ max: e.target.value })}
+              className="h-7 flex-1 font-mono text-xs"
+            />
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );

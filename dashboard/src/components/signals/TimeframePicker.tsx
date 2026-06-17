@@ -1,7 +1,15 @@
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { Clock } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarDays, Clock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { DateRange } from "react-day-picker";
 
 /** The page-level time window. Always absolute under the hood — presets
  *  just snap start/end to a "now-anchored" pair at the moment they're
@@ -180,6 +188,119 @@ function formatLocalDT(d: Date): string {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
+/** Calendar-driven range builder. Picks a day range plus start/end times,
+ *  then hands back the canonical absolute-range string
+ *  (`YYYY-MM-DD HH:mm - YYYY-MM-DD HH:mm`, local) which the existing
+ *  parser already understands — so this adds no new parsing path. */
+function CalendarRangePicker({
+  value,
+  onApply,
+}: {
+  value: Timeframe;
+  onApply: (rangeString: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [range, setRange] = useState<DateRange | undefined>({
+    from: value.start,
+    to: value.end,
+  });
+  const [startTime, setStartTime] = useState(format(value.start, "HH:mm"));
+  const [endTime, setEndTime] = useState(format(value.end, "HH:mm"));
+
+  // Re-seed from the active timeframe each time the popover opens so the
+  // calendar reflects whatever is currently applied.
+  useEffect(() => {
+    if (!open) return;
+    setRange({ from: value.start, to: value.end });
+    setStartTime(format(value.start, "HH:mm"));
+    setEndTime(format(value.end, "HH:mm"));
+  }, [open, value]);
+
+  function apply() {
+    const from = range?.from;
+    // Single-day selections leave `to` undefined — treat the lone day as
+    // both ends of the range.
+    const to = range?.to ?? range?.from;
+    if (!from || !to) return;
+    const startStr = `${format(from, "yyyy-MM-dd")} ${startTime || "00:00"}`;
+    const endStr = `${format(to, "yyyy-MM-dd")} ${endTime || "23:59"}`;
+    onApply(`${startStr} - ${endStr}`);
+    setOpen(false);
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {/* Rendered as the last row of the presets list — reads like another
+            preset ("Past 1 week", …) but opens the calendar instead of
+            committing, with a calendar glyph where a shortcut would be. */}
+        <button
+          type="button"
+          aria-label="Select a range from the calendar"
+          // Mousedown would race the picker's outside-click handler; the
+          // Popover stops propagation on click, so this is safe.
+          onMouseDown={(e) => e.preventDefault()}
+          className={cn(
+            "flex w-full items-center justify-between px-3 py-1.5 text-left text-sm hover:bg-accent",
+            value.label === "Custom" && "bg-accent",
+          )}
+        >
+          <span>Select from calendar</span>
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-auto p-0"
+        // Keep clicks inside the popover from bubbling to the picker's
+        // document-level mousedown handler, which would close the editor.
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <Calendar
+          mode="range"
+          numberOfMonths={1}
+          selected={range}
+          onSelect={setRange}
+          defaultMonth={value.start}
+        />
+        {/* Start/end times stacked above a full-width Apply to keep the
+            popover narrow and the geometry tidy under a single-month grid. */}
+        <div className="flex flex-col gap-2 border-t p-3">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Start time
+            <Input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="h-9"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            End time
+            <Input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="h-9"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={!range?.from}
+            className={cn(
+              "h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground",
+              "hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50",
+            )}
+          >
+            Apply
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface TimeframePickerProps {
   value: Timeframe;
   onChange: (next: Timeframe) => void;
@@ -240,6 +361,14 @@ export function TimeframePicker({
       return;
     }
     commit(parsed);
+  }
+
+  // The calendar produces the canonical absolute-range string; run it
+  // through the same parser the text field uses so there's a single
+  // commit path. It always parses, but guard defensively.
+  function commitRangeString(rangeString: string) {
+    const parsed = parseTimeframeInput(rangeString);
+    if (parsed) commit(parsed);
   }
 
   if (!editing) {
@@ -311,6 +440,9 @@ export function TimeframePicker({
             <span className="text-xs text-muted-foreground">{p.shortcut}</span>
           </button>
         ))}
+        {/* The calendar lives as the final preset row — picking it opens a
+            month grid instead of committing a relative window. */}
+        <CalendarRangePicker value={value} onApply={commitRangeString} />
       </div>
     </div>
   );

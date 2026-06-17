@@ -29,11 +29,12 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Hand,
   Loader2,
+  MousePointer,
   Plus,
   ScatterChart,
   Search,
-  ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -130,6 +131,13 @@ function SignalsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // Left-drag gesture mode shared by every signal chart. "select" (default) is
+  // the original brush-to-set-timeframe; "pan" hands left-drag to the inside
+  // dataZoom so the user slides the (already-fetched) zoom window — which the
+  // `connect` group broadcasts across all panels. Wheel-zoom works in both.
+  const [interactionMode, setInteractionMode] = useState<"select" | "pan">(
+    "select",
+  );
 
   // Stacked chart widgets. Each descriptor carries an identity plus a kind —
   // "signal" (the time-series SignalWidget) or "plot" (the non-time PlotWidget,
@@ -183,26 +191,6 @@ function SignalsPage() {
     const inst = liveInstance();
     if (!inst) return;
     inst.dispatchAction({ type: "dataZoom", start, end });
-  };
-
-  // Step the window back out: widen the current [start, end] by 2x around its
-  // center, clamped to [0, 100]. Repeated clicks walk all the way back out.
-  const zoomOut = () => {
-    const inst = liveInstance();
-    if (!inst) return;
-    const dz = (
-      inst.getOption() as {
-        dataZoom?: Array<{ start?: number; end?: number }>;
-      }
-    ).dataZoom?.[0];
-    const start = typeof dz?.start === "number" ? dz.start : 0;
-    const end = typeof dz?.end === "number" ? dz.end : 100;
-    const center = (start + end) / 2;
-    const halfWidth = (end - start) / 2;
-    const newHalf = Math.min(halfWidth * 2, 50);
-    const newStart = Math.max(0, center - newHalf);
-    const newEnd = Math.min(100, center + newHalf);
-    dispatchZoom(newStart, newEnd);
   };
 
   // Snap back to the full fetched window.
@@ -349,19 +337,37 @@ function SignalsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Client-side zoom controls. These magnify the already-fetched
-                buckets via ECharts dataZoom across every synced panel — no
-                requery. The brush (drag on a chart) still sets the timeframe
-                and refetches for true resolution. */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={zoomOut}
-              title="Zoom out (widen the current view)"
-            >
-              <ZoomOut className="mr-2 h-4 w-4" />
-              Zoom out
-            </Button>
+            {/* Left-drag interaction mode. "Select" brushes a timeframe (the
+                original behavior, refetches at true resolution); "Pan" slides
+                the client-side zoom window across every synced panel. Wheel
+                still zooms in either mode. A segmented pair styled to sit with
+                the zoom controls. */}
+            <div className="flex items-center rounded-md border">
+              <Button
+                variant={interactionMode === "select" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-r-none border-0"
+                onClick={() => setInteractionMode("select")}
+                title="Select: drag to set the timeframe"
+              >
+                <MousePointer className="mr-2 h-4 w-4" />
+                Select
+              </Button>
+              <Button
+                variant={interactionMode === "pan" ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-l-none border-0"
+                onClick={() => setInteractionMode("pan")}
+                title="Pan: drag to slide the zoom window"
+              >
+                <Hand className="mr-2 h-4 w-4" />
+                Pan
+              </Button>
+            </div>
+            {/* Client-side zoom control: snap the synced panels back to the
+                full fetched window via ECharts dataZoom — no requery. The
+                brush (drag on a chart) still sets the timeframe and refetches
+                for true resolution; the wheel zooms in. */}
             <Button
               variant="outline"
               size="sm"
@@ -390,6 +396,7 @@ function SignalsPage() {
               onDelete={() => deleteWidget(id)}
               onBrushSelect={onBrushSelect}
               onChartReady={onChartReady}
+              interactionMode={interactionMode}
             />
           ) : (
             // Non-time plots don't share the hover `connect` group — their axes

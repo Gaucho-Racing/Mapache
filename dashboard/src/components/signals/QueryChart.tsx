@@ -14,6 +14,7 @@ import type {
 } from "echarts/core";
 import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
+import type { FillMode } from "@/lib/query";
 
 // Canvas renderer only — that's the whole point of moving off recharts.
 // One <canvas> for the entire plot means a >20k-point query draws without
@@ -75,6 +76,12 @@ interface QueryChartProps {
   /** If set, click-and-drag on the chart highlights a range and commits
    *  it on mouse-up. Receives the [start, end) of the brushed window. */
   onBrushSelect?: (start: Date, end: Date) => void;
+  /** Left-drag gesture mode. "select" (default) is the brush-to-select
+   *  timeframe behavior; "pan" hands left-drag to the inside dataZoom so the
+   *  user slides the zoom window instead. Wheel-zoom works in both. The mode
+   *  is read live by the once-registered zrender handlers via a ref, so
+   *  toggling never re-inits the chart. */
+  interactionMode?: "select" | "pan";
   /** If set, joins this chart to an ECharts connection group (via
    *  `inst.group = groupId` + `echarts.connect`) so the axisPointer cursor
    *  and tooltip sync across every chart sharing the same id. Additive —
@@ -97,6 +104,12 @@ interface QueryChartProps {
    *  interferes with the transient `__brush__` selection. Absent/empty → the
    *  chart renders exactly as today. */
   highlights?: { id: string; color: string; ranges: [number, number][] }[];
+  /** Per-series null-gap fill mode (W4), keyed by series label (like
+   *  `axisConfig`). Sparse — any label absent here uses the default "gap"
+   *  (nulls stay null and the line/area breaks at the gap). Only the *plotted*
+   *  data honors fill; ranking/top-K and the tooltip's true values are
+   *  unaffected, and CSV/JSON export reads the raw series, never this. */
+  fillConfig?: Record<string, FillMode>;
 }
 
 // Stable, high-contrast palette. Datadog-ish saturated colors that survive
@@ -261,6 +274,16 @@ function settingFor(
   return axisConfig?.[label] ?? { axisGroup: "1", normalize: false };
 }
 
+/** Default fill for an unconfigured series label — "gap" (nulls break the
+ *  line). Keeps the "no fill config behaves like a clean gap" contract in one
+ *  place. */
+function fillFor(
+  fillConfig: Record<string, FillMode> | undefined,
+  label: string,
+): FillMode {
+  return fillConfig?.[label] ?? "gap";
+}
+
 export function QueryChart({
   series,
   type,
@@ -271,6 +294,8 @@ export function QueryChart({
   onReady,
   axisConfig,
   highlights,
+  fillConfig,
+  interactionMode = "select",
 }: QueryChartProps) {
   // Top-K rollup before any other shaping; bar/area would stack hundreds
   // of slivers otherwise.
@@ -284,10 +309,37 @@ export function QueryChart({
     const plotSeries = kept.map((s, i) => {
       const label = seriesLabel(s.tags);
       const setting = settingFor(axisConfig, label);
-      // Raw (true) values — what the tooltip must always show, and what a
-      // native series plots directly. Nulls render as 0, matching the old
-      // recharts behavior (it coerced null → 0 in the pivot).
-      const raw = buckets.map((_, bi) => s.points[bi]?.value ?? 0);
+      const derived = isDerived(s);
+      const fill = fillFor(fillConfig, label);
+      // True per-bucket values, NULLS PRESERVED (W4). Backend now emits null
+      // for non-count aggregators at empty buckets; we no longer coerce those
+      // to 0 here (the old recharts-era `?? 0` made phantom troughs). Derived
+      // traces keep their own null handling (their points carry real nulls
+      // already); we route them through the same array and a "gap" fill so a
+      // div-by-zero gap breaks the line cleanly.
+      const trueVals = buckets.map((_, bi) => s.points[bi]?.value ?? null);
+      // The data array actually plotted, honoring the series' fill mode:
+      //   gap    → keep nulls; the line breaks (connectNulls:false).
+      //   last   → forward-fill nulls with the previous non-null (leading
+      //            nulls stay null until the first real sample).
+      //   linear → keep nulls but let ECharts bridge them (connectNulls:true).
+      // Derived traces are always treated as "gap" (explicit overlay lines).
+      const effFill: FillMode = derived ? "gap" : fill;
+      let data: Array<number | null>;
+      if (effFill === "last") {
+        let prev: number | null = null;
+        data = trueVals.map((v) => {
+          if (v !== null) {
+            prev = v;
+            return v;
+          }
+          return prev;
+        });
+      } else {
+        // gap and linear both keep nulls in the data; they differ only in
+        // connectNulls (set below on the echarts series).
+        data = trueVals;
+      }
       return {
         key: `s${i}`,
         label,
@@ -295,14 +347,19 @@ export function QueryChart({
         // Derived/expression traces render as standalone lines and never join
         // the stacked bar/area group (a series and its square stacking on top
         // of each other would be misleading).
-        derived: isDerived(s),
+        derived,
         normalize: setting.normalize,
         axisGroup: setting.axisGroup,
-        raw,
+        // connectNulls only matters for "linear" — gap/last leave gaps where
+        // their data array still carries nulls.
+        connectNulls: effFill === "linear",
+        // The fill-resolved values used for native plotting; tooltip recovers
+        // true values from this directly (nulls render as no-data).
+        raw: data,
       };
     });
     return { buckets, plotSeries };
-  }, [kept, axisConfig]);
+  }, [kept, axisConfig, fillConfig]);
 
   // Distinct native (un-normalized) axis groups, in first-seen order. The
   // first group renders on the left with split lines; any additional groups
@@ -365,8 +422,9 @@ export function QueryChart({
     onBrushSelect?: (start: Date, end: Date) => void;
     buckets: string[];
     intervalSec: number;
-  }>({ onBrushSelect, buckets, intervalSec });
-  cbRef.current = { onBrushSelect, buckets, intervalSec };
+    interactionMode: "select" | "pan";
+  }>({ onBrushSelect, buckets, intervalSec, interactionMode });
+  cbRef.current = { onBrushSelect, buckets, intervalSec, interactionMode };
 
   // Build the ECharts option. Memoized so we only recompute on real input
   // changes; the brush markArea is layered on separately during a drag.
@@ -398,22 +456,33 @@ export function QueryChart({
       const yAxisIndex = s.normalize
         ? normalizedAxisIndex
         : nativeGroups.indexOf(s.axisGroup);
-      let data: Array<number | { value: number; raw: number }> = s.raw;
+      // `s.raw` now carries the fill-resolved values with nulls preserved
+      // (W4). Native series plot it directly; nulls render as no-data so the
+      // tooltip shows nothing for them.
+      let data: Array<number | { value: number; raw: number } | null> = s.raw;
       if (s.normalize) {
+        // Min/max must IGNORE nulls so a gap doesn't drag the scale to 0.
         let min = Infinity;
         let max = -Infinity;
         for (const v of s.raw) {
+          if (v === null) continue;
           if (v < min) min = v;
           if (v > max) max = v;
         }
         const span = max - min;
-        data = s.raw.map((v) => ({
-          // When the trace is flat (max === min) the [0,1] rescale is
-          // undefined; park it mid-plot (0.5) so a constant line is visible
-          // rather than pinned to an edge. Otherwise standard min/max scaling.
-          value: span === 0 ? 0.5 : (v - min) / span,
-          raw: v,
-        }));
+        data = s.raw.map((v) =>
+          // Nulls stay null through the rescale so gaps survive normalization.
+          v === null
+            ? null
+            : {
+                // When the trace is flat (max === min) the [0,1] rescale is
+                // undefined; park it mid-plot (0.5) so a constant line is
+                // visible rather than pinned to an edge. Otherwise standard
+                // min/max scaling.
+                value: span === 0 ? 0.5 : (v - min) / span,
+                raw: v,
+              },
+        );
       }
 
       // Derived traces ignore the widget's chart type and stacking entirely:
@@ -428,6 +497,7 @@ export function QueryChart({
           type: "line" as const,
           smooth: true,
           showSymbol: false,
+          connectNulls: s.connectNulls,
           itemStyle: { color: s.color },
           lineStyle: { width: 2, color: s.color },
         };
@@ -454,6 +524,7 @@ export function QueryChart({
           type: "line" as const,
           smooth: true,
           showSymbol: false,
+          connectNulls: s.connectNulls,
           lineStyle: { width: 2, color: s.color },
         };
       }
@@ -463,6 +534,7 @@ export function QueryChart({
         type: "line" as const,
         smooth: true,
         showSymbol: false,
+        connectNulls: s.connectNulls,
         lineStyle: { width: 2, color: s.color },
         areaStyle: { color: s.color, opacity: 0.25 },
       };
@@ -539,18 +611,22 @@ export function QueryChart({
             }>
           )
             .map((p) => {
+              // Null buckets (real gaps under "gap"/"linear" fill, or a
+              // forward-fill's leading nulls) show as no-data rather than a
+              // misleading 0. `p.value`/`p.data` is null at those buckets.
+              const isNull =
+                p.data === null || p.value === null || p.value === undefined;
               const trueValue =
                 p.data !== null &&
                 typeof p.data === "object" &&
                 "raw" in p.data
                   ? p.data.raw
                   : p.value;
+              const shown = isNull ? "—" : formatCount(trueValue);
               return (
                 `<div style="display:flex;justify-content:space-between;gap:12px">` +
                 `<span>${p.marker}${p.seriesName}</span>` +
-                `<span style="font-variant-numeric:tabular-nums">${formatCount(
-                  trueValue,
-                )}</span></div>`
+                `<span style="font-variant-numeric:tabular-nums">${shown}</span></div>`
               );
             })
             .join("");
@@ -642,7 +718,12 @@ export function QueryChart({
           xAxisIndex: 0,
           zoomOnMouseWheel: true,
           moveOnMouseWheel: false,
-          moveOnMouseMove: false,
+          // Left-drag pans the zoom window only in pan mode; in select mode the
+          // zrender brush owns left-drag, so drag-panning stays off. Wheel-zoom
+          // (`zoomOnMouseWheel`) is unaffected and works in both modes. The
+          // dataZoom action broadcasts across the `connect` group, so panning
+          // one panel slides all of them in lockstep.
+          moveOnMouseMove: interactionMode === "pan",
           // Preserve the current zoom window across option pushes (data
           // refreshes) instead of snapping back to the full range.
           // `filterMode: "none"` keeps out-of-window points so lines/areas
@@ -662,6 +743,7 @@ export function QueryChart({
     hasNormalized,
     normalizedAxisIndex,
     highlights,
+    interactionMode,
   ]);
 
   // Initialize the instance once.
@@ -737,12 +819,17 @@ export function QueryChart({
     };
 
     const onDown = (event: ElementEvent) => {
+      // In pan mode the inside dataZoom owns left-drag (moveOnMouseMove);
+      // the brush stands down so a drag slides the window instead of
+      // selecting a range.
+      if (cbRef.current.interactionMode === "pan") return;
       if (!cbRef.current.onBrushSelect) return;
       const idx = pixelToIndex(event);
       if (idx === null) return;
       brushRef.current = { startIdx: idx, curIdx: idx };
     };
     const onMove = (event: ElementEvent) => {
+      if (cbRef.current.interactionMode === "pan") return;
       if (!cbRef.current.onBrushSelect) return;
       if (brushRef.current.startIdx === null) return;
       const idx = pixelToIndex(event);
@@ -835,6 +922,19 @@ export function QueryChart({
     );
   }, [option]);
 
+  // Switching into pan mid-drag would otherwise strand the brush state and its
+  // translucent markArea on screen. Reset the drag refs and clear the
+  // transient `__brush__` band so the gesture can't leak across modes. (The
+  // option rebuild already redraws an empty brush series, but a drag in flight
+  // when the toggle flips needs its in-memory state cleared too.)
+  useEffect(() => {
+    if (interactionMode !== "pan") return;
+    brushRef.current = { startIdx: null, curIdx: null };
+    const inst = instanceRef.current;
+    if (!inst) return;
+    inst.setOption({ series: [{ id: "__brush__", markArea: { data: [] } }] });
+  }, [interactionMode]);
+
   // Always keep the chart container (and its ref) mounted so the one-time
   // init effect has a node even when the first render has no data — the
   // empty state is an overlay, not an early return. Otherwise a mount with
@@ -847,9 +947,11 @@ export function QueryChart({
         ref={chartRef}
         className="h-full w-full"
         style={
-          onBrushSelect
-            ? { userSelect: "none", cursor: "crosshair" }
-            : undefined
+          interactionMode === "pan"
+            ? { userSelect: "none", cursor: "grab" }
+            : onBrushSelect
+              ? { userSelect: "none", cursor: "crosshair" }
+              : undefined
         }
       />
       {buckets.length === 0 && (
