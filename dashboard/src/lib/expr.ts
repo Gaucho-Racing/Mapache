@@ -149,7 +149,7 @@ function tokenize(input: string): Token[] {
       i++;
       continue;
     }
-    if (c === "+" || c === "-" || c === "*" || c === "/" || c === "^") {
+    if (c === "+" || c === "-" || c === "*" || c === "/" || c === "%" || c === "^") {
       tokens.push({ type: "op", value: c, pos: i });
       i++;
       continue;
@@ -188,6 +188,7 @@ type BinOp =
   | "-"
   | "*"
   | "/"
+  | "%"
   | "^"
   | "=="
   | "!="
@@ -230,7 +231,7 @@ const FUNCTIONS: Record<string, { arity: number; fn: (...a: number[]) => number 
 //   and     := compare (('and' | '&&') compare)*
 //   compare := sum (('==' | '!=' | '>' | '>=' | '<' | '<=') sum)*
 //   sum     := term (('+' | '-') term)*
-//   term    := unary (('*' | '/') unary)*
+//   term    := unary (('*' | '/' | '%') unary)*
 //   unary   := '-' unary | power
 //   power   := primary ('^' unary)?        // right-associative
 //   primary := number | ident | ident '(' args ')' | '(' expr ')'
@@ -331,8 +332,11 @@ class Parser {
 
   private parseTerm(): Node {
     let left = this.parseUnary();
-    while (this.peek().type === "op" && (this.peek().value === "*" || this.peek().value === "/")) {
-      const op = this.next().value as "*" | "/";
+    while (
+      this.peek().type === "op" &&
+      (this.peek().value === "*" || this.peek().value === "/" || this.peek().value === "%")
+    ) {
+      const op = this.next().value as "*" | "/" | "%";
       const right = this.parseUnary();
       left = { kind: "bin", op, left, right };
     }
@@ -450,6 +454,7 @@ function evalNode(node: Node, vars: Record<string, number>): number {
         // Division by zero yields Infinity/NaN — left as-is and surfaced as
         // a non-finite result (the compiled wrapper normalizes it).
         case "/": return l / r;
+        case "%": return l % r;
         case "^": return Math.pow(l, r);
         // Comparisons / logicals yield 1 (true) or 0 (false). A NaN operand
         // makes any comparison false (NaN compares false to everything),

@@ -73,8 +73,6 @@ export const CHART_TYPE_MAP: Record<ChartType, ChartTypeDef> = Object.fromEntrie
   CHART_TYPES.map((d) => [d.type, d]),
 ) as Record<ChartType, ChartTypeDef>;
 
-export const INLINE_CHART_TYPES = CHART_TYPES.filter((d) => d.inline);
-
 export function dataPath(type: ChartType): DataPath {
   return CHART_TYPE_MAP[type].path;
 }

@@ -19,6 +19,8 @@ import {
 import { BACKEND_URL } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 import { notify } from "@/lib/notify";
+import { fetchSessionLaps } from "@/lib/sessions/api";
+import type { Lap, Session } from "@/models/session";
 import { useVehicle } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import axios from "axios";
@@ -120,6 +122,29 @@ function SortHeader({
 function SignalsPage() {
   const vehicle = useVehicle();
   const [timeframe, setTimeframe] = useState<Timeframe>(defaultTimeframe);
+  // The session whose window currently drives the timeframe, plus its laps
+  // (for the `lap` highlight pseudo-variable). Cleared whenever the timeframe
+  // moves off the session window (preset, brush, calendar, manual edit).
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
+  const [sessionLaps, setSessionLaps] = useState<Lap[] | null>(null);
+
+  // Any timeframe change not originating from a session pick drops the session
+  // selection + its laps.
+  const changeTimeframe = useCallback((next: Timeframe) => {
+    setTimeframe(next);
+    setSelectedSessionId(null);
+    setSessionLaps(null);
+  }, []);
+
+  const onSelectSession = useCallback((session: Session) => {
+    setSelectedSessionId(session.id);
+    setSessionLaps(null);
+    fetchSessionLaps(session.id)
+      .then(setSessionLaps)
+      .catch(() => setSessionLaps(null));
+  }, []);
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [loadingSignals, setLoadingSignals] = useState(false);
   const [search, setSearch] = useState("");
@@ -205,7 +230,7 @@ function SignalsPage() {
 
   // A user-drawn brush always lands as "Custom" (presets re-snap to now).
   const onBrushSelect = (start: Date, end: Date) => {
-    setTimeframe({ start, end, label: "Custom" });
+    changeTimeframe({ start, end, label: "Custom" });
   };
 
   // The table refetches only on vehicle change, not on query/timeframe edits.
@@ -328,7 +353,13 @@ function SignalsPage() {
             >
               Reset zoom
             </Button>
-            <TimeframePicker value={timeframe} onChange={setTimeframe} />
+            <TimeframePicker
+              value={timeframe}
+              onChange={changeTimeframe}
+              vehicleId={vehicle.id}
+              onSelectSession={onSelectSession}
+              selectedSessionId={selectedSessionId ?? undefined}
+            />
           </div>
         </div>
 
@@ -349,6 +380,7 @@ function SignalsPage() {
             onBrushSelect={onBrushSelect}
             onChartReady={onChartReady}
             interactionMode={interactionMode}
+            laps={sessionLaps}
           />
         ))}
 

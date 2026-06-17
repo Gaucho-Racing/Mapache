@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {
@@ -6,9 +7,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { fetchSessions } from "@/lib/sessions/api";
+import type { Session } from "@/models/session";
 import { format } from "date-fns";
+import Fuse from "fuse.js";
 import { CalendarDays, Clock } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 
 /** The page-level time window — always absolute; presets snap to a now-anchored
@@ -237,40 +241,148 @@ function CalendarRangePicker({
           selected={range}
           onSelect={setRange}
           defaultMonth={value.start}
+          className="p-3 pb-0"
         />
-        <div className="flex flex-col gap-2 border-t p-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Start time
-            <Input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="h-9"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            End time
-            <Input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="h-9"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={!range?.from}
-            className={cn(
-              "h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground",
-              "hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50",
-            )}
-          >
-            Apply
-          </button>
+        <div className="flex flex-col gap-3 border-t p-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              Start time
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-8"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              End time
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="h-8"
+              />
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={apply} disabled={!range?.from}>
+              Apply
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** Compact human label for a session row's secondary line: start date + run
+ *  duration. */
+function formatSessionMeta(session: Session): string {
+  const start = new Date(session.start_time);
+  const ms = new Date(session.end_time).getTime() - start.getTime();
+  const date = format(start, "MMM d, h:mm a");
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  return `${date} · ${formatDuration(seconds)}`;
+}
+
+/** Sessions section of the editing dropdown: lazily-loaded, Fuse-filtered list.
+ *  Picking a session commits its window as a Timeframe and notifies the page. */
+function SessionPicker({
+  vehicleId,
+  selectedSessionId,
+  onPick,
+}: {
+  vehicleId: string;
+  selectedSessionId?: string;
+  onPick: (session: Session) => void;
+}) {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  // Cache by vehicleId so re-opening the dropdown doesn't refetch.
+  const loadedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!vehicleId || loadedFor.current === vehicleId) return;
+    let cancelled = false;
+    setLoading(true);
+    fetchSessions(vehicleId, { limit: 200 })
+      .then((rows) => {
+        if (cancelled) return;
+        setSessions(rows);
+        // Mark loaded only on success, so StrictMode's mount→cleanup→remount
+        // (which cancels the first fetch) still refetches on the second mount
+        // instead of early-returning with `loading` stuck true. A failed fetch
+        // also stays unmarked, allowing a retry on the next open.
+        loadedFor.current = vehicleId;
+      })
+      .catch(() => {
+        if (!cancelled) setSessions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicleId]);
+
+  const fuse = useMemo(
+    () => new Fuse(sessions, { keys: ["name"], threshold: 0.3, ignoreLocation: true }),
+    [sessions],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    if (!q) return sessions;
+    return fuse.search(q).map((r) => r.item);
+  }, [sessions, fuse, query]);
+
+  return (
+    <div className="border-t pt-1">
+      <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        Sessions
+      </div>
+      <div className="px-2 pb-1">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onMouseDown={(e) => e.stopPropagation()}
+          placeholder="Search sessions…"
+          className="h-8 text-xs"
+        />
+      </div>
+      <div className="max-h-[160px] overflow-auto">
+        {loading ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">
+            {sessions.length === 0 ? "No sessions" : "No matches"}
+          </div>
+        ) : (
+          filtered.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              // Mousedown (not click) to beat the document-level close handler.
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onPick(s);
+              }}
+              className={cn(
+                "flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-accent",
+                s.id === selectedSessionId && "bg-accent",
+              )}
+            >
+              <span className="truncate text-sm">{s.name}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {formatSessionMeta(s)}
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -278,12 +390,21 @@ interface TimeframePickerProps {
   value: Timeframe;
   onChange: (next: Timeframe) => void;
   className?: string;
+  /** Vehicle to scope the sessions list to. */
+  vehicleId: string;
+  /** Called when a session is picked (so the page can load its laps). */
+  onSelectSession?: (session: Session) => void;
+  /** Currently-selected session id, for highlighting its row. */
+  selectedSessionId?: string;
 }
 
 export function TimeframePicker({
   value,
   onChange,
   className,
+  vehicleId,
+  onSelectSession,
+  selectedSessionId,
 }: TimeframePickerProps) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState("");
@@ -338,6 +459,15 @@ export function TimeframePicker({
   function commitRangeString(rangeString: string) {
     const parsed = parseTimeframeInput(rangeString);
     if (parsed) commit(parsed);
+  }
+
+  function pickSession(session: Session) {
+    commit({
+      start: new Date(session.start_time),
+      end: new Date(session.end_time),
+      label: session.name,
+    });
+    onSelectSession?.(session);
   }
 
   if (!editing) {
@@ -408,6 +538,11 @@ export function TimeframePicker({
           </button>
         ))}
         <CalendarRangePicker value={value} onApply={commitRangeString} />
+        <SessionPicker
+          vehicleId={vehicleId}
+          selectedSessionId={selectedSessionId}
+          onPick={pickSession}
+        />
       </div>
     </div>
   );

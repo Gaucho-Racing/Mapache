@@ -10,13 +10,9 @@ import {
 import { PlotChart, type PlotConfig } from "@/components/signals/PlotChart";
 import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { QueryBuilder } from "@/components/signals/QueryBuilder";
+  QueryBuilder,
+  type RejectStatsEntry,
+} from "@/components/signals/QueryBuilder";
 import {
   QueryChart,
   seriesColorMap,
@@ -43,6 +39,7 @@ import {
   type Highlight,
 } from "@/components/signals/Highlights";
 import { ExportDialog } from "@/components/signals/ExportDialog";
+import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
@@ -166,6 +163,8 @@ type FetchResult = {
   series: Series[];
   /** Per-statement parse/run error in the backend's {message, position} shape. */
   error?: { message: string; position?: number };
+  /** Cut-summary from `.reject(...)`; null when the query has no reject clause. */
+  rejectStats?: RejectStatsEntry[] | null;
   ms: number | null;
 };
 
@@ -191,6 +190,9 @@ export interface SignalWidgetProps {
   onChartReady?: (instance: ECharts | null) => void;
   /** Left-drag mode: "select" brushes a timeframe, "pan" slides the zoom. */
   interactionMode?: "select" | "pan";
+  /** Laps of the currently-selected session, enabling the `lap` highlight
+   *  pseudo-variable + the "alternate by lap" shortcut. */
+  laps?: Lap[] | null;
 }
 
 export function SignalWidget({
@@ -207,6 +209,7 @@ export function SignalWidget({
   onBrushSelect,
   onChartReady,
   interactionMode,
+  laps,
 }: SignalWidgetProps) {
   // Ordered list of MQL trace statements, classified at render via
   // `looksLikeFetchQuery`: fetch statements hit /query/run; expression
@@ -241,8 +244,6 @@ export function SignalWidget({
     columns: ["produced_at"],
     rows: [],
   });
-  // Render option for scatter/path: "none", "time", or a signal name.
-  const [colorBy, setColorBy] = useState<string>("none");
 
   // Reset the trace list to the target's default MQL when the current MQL can't
   // carry across (crossing into/out of the pairs path).
@@ -339,6 +340,7 @@ export function SignalWidget({
             return {
               id: p.id,
               series: res.data.data?.series ?? [],
+              rejectStats: res.data.data?.reject_stats ?? null,
               ms: Math.round(performance.now() - startedAt),
             };
           } catch (e) {
@@ -391,18 +393,11 @@ export function SignalWidget({
     path === "pairs" &&
     (chartType === "scatter3d" ? pairNames.length >= 3 : pairNames.length >= 2);
 
-  // Axis signals plus any color-by signal, deduped.
+  // Axis signals, deduped.
   const pairFetchSignals = useMemo(() => {
     if (path !== "pairs") return [];
-    const set = new Set(pairNames);
-    if (
-      (chartType === "scatter" || chartType === "path") &&
-      colorBy !== "none" &&
-      colorBy !== "time"
-    )
-      set.add(colorBy);
-    return [...set];
-  }, [path, pairNames, chartType, colorBy]);
+    return [...new Set(pairNames)];
+  }, [path, pairNames]);
 
   // Debounce the pairs refetch too — axis signals come from live-edited lines.
   const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
@@ -441,7 +436,6 @@ export function SignalWidget({
 
   // PlotConfig assembled from the resolved axis signals (by trace position).
   const plotConfig = useMemo<PlotConfig>(() => {
-    const colorByOpt = colorBy === "none" ? undefined : colorBy;
     const x = pairNames[0];
     if (chartType === "scatter3d") {
       return {
@@ -456,7 +450,6 @@ export function SignalWidget({
         kind: "path",
         xSignal: x,
         ySignals: pairNames[1] ? [pairNames[1]] : [],
-        colorBy: colorByOpt,
       };
     }
     if (chartType === "scatter") {
@@ -464,12 +457,11 @@ export function SignalWidget({
         kind: "scatter",
         xSignal: x,
         ySignals: pairNames.slice(1),
-        colorBy: colorByOpt,
       };
     }
     // categorical: axes unused, data comes from runSeries.
     return { kind: chartType === "pie" ? "pie" : "catbar", ySignals: [] };
-  }, [chartType, pairNames, colorBy]);
+  }, [chartType, pairNames]);
 
   // Every fetched series concatenated in trace order. Derived expressions read
   // s0, s1, … from here by position.
@@ -496,6 +488,13 @@ export function SignalWidget({
     for (const r of fetchResults) if (r.error) out[r.id] = r.error;
     return out;
   }, [classified, fetchResults]);
+
+  // Per-statement cut-summaries keyed by statement id, for the reject chip.
+  const rejectStatsById = useMemo(() => {
+    const out: Record<string, RejectStatsEntry[] | null> = {};
+    for (const r of fetchResults) if (r.rejectStats) out[r.id] = r.rejectStats;
+    return out;
+  }, [fetchResults]);
 
   // Subtitle latency: sum across every fetch statement.
   const seriesMs = useMemo(() => {
@@ -575,8 +574,8 @@ export function SignalWidget({
   );
 
   const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
-    () => evaluateHighlights(baseSeries, highlights),
-    [baseSeries, highlights],
+    () => evaluateHighlights(baseSeries, highlights, laps),
+    [baseSeries, highlights, laps],
   );
 
   // Narrow the (possibly stale) settings map to just the plotted labels.
@@ -744,6 +743,7 @@ export function SignalWidget({
                             onMqlBlur={() => setEditingRow(null)}
                             signalNames={signalNames}
                             error={fetchErrors[id] ?? null}
+                            rejectStats={rejectStatsById[id] ?? null}
                           />
                         </QueryRow>
                       );
@@ -842,6 +842,7 @@ export function SignalWidget({
                     onChange={setHighlights}
                     variables={seriesVariables}
                     errors={highlightErrors}
+                    lapsAvailable={!!laps?.length}
                   />
                 </div>
               )}
@@ -849,23 +850,6 @@ export function SignalWidget({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Color-by (scatter/path only) — a render option, not MQL. */}
-            {(chartType === "scatter" || chartType === "path") && (
-              <Select value={colorBy} onValueChange={setColorBy}>
-                <SelectTrigger className="h-8 w-[150px]" title="Color points by">
-                  <SelectValue placeholder="Color by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No color</SelectItem>
-                  <SelectItem value="time">Color: time</SelectItem>
-                  {signalNames.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      Color: {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
             <ChartTypeSelect value={chartType} onChange={changeChartType} />
             {hasData && (
               <button

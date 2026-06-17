@@ -61,9 +61,19 @@ export interface SeriesEvaluator {
   evalAt?: (bucketIndex: number) => number;
 }
 
+/** An additional per-bucket variable source merged into the evaluator's vars,
+ *  beyond the base-series aliases. Its `names` are added to the known-variable
+ *  set (so referencing them passes validation) and `valueAt(i)` supplies their
+ *  values at bucket index `i`. Powers the `lap` pseudo-variable in highlights. */
+export interface ExtraVariables {
+  names: string[];
+  valueAt: (bucketIndex: number) => Record<string, number>;
+}
+
 export function compileAgainstSeries(
   expression: string,
   series: Series[],
+  extra?: ExtraVariables,
 ): SeriesEvaluator {
   const result = compileExpression(expression);
   if (!result.ok || !result.compiled) {
@@ -85,6 +95,7 @@ export function compileAgainstSeries(
     known.add(v.index);
     if (v.friendly) known.add(v.friendly);
   }
+  if (extra) for (const name of extra.names) known.add(name);
   const unknown = result.compiled.variables.filter((v) => !known.has(v));
   if (unknown.length > 0) {
     return {
@@ -103,6 +114,7 @@ export function compileAgainstSeries(
       const friendly = variables[si].friendly;
       if (friendly) vars[friendly] = value;
     }
+    if (extra) Object.assign(vars, extra.valueAt(i));
     return compiled.evaluate(vars);
   };
 
