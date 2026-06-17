@@ -169,8 +169,15 @@ export async function fetchSignalSeries(
   return samples;
 }
 
-export async function fetchSessions(vehicleId: string): Promise<Session[]> {
+export async function fetchSessions(
+  vehicleId: string,
+  opts?: { limit?: number; offset?: number },
+): Promise<Session[]> {
   const params = new URLSearchParams({ vehicle_id: vehicleId });
+  if (opts?.limit != null) {
+    params.append("limit", String(opts.limit));
+    params.append("offset", String(opts.offset ?? 0));
+  }
   const res = await axios.get(`${BACKEND_URL}/sessions?${params}`, {
     headers: authHeaders(),
   });

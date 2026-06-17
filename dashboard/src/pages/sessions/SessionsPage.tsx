@@ -23,6 +23,8 @@ import { notify } from "@/lib/notify";
 type SortKey = "name" | "start" | "duration" | "laps";
 type SortDir = "asc" | "desc";
 
+const PAGE_SIZE = 20;
+
 function dayKey(iso: string): string {
   return format(new Date(iso), "yyyy-MM-dd");
 }
@@ -101,6 +103,9 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("start");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -110,14 +115,19 @@ export default function SessionsPage() {
     if (!vehicleId) return;
     let cancelled = false;
     setLoading(true);
+    setSessions([]);
+    setOffset(0);
+    setHasMore(false);
     (async () => {
       try {
         const [s, dates] = await Promise.all([
-          fetchSessions(vehicleId),
+          fetchSessions(vehicleId, { limit: PAGE_SIZE, offset: 0 }),
           fetchDataDates(vehicleId).catch(() => [] as string[]),
         ]);
         if (cancelled) return;
         setSessions(s);
+        setOffset(s.length);
+        setHasMore(s.length === PAGE_SIZE);
         setAvailableDates(dates);
       } catch (e) {
         if (!cancelled) notify.error("Failed to load sessions: " + e);
@@ -129,6 +139,24 @@ export default function SessionsPage() {
       cancelled = true;
     };
   }, [vehicleId]);
+
+  const loadMore = async () => {
+    if (!vehicleId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await fetchSessions(vehicleId, {
+        limit: PAGE_SIZE,
+        offset,
+      });
+      setSessions((prev) => [...prev, ...next]);
+      setOffset((prev) => prev + next.length);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch (e) {
+      notify.error("Failed to load more sessions: " + e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -277,6 +305,17 @@ export default function SessionsPage() {
               ))}
             </TableBody>
           </Table>
+          {hasMore && (
+            <div className="flex justify-center border-t p-3">
+              <Button
+                variant="outline"
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </Button>
+            </div>
+          )}
         </Card>
       </div>
     </Layout>

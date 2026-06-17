@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Point } from "@/models/session";
 import { Vec2 } from "@/lib/sessions/intersect";
 import { SEGMENT_NAMES } from "@/lib/sessions/segments";
+import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 
 interface TrackCanvasProps {
   points: Point[];
@@ -9,9 +10,30 @@ interface TrackCanvasProps {
   segments: Record<number, Vec2[]>;
   activeSegment: number;
   lapNumbers?: number[];
+  showSatellite: boolean;
+  // Lat/lon bounding box of the currently-shown points.
+  geoBounds?: {
+    minLat: number;
+    maxLat: number;
+    minLon: number;
+    maxLon: number;
+  } | null;
   // Called with world coordinates when the user clicks to add / remove a point.
   onAddPoint: (world: Vec2) => void;
   onRemovePoint: (world: Vec2) => void;
+}
+
+const MAPBOX_MAX_DIM = 1280;
+
+function satelliteUrl(
+  bounds: { minLat: number; maxLat: number; minLon: number; maxLon: number },
+  w: number,
+  h: number,
+): string {
+  const W = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(w)));
+  const H = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(h)));
+  const bbox = `[${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}]`;
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${bbox}/${W}x${H}@2x?access_token=${MAPBOX_ACCESS_TOKEN}&attribution=false&logo=false`;
 }
 
 const SEGMENT_COLORS: Record<number, string> = {
@@ -94,6 +116,8 @@ export default function TrackCanvas({
   segments,
   activeSegment,
   lapNumbers,
+  showSatellite,
+  geoBounds,
   onAddPoint,
   onRemovePoint,
 }: TrackCanvasProps) {
@@ -105,6 +129,7 @@ export default function TrackCanvas({
     offsetY: 0,
     height: 0,
   });
+  const [satImg, setSatImg] = useState<HTMLImageElement | null>(null);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -126,6 +151,24 @@ export default function TrackCanvas({
 
     const t = computeTransform(points, segments, w, h);
     transformRef.current = t;
+
+    // Satellite underlay: align the Mapbox bbox image to the world bbox of the
+    // points, which corresponds geographically to geoBounds.
+    if (showSatellite && satImg && points.length > 0) {
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
+      for (const p of points) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      const [left, top] = worldToScreen(t, minX, maxY);
+      const [right, bottom] = worldToScreen(t, maxX, minY);
+      ctx.drawImage(satImg, left, top, right - left, bottom - top);
+    }
 
     // Track polyline.
     if (points.length > 1) {
@@ -192,7 +235,33 @@ export default function TrackCanvas({
         }
       }
     }
-  }, [points, segments, activeSegment, lapNumbers]);
+  }, [points, segments, activeSegment, lapNumbers, showSatellite, satImg]);
+
+  // Fetch the satellite image whenever the view bounds or toggle change. No
+  // persistent cache — a new image is requested each time the inputs change.
+  useEffect(() => {
+    setSatImg(null);
+    if (
+      !showSatellite ||
+      !geoBounds ||
+      !MAPBOX_ACCESS_TOKEN ||
+      points.length === 0
+    ) {
+      return;
+    }
+    const container = containerRef.current;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => setSatImg(img);
+    img.src = satelliteUrl(
+      geoBounds,
+      container?.clientWidth ?? MAPBOX_MAX_DIM,
+      container?.clientHeight ?? MAPBOX_MAX_DIM,
+    );
+    return () => {
+      img.onload = null;
+    };
+  }, [showSatellite, geoBounds, points.length]);
 
   useEffect(() => {
     draw();

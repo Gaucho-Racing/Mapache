@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
@@ -10,10 +11,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const maxSessionsPageLimit = 200
+
 func GetAllSessions(c *gin.Context) {
 	param, exists := c.GetQuery("vehicle_id")
 	if exists {
-		result := service.GetAllSessionsByVehicleID(param)
+		limit, _ := strconv.Atoi(c.Query("limit"))
+		if limit <= 0 {
+			result := service.GetAllSessionsByVehicleID(param)
+			c.JSON(http.StatusOK, result)
+			return
+		}
+		if limit > maxSessionsPageLimit {
+			limit = maxSessionsPageLimit
+		}
+		offset, _ := strconv.Atoi(c.Query("offset"))
+		if offset < 0 {
+			offset = 0
+		}
+		result := service.GetSessionsByVehicleIDPaged(param, limit, offset)
 		c.JSON(http.StatusOK, result)
 	} else {
 		result := service.GetAllSessions()

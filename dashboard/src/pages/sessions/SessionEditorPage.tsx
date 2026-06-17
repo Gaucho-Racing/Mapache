@@ -159,6 +159,8 @@ export function SessionEditorPage() {
   const [newSessionName, setNewSessionName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [showSatellite, setShowSatellite] = useState(true);
+
   // -- Calibration mode: signals-vs-time -------------------------------------
   const [calSignals, setCalSignals] = useState<string[]>([]);
   const [calSamples, setCalSamples] = useState<SignalSample[]>([]);
@@ -397,6 +399,23 @@ export function SessionEditorPage() {
     () => allPoints.filter((p) => p.ts >= cropStartTs && p.ts <= cropEndTs),
     [allPoints, cropStartTs, cropEndTs],
   );
+
+  // Lat/lon bbox of the cropped window, matching croppedPoints geographically.
+  const croppedGeoBounds = useMemo(() => {
+    let minLat = Infinity,
+      maxLat = -Infinity,
+      minLon = Infinity,
+      maxLon = -Infinity;
+    for (const p of rawGeo) {
+      if (p.ts < cropStartTs || p.ts > cropEndTs) continue;
+      if (p.lat < minLat) minLat = p.lat;
+      if (p.lat > maxLat) maxLat = p.lat;
+      if (p.lon < minLon) minLon = p.lon;
+      if (p.lon > maxLon) maxLon = p.lon;
+    }
+    if (!isFinite(minLat)) return null;
+    return { minLat, maxLat, minLon, maxLon };
+  }, [rawGeo, cropStartTs, cropEndTs]);
 
   // Threshold for point removal: a fraction of the data's diagonal extent.
   const removeThreshold = useMemo(() => {
@@ -651,7 +670,7 @@ export function SessionEditorPage() {
                   if (m === "lap") setCalSamples([]);
                 }}
               >
-                {m === "lap" ? "Lap (GPS)" : "Calibration"}
+                {m === "lap" ? "Lap (GPS)" : "Others"}
               </Button>
             ))}
           </div>
@@ -662,6 +681,8 @@ export function SessionEditorPage() {
                 points={croppedPoints}
                 segments={segmentsSnapshot}
                 activeSegment={activeSeg}
+                showSatellite={showSatellite}
+                geoBounds={croppedGeoBounds}
                 lapNumbers={
                   lapResult &&
                   lapResult.lapNumbers.length === croppedPoints.length
@@ -762,6 +783,25 @@ export function SessionEditorPage() {
                   }}
                 >
                   Clear segments
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-neutral-400">
+                  Satellite view
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className={cn(
+                    "h-7 text-xs",
+                    showSatellite
+                      ? "bg-gradient-to-br from-gr-pink to-gr-purple text-white"
+                      : "text-neutral-400",
+                  )}
+                  onClick={() => setShowSatellite((v) => !v)}
+                >
+                  {showSatellite ? "On" : "Off"}
                 </Button>
               </div>
 

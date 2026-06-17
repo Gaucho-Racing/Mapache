@@ -221,12 +221,12 @@ export default function SessionDetailPage() {
                   {laps.map((lap) => (
                     <TableRow key={lap.id}>
                       <TableCell className="font-medium">
-                        {lap.lap_number}
-                        {lap.is_best && (
-                          <Badge className="ml-2" variant="default">
-                            best
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {lap.lap_number}
+                          {lap.is_best && (
+                            <Badge variant="default">best</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {formatLapMs(lap.duration_ms)}

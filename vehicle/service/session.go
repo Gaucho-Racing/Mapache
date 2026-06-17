@@ -30,6 +30,20 @@ func GetAllSessionsByVehicleID(vehicleID string) []mapache.Session {
 	return sessions
 }
 
+func GetSessionsByVehicleIDPaged(vehicleID string, limit, offset int) []mapache.Session {
+	var sessions []mapache.Session
+	database.DB.Where("vehicle_id = ?", vehicleID).Order("start_time DESC").Limit(limit).Offset(offset).Find(&sessions)
+	summaries := GetLapSummariesByVehicle(vehicleID)
+	for i := range sessions {
+		populateSession(&sessions[i])
+		if summary, ok := summaries[sessions[i].ID]; ok {
+			s := summary
+			sessions[i].LapSummary = &s
+		}
+	}
+	return sessions
+}
+
 func GetAllOngoingSessions() []mapache.Session {
 	var sessions []mapache.Session
 	database.DB.Where("start_time = end_time").Find(&sessions)
