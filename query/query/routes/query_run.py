@@ -90,6 +90,30 @@ async def post_query_run(
                 status_code=400, detail="start must be before end"
             )
 
+        # Guard against a pathological range × interval: the executor fills the
+        # whole bucket axis in Python, so a wide window at a tiny interval can
+        # OOM the service. `.every(...)` overrides the request-level interval.
+        effective_interval = ast.rollup or body.interval
+        if effective_interval in INTERVALS:
+            step_ms = INTERVALS[effective_interval][1]
+            bucket_count = int(
+                (end_dt - start_dt).total_seconds() * 1000 // step_ms
+            )
+            MAX_BUCKETS = 50_000
+            if bucket_count > MAX_BUCKETS:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": (
+                            f"range too large for a {effective_interval} "
+                            f"interval (~{bucket_count:,} buckets, max "
+                            f"{MAX_BUCKETS:,}) — widen the interval or shorten "
+                            f"the time range"
+                        ),
+                        "position": 0,
+                    },
+                )
+
         result = run_query(
             ast,
             vehicle_id=body.vehicle_id,
@@ -106,9 +130,7 @@ async def post_query_run(
                     "query": body.query,
                     "start": utc_iso(start_dt),
                     "end": utc_iso(end_dt),
-                    # The effective interval — what the buckets actually
-                    # used. May differ from body.interval if the query
-                    # carried a `.rollup(...)` override.
+                    # Effective interval — may differ from body.interval via `.every`.
                     "interval": result["interval"],
                 },
             },

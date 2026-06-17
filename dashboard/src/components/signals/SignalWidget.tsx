@@ -1,7 +1,21 @@
 import {
-  ChartTypeToggle,
+  ChartTypeSelect,
   type ChartType,
 } from "@/components/signals/ChartTypeToggle";
+import {
+  CHART_TYPE_MAP,
+  compatible,
+  dataPath,
+} from "@/components/signals/chartTypes";
+import { PlotChart, type PlotConfig } from "@/components/signals/PlotChart";
+import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { QueryBuilder } from "@/components/signals/QueryBuilder";
 import {
   QueryChart,
@@ -13,8 +27,12 @@ import {
 import {
   buildSeriesVariables,
   computeDerivedSeries,
-  DerivedTraces,
 } from "@/components/signals/DerivedTraces";
+import {
+  MqlEditor,
+  textToQueries,
+  type QueryStmt,
+} from "@/components/signals/MqlEditor";
 import {
   axisSettingFor,
   TraceAxisControls,
@@ -24,12 +42,7 @@ import {
   Highlights,
   type Highlight,
 } from "@/components/signals/Highlights";
-import type { DerivedTrace } from "@/lib/expr";
-import {
-  downloadChartPng,
-  downloadText,
-  seriesToCsv,
-} from "@/lib/export";
+import { ExportDialog } from "@/components/signals/ExportDialog";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL } from "@/consts/config";
@@ -37,10 +50,16 @@ import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 import { notify } from "@/lib/notify";
 import {
   DEFAULT_QUERY,
+  type FillMode,
+  looksLikeFetchQuery,
+  parseQuery,
   type Query,
   type Rollup,
   serializeQuery,
+  splitAssignment,
 } from "@/lib/query";
+import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import axios from "axios";
 import {
   ChevronDown,
@@ -48,14 +67,13 @@ import {
   Download,
   Eye,
   EyeOff,
-  Image,
   Loader2,
+  Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Same as `Rollup` — kept as a separate alias so future "interval" usage
-// (e.g. backend response metadata typing) stays expressive.
 type Interval = Rollup;
 
 function authHeader() {
@@ -64,22 +82,18 @@ function authHeader() {
   };
 }
 
-// Auto-pick a bucket width based on the selected range. Targets roughly
-// 24–168 bars so the chart stays legible whether the user picks 15min or
-// 1 week. Backend's INTERVALS dict caps us at 1m on the small end and 1d
-// on the large end.
+// Auto-pick a bucket width targeting ~24–168 bars across the selected range.
 function autoInterval(rangeSeconds: number): Interval {
-  if (rangeSeconds <= 60 * 60)          return "1m";   // ≤ 1h     → 60 bars
-  if (rangeSeconds <= 4 * 60 * 60)      return "5m";   // ≤ 4h     → 48 bars
-  if (rangeSeconds <= 24 * 60 * 60)     return "15m";  // ≤ 1d     → 96 bars
-  if (rangeSeconds <= 3 * 24 * 60 * 60) return "1h";   // ≤ 3d     → 72 bars
-  if (rangeSeconds <= 7 * 24 * 60 * 60) return "2h";   // ≤ 1w     → 84 bars
+  if (rangeSeconds <= 60 * 60)          return "1m";
+  if (rangeSeconds <= 4 * 60 * 60)      return "5m";
+  if (rangeSeconds <= 24 * 60 * 60)     return "15m";
+  if (rangeSeconds <= 3 * 24 * 60 * 60) return "1h";
+  if (rangeSeconds <= 7 * 24 * 60 * 60) return "2h";
   return "1d";
 }
 
 function intervalToSeconds(i: Interval): number {
   switch (i) {
-    case "16ms":  return 0.016;
     case "50ms":  return 0.05;
     case "100ms": return 0.1;
     case "500ms": return 0.5;
@@ -108,8 +122,54 @@ function formatLatency(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+// Stable-id generator for trace statements. Shares the `tr_` prefix with the
+// ids MqlEditor mints, which stay collision-free.
+let querySeq = 0;
+function newQueryId(): string {
+  querySeq += 1;
+  return `tr_${querySeq}_${Date.now().toString(36)}`;
+}
+
+/** Compile a signal-name wildcard (`*` → any run) to an anchored regex,
+ *  mirroring the backend LIKE semantics the filter picker already uses. */
+function wildcardToRegex(pattern: string): RegExp {
+  const escaped = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`, "i");
+}
+
+/** Concrete signal names a fetch query targets, expanding `*` wildcards against
+ *  the known signal list. Only `name` filters matter (the pairs path plots by
+ *  name, ignoring aggregator/field). */
+function queryToSignalNames(q: Query, known: string[]): string[] {
+  const out: string[] = [];
+  for (const f of q.filters) {
+    if (f.column !== "name") continue;
+    const v = f.value.trim();
+    if (v === "") continue;
+    if (v.includes("*")) {
+      const rx = wildcardToRegex(v);
+      for (const n of known) if (rx.test(n)) out.push(n);
+    } else {
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+/** One trace statement as the widget understands it — fetch or expression is
+ *  decided at render via `looksLikeFetchQuery`, not stored. */
+type FetchResult = {
+  /** The owning statement id (for inline error placement). */
+  id: string;
+  series: Series[];
+  /** Per-statement parse/run error in the backend's {message, position} shape. */
+  error?: { message: string; position?: number };
+  ms: number | null;
+};
+
 export interface SignalWidgetProps {
-  /** Page-level vehicle scope. */
   vehicleId: string;
   /** Re-run the query when the vehicle type flips (different fleet/schema). */
   vehicleType: string;
@@ -119,21 +179,18 @@ export interface SignalWidgetProps {
   startIso: string;
   endIso: string;
   rangeSeconds: number;
-  /** ECharts connection group — all widgets pass the same id so the hover
-   *  cursor + tooltip sync across panels. */
+  /** Shared `echarts.connect` group id, so hover/tooltip sync across panels. */
   groupId: string;
   /** Collapse the chart body while keeping the query config. */
   hidden: boolean;
   onToggleHide: () => void;
-  /** Remove this widget from the page. */
   onDelete: () => void;
-  /** Brush-select on this widget's chart bubbles up to set the shared
-   *  page timeframe. */
+  /** Brush-select bubbles up to set the shared page timeframe. */
   onBrushSelect: (start: Date, end: Date) => void;
-  /** Receives this widget's ECharts instance on ready (and `null` on
-   *  teardown) so the page can dispatch group-wide dataZoom (zoom out /
-   *  reset) through any live panel. */
+  /** Receives the ECharts instance (null on teardown) for group-wide dataZoom. */
   onChartReady?: (instance: ECharts | null) => void;
+  /** Left-drag mode: "select" brushes a timeframe, "pan" slides the zoom. */
+  interactionMode?: "select" | "pan";
 }
 
 export function SignalWidget({
@@ -149,93 +206,158 @@ export function SignalWidget({
   onDelete,
   onBrushSelect,
   onChartReady,
+  interactionMode,
 }: SignalWidgetProps) {
-  // Chart-side state: the structured query AST, the result series, the
-  // chosen chart type, and a query-execution error surfaced under the
-  // builder. Each widget owns its own copy.
-  const [queryAst, setQueryAst] = useState<Query>(DEFAULT_QUERY);
+  // Ordered list of MQL trace statements, classified at render via
+  // `looksLikeFetchQuery`: fetch statements hit /query/run; expression
+  // statements evaluate in-browser over the fetched base series. The chip rows
+  // and the raw MQL editor are two views of this one list.
+  const [queries, setQueries] = useState<QueryStmt[]>([
+    { id: newQueryId(), mql: "count(signal)" },
+  ]);
+  const [editAsMql, setEditAsMql] = useState(false);
+  // While a row's field is focused, freeze its kind: `looksLikeFetchQuery`
+  // flips at the `(`, and re-classifying mid-type would swap the input element
+  // and yank the caret. Re-classified on blur.
+  const [editingRow, setEditingRow] = useState<{
+    id: string;
+    kind: "fetch" | "expr";
+  } | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
-  const [series, setSeries] = useState<Series[]>([]);
-  // User-defined derived/expression traces, evaluated in-browser over the
-  // fetched series (T5). Empty by default — zero-cost when unused.
-  const [derivedTraces, setDerivedTraces] = useState<DerivedTrace[]>([]);
-  // Per-trace y-scaling settings (T8), keyed by series label. Sparse: any
-  // label absent here uses the default (shared group "1", un-normalized), so
-  // an untouched widget renders exactly as it did before this feature.
-  // Labels are stable across requery while the group-by yields the same
-  // labels, so the user's choices persist through a refetch.
+  // Fetched base series, one entry per fetch statement in trace order.
+  const [fetchResults, setFetchResults] = useState<FetchResult[]>([]);
+  // Per-trace y-scaling, keyed by series label. Sparse; absent = default.
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
   >({});
-  // Per-widget highlight conditions (T6), evaluated in-browser over the fetched
-  // series to shade the bucket ranges where each condition holds. Empty by
-  // default — zero-cost and visually identical to today when unused. Local to
-  // this widget; never broadcast across panels.
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  // Whether the Advanced options disclosure (derived traces, y-axis scaling +
-  // visibility, highlights) is expanded (T10). Collapsed by default and local
-  // to this widget, so a plain count() query is just builder + chart until the
-  // user opts into the extra controls.
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loadingSeries, setLoadingSeries] = useState(false);
-  const [seriesMs, setSeriesMs] = useState<number | null>(null);
-  const [queryError, setQueryError] = useState<
-    { message: string; position?: number } | null
-  >(null);
 
-  // Don't fire a request while a filter chip is still empty — the
-  // serialized query (`... where name = ""`) is technically valid but
-  // returns nothing useful, and it bombards the backend on every
-  // chip-add. Skip until every filter has a value.
-  const queryIsRunnable = queryAst.filters.every((f) => f.value.trim() !== "");
+  // Render path for the current chart type (see chartTypes.ts): "timeseries" →
+  // QueryChart, "categorical" → PlotChart @ 1d, "pairs" → /query/pairs.
+  const path = dataPath(chartType);
+  const [pairsData, setPairsData] = useState<PairsResponse>({
+    columns: ["produced_at"],
+    rows: [],
+  });
+  // Render option for scatter/path: "none", "time", or a signal name.
+  const [colorBy, setColorBy] = useState<string>("none");
 
-  const serializedQuery = useMemo(() => serializeQuery(queryAst), [queryAst]);
+  // Reset the trace list to the target's default MQL when the current MQL can't
+  // carry across (crossing into/out of the pairs path).
+  const changeChartType = (next: ChartType) => {
+    if (!compatible(chartType, next)) {
+      setQueries(CHART_TYPE_MAP[next].defaultQueries());
+    }
+    setChartType(next);
+  };
 
-  // Effective interval = explicit rollup on the AST if present, else
-  // auto-picked from the timeframe width. The backend honors the same
-  // precedence; we mirror it client-side so the bucket label in the
-  // subtitle and the x-axis formatting are right *before* the response
-  // arrives (avoids a one-render flicker on rollup changes).
-  const interval = useMemo(
-    () => queryAst.rollup ?? autoInterval(rangeSeconds),
-    [queryAst.rollup, rangeSeconds],
+  // Classify each statement once per `queries` change so the editing UI and the
+  // fetch effect read the same result. Fetch lines carry `-> name` inside the
+  // grammar; expression lines split it off here (`body`/`name`).
+  const classified = useMemo(
+    () =>
+      queries.map((t) => {
+        if (looksLikeFetchQuery(t.mql)) {
+          const res = parseQuery(t.mql);
+          return res.ok
+            ? ({ kind: "fetch" as const, stmt: t, query: res.query })
+            : ({ kind: "fetch" as const, stmt: t, parseError: res.error });
+        }
+        const { body, name } = splitAssignment(t.mql);
+        return { kind: "expr" as const, stmt: t, body, name };
+      }),
+    [queries],
   );
+
+  // Runnable fetch statements: parse cleanly and have no empty filter value (an
+  // empty chip is valid but useless and would bombard the backend).
+  const fetchPlan = useMemo(() => {
+    return classified
+      .filter(
+        (c): c is { kind: "fetch"; stmt: QueryStmt; query: Query } =>
+          c.kind === "fetch" && "query" in c && c.query !== undefined,
+      )
+      .map((c) => ({
+        id: c.stmt.id,
+        query: c.query,
+        mql: serializeQuery(c.query),
+        runnable: c.query.filters.every((f) => f.value.trim() !== ""),
+      }));
+  }, [classified]);
+
+  // INVARIANT: every fetch in a widget shares ONE interval so they share the
+  // bucket axis (computeDerivedSeries relies on it). Take the first statement's
+  // `.every`, else the auto interval. Categorical collapses to one 1d bucket.
+  const interval = useMemo<Interval>(() => {
+    if (path === "categorical") return "1d";
+    for (const p of fetchPlan) if (p.query.rollup) return p.query.rollup;
+    return autoInterval(rangeSeconds);
+  }, [path, fetchPlan, rangeSeconds]);
 
   const intervalSec = intervalToSeconds(interval);
 
-  const runQuery = async () => {
+  const runnableFetches = useMemo(
+    () => fetchPlan.filter((p) => p.runnable),
+    [fetchPlan],
+  );
+  // Stable key over the wire form, so the fetch effect fires only on real change.
+  const fetchKey = useMemo(
+    () =>
+      JSON.stringify({
+        ids: runnableFetches.map((p) => `${p.id}:${p.mql}`),
+        interval,
+      }),
+    [runnableFetches, interval],
+  );
+  // Debounce so editing the MQL line doesn't fire /query/run per keystroke
+  // (each response forces a synchronous re-render that drops typing). Timeframe/
+  // vehicle/path deps stay un-debounced so those refetch immediately.
+  const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
+
+  // Run every runnable fetch in parallel against /query/run with the shared
+  // interval; concatenation order follows `runnableFetches`.
+  const runFetches = async () => {
     setLoadingSeries(true);
-    // performance.now() is monotonic and sub-ms — accurate for short
-    // requests where Date.now()'s 1ms quantization would round to 0.
-    const startedAt = performance.now();
     try {
-      const res = await axios.post(
-        `${BACKEND_URL}/query/run`,
-        {
-          query: serializedQuery,
-          vehicle_id: vehicleId,
-          start: startIso,
-          end: endIso,
-          interval,
-        },
-        { headers: authHeader() },
+      const results = await Promise.all(
+        runnableFetches.map(async (p): Promise<FetchResult> => {
+          const startedAt = performance.now();
+          try {
+            const res = await axios.post(
+              `${BACKEND_URL}/query/run`,
+              {
+                query: p.mql,
+                vehicle_id: vehicleId,
+                start: startIso,
+                end: endIso,
+                interval,
+              },
+              { headers: authHeader() },
+            );
+            return {
+              id: p.id,
+              series: res.data.data?.series ?? [],
+              ms: Math.round(performance.now() - startedAt),
+            };
+          } catch (e) {
+            // Parser errors come back 400 with {message, position} — surface
+            // inline under the offending statement and keep the rest.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const body: any = (e as any)?.response?.data?.data;
+            const error =
+              body && typeof body.message === "string"
+                ? { message: body.message, position: body.position }
+                : { message: getAxiosErrorMessage(e) };
+            if (!body || typeof body.message !== "string") {
+              notify.error(getAxiosErrorMessage(e));
+            }
+            return { id: p.id, series: [], error, ms: null };
+          }
+        }),
       );
-      setSeries(res.data.data?.series ?? []);
-      setSeriesMs(Math.round(performance.now() - startedAt));
-      setQueryError(null);
-    } catch (e) {
-      // Parser errors come back 400 with {message, position}; surface them
-      // under the query field and leave the previous series visible so the
-      // user can compare iterations.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: any = (e as any)?.response?.data?.data;
-      if (body && typeof body.message === "string") {
-        setQueryError({ message: body.message, position: body.position });
-      } else {
-        notify.error(getAxiosErrorMessage(e));
-        setQueryError({ message: getAxiosErrorMessage(e) });
-      }
-      setSeriesMs(null);
+      setFetchResults(results);
     } finally {
       setLoadingSeries(false);
     }
@@ -243,36 +365,186 @@ export function SignalWidget({
 
   useEffect(() => {
     if (!vehicleId) return;
-    if (!queryIsRunnable) return;
-    runQuery();
-    // Serialized form is the wire representation; depending on it (rather
-    // than the AST object) means the effect only fires when the query
-    // actually changes, not on every reference identity change.
+    // The pairs path has its own /query/pairs effect; categorical runs here.
+    if (path === "pairs") return;
+    if (runnableFetches.length === 0) {
+      setFetchResults([]);
+      return;
+    }
+    runFetches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleId, vehicleType, rangeSeconds, serializedQuery, queryIsRunnable, startIso, endIso]);
+  }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
 
-  const totalSeriesValue = useMemo(() => {
-    let acc = 0;
-    for (const s of series) for (const p of s.points) acc += p.value ?? 0;
-    return acc;
-  }, [series]);
+  // Pairs path: each trace resolves to ONE signal (first `.where` name), and
+  // trace position assigns the axis (line 1 → X, 2 → Y, 3 → Z).
+  const pairNames = useMemo(() => {
+    const out: string[] = [];
+    for (const p of runnableFetches) {
+      const n = queryToSignalNames(p.query, signalNames)[0];
+      if (n) out.push(n);
+    }
+    return out;
+  }, [runnableFetches, signalNames]);
 
-  // Variable hint table (s0 = current_ac, …) shown in the derived-traces UI.
-  const seriesVariables = useMemo(
-    () => buildSeriesVariables(series),
-    [series],
+  // Enough axes resolved to plot: 2 for scatter/path, 3 for 3D.
+  const pairReady =
+    path === "pairs" &&
+    (chartType === "scatter3d" ? pairNames.length >= 3 : pairNames.length >= 2);
+
+  // Axis signals plus any color-by signal, deduped.
+  const pairFetchSignals = useMemo(() => {
+    if (path !== "pairs") return [];
+    const set = new Set(pairNames);
+    if (
+      (chartType === "scatter" || chartType === "path") &&
+      colorBy !== "none" &&
+      colorBy !== "time"
+    )
+      set.add(colorBy);
+    return [...set];
+  }, [path, pairNames, chartType, colorBy]);
+
+  // Debounce the pairs refetch too — axis signals come from live-edited lines.
+  const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
+
+  useEffect(() => {
+    if (path !== "pairs") return;
+    if (!vehicleId || !pairReady) {
+      setPairsData({ columns: ["produced_at"], rows: [] });
+      return;
+    }
+    let cancelled = false;
+    setLoadingSeries(true);
+    fetchPairs({ vehicleId, signals: pairFetchSignals, startIso, endIso })
+      .then((resp) => {
+        if (!cancelled) setPairsData(resp);
+      })
+      .catch((e) => {
+        if (!cancelled) notify.error(getAxiosErrorMessage(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSeries(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    path,
+    vehicleId,
+    vehicleType,
+    pairReady,
+    debouncedPairKey,
+    startIso,
+    endIso,
+  ]);
+
+  // PlotConfig assembled from the resolved axis signals (by trace position).
+  const plotConfig = useMemo<PlotConfig>(() => {
+    const colorByOpt = colorBy === "none" ? undefined : colorBy;
+    const x = pairNames[0];
+    if (chartType === "scatter3d") {
+      return {
+        kind: "scatter3d",
+        xSignal: x,
+        ySignals: pairNames[1] ? [pairNames[1]] : [],
+        zSignal: pairNames[2],
+      };
+    }
+    if (chartType === "path") {
+      return {
+        kind: "path",
+        xSignal: x,
+        ySignals: pairNames[1] ? [pairNames[1]] : [],
+        colorBy: colorByOpt,
+      };
+    }
+    if (chartType === "scatter") {
+      return {
+        kind: "scatter",
+        xSignal: x,
+        ySignals: pairNames.slice(1),
+        colorBy: colorByOpt,
+      };
+    }
+    // categorical: axes unused, data comes from runSeries.
+    return { kind: chartType === "pie" ? "pie" : "catbar", ySignals: [] };
+  }, [chartType, pairNames, colorBy]);
+
+  // Every fetched series concatenated in trace order. Derived expressions read
+  // s0, s1, … from here by position.
+  const runSeries = useMemo(() => {
+    const byId = new Map(fetchResults.map((r) => [r.id, r]));
+    const out: Series[] = [];
+    for (const p of runnableFetches) {
+      const r = byId.get(p.id);
+      if (r) out.push(...r.series);
+    }
+    return out;
+  }, [fetchResults, runnableFetches]);
+
+  const baseSeries = runSeries;
+
+  // Per-statement run/parse errors keyed by statement id, for inline display.
+  const fetchErrors = useMemo(() => {
+    const out: Record<string, { message: string; position?: number }> = {};
+    for (const c of classified) {
+      if (c.kind === "fetch" && "parseError" in c && c.parseError) {
+        out[c.stmt.id] = c.parseError;
+      }
+    }
+    for (const r of fetchResults) if (r.error) out[r.id] = r.error;
+    return out;
+  }, [classified, fetchResults]);
+
+  // Subtitle latency: sum across every fetch statement.
+  const seriesMs = useMemo(() => {
+    const vals = fetchResults
+      .map((r) => r.ms)
+      .filter((m): m is number => m !== null);
+    if (vals.length === 0) return null;
+    return vals.reduce((a, b) => a + b, 0);
+  }, [fetchResults]);
+
+  // Expression statements mapped to the evaluator's DerivedTrace shape. A
+  // `-> name` sets the label and registers a referenceable variable; unnamed
+  // expressions fall back to their text.
+  const exprTraces = useMemo(
+    () =>
+      classified
+        .filter((c) => c.kind === "expr")
+        .map((c) => ({
+          id: c.stmt.id,
+          name: c.name,
+          label: c.name ?? c.body.trim(),
+          expression: c.body,
+        })),
+    [classified],
   );
 
-  // Evaluate every derived trace against the fetched series. Returns the
-  // computed Series alongside any per-trace parse/eval error. Recomputes only
-  // when the data or the trace definitions change.
+  // Evaluate expressions in order; each named result is appended so a later
+  // expression can reference an earlier one (e.g. `ecu / other -> ratio`).
   const derivedResults = useMemo(
-    () => computeDerivedSeries(series, derivedTraces),
-    [series, derivedTraces],
+    () => computeDerivedSeries(baseSeries, exprTraces),
+    [baseSeries, exprTraces],
   );
 
-  // Split the results: successful series get appended to the chart input;
-  // errors are surfaced inline under their row.
+  // Named derived series are referenceable variables — surface them in the hint.
+  const namedDerivedSeries = useMemo(() => {
+    const named = new Set(
+      exprTraces.filter((t) => t.name).map((t) => t.id),
+    );
+    return derivedResults
+      .filter((r) => named.has(r.id) && r.series)
+      .map((r) => r.series as Series);
+  }, [exprTraces, derivedResults]);
+
+  // Variable hint (s0 = current_ac, …) shown near the rows.
+  const seriesVariables = useMemo(
+    () => buildSeriesVariables([...baseSeries, ...namedDerivedSeries]),
+    [baseSeries, namedDerivedSeries],
+  );
+
   const derivedSeries = useMemo(
     () =>
       derivedResults
@@ -281,23 +553,19 @@ export function SignalWidget({
     [derivedResults],
   );
 
-  const derivedErrors = useMemo(() => {
+  // Expression errors keyed by statement id, merged with fetch errors below.
+  const exprErrors = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of derivedResults) if (r.error) out[r.id] = r.error;
     return out;
   }, [derivedResults]);
 
-  // Base series plus any derived traces — every trace the widget knows about.
-  // This is what the trace controls list and what feeds the visibility filter.
   const plottedSeries = useMemo(
-    () => [...series, ...derivedSeries],
-    [series, derivedSeries],
+    () => [...baseSeries, ...derivedSeries],
+    [baseSeries, derivedSeries],
   );
 
-  // What actually reaches the chart: drop any trace the user has hidden (T11).
-  // Hidden traces stay fetched and keep feeding derived traces / highlights
-  // (those read the base `series`/`seriesVariables`, not this) — they're just
-  // kept off the plot. A widget with nothing hidden plots exactly as before.
+  // What reaches the chart: drop any hidden trace.
   const visibleSeries = useMemo(
     () =>
       plottedSeries.filter(
@@ -306,22 +574,12 @@ export function SignalWidget({
     [plottedSeries, axisSettings],
   );
 
-  // Evaluate every highlight condition against the fetched base series (the
-  // same `sN`/friendly variable model the derived traces use) in a single
-  // pass: contiguous truthy buckets coalesce into inclusive index ranges the
-  // chart paints as bands, and any compile/unknown-variable error is surfaced
-  // inline in the editor (like derived traces). Each condition compiles once.
-  // Recomputes only when the data or the highlight definitions change.
   const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
-    () => evaluateHighlights(series, highlights),
-    [series, highlights],
+    () => evaluateHighlights(baseSeries, highlights),
+    [baseSeries, highlights],
   );
 
-  // Narrow the (potentially stale) settings map to just the currently plotted
-  // labels before handing it to the chart. The chart already defaults any
-  // missing label, so this is mainly to keep the prop small and intentional;
-  // settings for labels no longer present simply lie dormant until they
-  // reappear (e.g. a requery that brings the same group-by labels back).
+  // Narrow the (possibly stale) settings map to just the plotted labels.
   const axisConfig = useMemo(() => {
     const out: Record<string, AxisSetting> = {};
     for (const s of visibleSeries) {
@@ -331,80 +589,228 @@ export function SignalWidget({
     return out;
   }, [visibleSeries, axisSettings]);
 
-  // label → rendered line color, mirroring the chart's top-K reordering so the
-  // controls' swatches match the on-screen lines. Keyed off the visible set so
-  // a hidden trace (no line) shows a neutral swatch in its control row.
+  // Each fetch statement's `.fill` mode applies to every series it produces.
+  const fillConfig = useMemo(() => {
+    const out: Record<string, FillMode> = {};
+    const fillById = new Map<string, FillMode>();
+    for (const p of runnableFetches) {
+      if (p.query.fill) fillById.set(p.id, p.query.fill);
+    }
+    for (const r of fetchResults) {
+      const fill = fillById.get(r.id);
+      if (!fill) continue;
+      for (const s of r.series) out[seriesLabel(s.tags)] = fill;
+    }
+    return out;
+  }, [runnableFetches, fetchResults]);
+
+  // label → rendered line color, mirroring the chart's top-K reordering.
   const seriesColors = useMemo(
     () => seriesColorMap(visibleSeries),
     [visibleSeries],
   );
 
-  // How many advanced editors are actually configured — shown as a badge on the
-  // Advanced options toggle (T10) so collapsing the disclosure never hides
-  // active state silently. Counts non-empty derived traces + highlights, plus
-  // any *currently plotted* trace whose y-axis setting differs from the default
-  // (normalized, hidden, or moved off group "1"). Dormant settings for labels
-  // no longer present don't count.
+  // Badge count so collapsing the disclosure never hides active state.
   const advancedCount = useMemo(() => {
-    const traces = derivedTraces.filter(
-      (t) => t.expression.trim() !== "",
-    ).length;
     const bands = highlights.filter((h) => h.expression.trim() !== "").length;
     let axes = 0;
     for (const s of plottedSeries) {
       const st = axisSettings[seriesLabel(s.tags)];
       if (st && (st.normalize || st.hidden || st.axisGroup !== "1")) axes++;
     }
-    return traces + bands + axes;
-  }, [derivedTraces, highlights, axisSettings, plottedSeries]);
+    return bands + axes;
+  }, [highlights, axisSettings, plottedSeries]);
 
-  // Patch one label's setting (merging over its current/default value).
   const updateAxisSetting = (label: string, patch: Partial<AxisSetting>) =>
     setAxisSettings((prev) => ({
       ...prev,
       [label]: { ...axisSettingFor(prev, label), ...patch },
     }));
 
-  // Keep a local handle on this widget's ECharts instance for PNG export,
-  // while still forwarding to the page's group-zoom registry. The chart hands
-  // us `null` on teardown.
+  const updateQueryMql = (id: string, mql: string) =>
+    setQueries((prev) => prev.map((t) => (t.id === id ? { ...t, mql } : t)));
+
+  const addQuery = () =>
+    setQueries((prev) => [...prev, { id: newQueryId(), mql: "avg(value)" }]);
+
+  const removeQuery = (id: string) =>
+    setQueries((prev) =>
+      // Never drop the last row.
+      prev.length <= 1 ? prev : prev.filter((t) => t.id !== id),
+    );
+
+  // Last successfully-parsed query per fetch row, so a transiently-unparseable
+  // edit doesn't unmount the chip builder and steal focus.
+  const lastGoodQuery = useRef<Map<string, Query>>(new Map());
+
   const chartInstance = useRef<ECharts | null>(null);
   const handleChartReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
+    // Only the time-series chart joins the shared connect group.
     onChartReady?.(instance);
   };
-
-  // Whether there's anything to export — the export controls hide entirely
-  // when nothing's plotted (no data, or every trace hidden), so they never
-  // produce an empty file.
-  const hasData = visibleSeries.length > 0;
-
-  // Export the visible series (base + derived traces, minus hidden ones) as
-  // CSV, and the live chart as a 2x PNG. Both pull from exactly what's on
-  // screen.
-  const exportCsv = () =>
-    downloadText(seriesToCsv(visibleSeries), "signals.csv", "text/csv");
-  const exportPng = () => {
-    const inst = chartInstance.current;
-    if (inst) downloadChartPng(inst, "signals.png");
+  const handlePlotReady = (instance: ECharts | null) => {
+    chartInstance.current = instance;
   };
+
+  // Categorical reuses the /query/run series; PlotChart sums each to its total.
+  const categoricalSeries = path === "categorical" ? runSeries : [];
+
+  const hasData =
+    path === "timeseries"
+      ? visibleSeries.length > 0
+      : path === "pairs"
+        ? pairsData.rows.length > 0
+        : categoricalSeries.length > 0;
+
+  // Export data adapted to the Series shape the CSV/JSON serializers expect.
+  const exportVisible =
+    path === "pairs"
+      ? pairsToSeries(pairsData)
+      : path === "categorical"
+        ? categoricalSeries
+        : visibleSeries;
+  const exportAll =
+    path === "pairs"
+      ? pairsToSeries(pairsData)
+      : path === "categorical"
+        ? categoricalSeries
+        : plottedSeries;
+
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const totalSeriesValue = useMemo(() => {
+    let acc = 0;
+    for (const s of baseSeries) for (const p of s.points) acc += p.value ?? 0;
+    return acc;
+  }, [baseSeries]);
+
+  // Pairs path: label each fetch row by the axis its position maps to.
+  const pairAxisLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    if (path !== "pairs") return out;
+    let i = 0;
+    for (const c of classified) {
+      if (c.kind !== "fetch") continue;
+      out[c.stmt.id] =
+        i === 0
+          ? "X"
+          : chartType === "scatter3d"
+            ? i === 1
+              ? "Y"
+              : i === 2
+                ? "Z"
+                : `#${i + 1}`
+            : "Y";
+      i++;
+    }
+    return out;
+  }, [path, classified, chartType]);
 
   return (
     <Card>
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-3">
-            <QueryBuilder
-              value={queryAst}
-              onChange={setQueryAst}
-              signalNames={signalNames}
-              error={queryError}
-            />
-            {/* Advanced options (T10): derived traces, per-trace y-axis
-                scaling + visibility, and highlight bands — tucked behind one
-                collapsed-by-default disclosure so the default widget is just
-                the builder + chart. The badge surfaces how many editors are
-                configured so collapsing never hides active state silently. */}
+            {/* Trace list — one row per statement; the "Edit as MQL" toggle
+                swaps it for a single textarea. Both write the same `queries`. */}
+            <div className="flex flex-col gap-2">
+              {editAsMql ? (
+                <MqlEditor queries={queries} onChange={setQueries} />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {classified.map((c) => {
+                    const id = c.stmt.id;
+                    const onlyRow = queries.length <= 1;
+                    // Honor a frozen kind while this row is being typed in, so
+                    // crossing the `(` boundary doesn't swap the input element.
+                    const kind =
+                      editingRow?.id === id ? editingRow.kind : c.kind;
+                    if (kind === "fetch") {
+                      // Chip builder for any fetch-looking line (even
+                      // transiently-unparseable ones), falling back to the
+                      // last-good query so the builder never unmounts mid-edit.
+                      const parsed = "query" in c ? c.query : undefined;
+                      if (parsed) lastGoodQuery.current.set(id, parsed);
+                      const builderValue =
+                        parsed ?? lastGoodQuery.current.get(id) ?? DEFAULT_QUERY;
+                      return (
+                        <QueryRow key={id} onRemove={() => removeQuery(id)} disableRemove={onlyRow} axisLabel={pairAxisLabels[id]}>
+                          <QueryBuilder
+                            value={builderValue}
+                            onChange={(next) => updateQueryMql(id, serializeQuery(next))}
+                            onMqlChange={(mql) => updateQueryMql(id, mql)}
+                            onMqlFocus={() => setEditingRow({ id, kind: "fetch" })}
+                            onMqlBlur={() => setEditingRow(null)}
+                            signalNames={signalNames}
+                            error={fetchErrors[id] ?? null}
+                          />
+                        </QueryRow>
+                      );
+                    }
+                    // Expression row → raw input.
+                    const errMessage = exprErrors[id];
+                    return (
+                      <QueryRow key={id} onRemove={() => removeQuery(id)} disableRemove={onlyRow}>
+                        <div className="flex flex-col gap-1">
+                          <input
+                            value={c.stmt.mql}
+                            onChange={(e) => updateQueryMql(id, e.target.value)}
+                            onFocus={() => setEditingRow({ id, kind: "expr" })}
+                            onBlur={() => setEditingRow(null)}
+                            spellCheck={false}
+                            placeholder="expression (e.g. ecu / other -> ratio) or fetch query"
+                            className={cn(
+                              "h-8 w-full rounded-md border bg-background px-2.5 font-mono text-xs outline-none focus:border-primary/40",
+                              errMessage && "border-destructive/50",
+                            )}
+                          />
+                          {errMessage ? (
+                            <p className="pl-1 text-xs text-destructive">
+                              {errMessage}
+                            </p>
+                          ) : null}
+                        </div>
+                      </QueryRow>
+                    );
+                  })}
+
+                  {/* Variable hint for expression rows: s0 = current_ac, … */}
+                  {seriesVariables.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
+                      <span className="uppercase tracking-wider">vars</span>
+                      {seriesVariables.map((v) => (
+                        <code key={v.index} className="font-mono">
+                          {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
+                        </code>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={addQuery}
+                    className="inline-flex h-7 w-fit items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add query
+                  </button>
+                </div>
+              )}
+
+              {/* Edit-as-MQL toggle — swaps chip rows ↔ one textarea. */}
+              <button
+                type="button"
+                onClick={() => setEditAsMql((m) => !m)}
+                className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {editAsMql ? "Edit with chips" : "Edit as MQL"}
+              </button>
+            </div>
+
+            {/* Advanced options: per-trace y-axis scaling + visibility,
+                highlight bands. Time-series only (shared bucket axis). */}
+            {path === "timeseries" && (
             <div className="flex flex-col gap-3">
               <button
                 type="button"
@@ -416,7 +822,7 @@ export function SignalWidget({
                 ) : (
                   <ChevronRight className="h-3.5 w-3.5" />
                 )}
-                Advanced options
+                Advanced render options
                 {advancedCount > 0 && (
                   <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
                     {advancedCount}
@@ -425,12 +831,6 @@ export function SignalWidget({
               </button>
               {advancedOpen && (
                 <div className="flex flex-col gap-3">
-                  <DerivedTraces
-                    traces={derivedTraces}
-                    onChange={setDerivedTraces}
-                    variables={seriesVariables}
-                    errors={derivedErrors}
-                  />
                   <TraceAxisControls
                     series={plottedSeries}
                     colors={seriesColors}
@@ -446,34 +846,36 @@ export function SignalWidget({
                 </div>
               )}
             </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <ChartTypeToggle value={chartType} onChange={setChartType} />
-            {/* Export the underlying data (CSV) and the chart image (PNG).
-                Hidden when there's nothing plotted so we never export an empty
-                file. PNG needs a live instance, so it's gated on the chart
-                being visible (not collapsed). */}
+            {/* Color-by (scatter/path only) — a render option, not MQL. */}
+            {(chartType === "scatter" || chartType === "path") && (
+              <Select value={colorBy} onValueChange={setColorBy}>
+                <SelectTrigger className="h-8 w-[150px]" title="Color points by">
+                  <SelectValue placeholder="Color by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No color</SelectItem>
+                  <SelectItem value="time">Color: time</SelectItem>
+                  {signalNames.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      Color: {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <ChartTypeSelect value={chartType} onChange={changeChartType} />
             {hasData && (
-              <>
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  title="Export data as CSV"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                {!hidden && (
-                  <button
-                    type="button"
-                    onClick={exportPng}
-                    title="Export chart as PNG"
-                    className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <Image className="h-4 w-4" />
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                title="Export"
+                className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <Download className="h-4 w-4" />
+              </button>
             )}
             <button
               type="button"
@@ -500,19 +902,27 @@ export function SignalWidget({
         {!hidden && (
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">
-              {series.length > 1 ? `${series.length} series` : "Query result"}
+              {path === "pairs"
+                ? CHART_TYPE_MAP[chartType].label
+                : path === "categorical"
+                  ? "Categorical aggregate"
+                  : baseSeries.length > 1
+                    ? `${baseSeries.length} series`
+                    : "Query result"}
             </CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {loadingSeries
-                ? "Loading…"
-                : [
-                    `${formatCount(totalSeriesValue)} total`,
-                    `${interval} buckets`,
-                    seriesMs !== null && formatLatency(seriesMs),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-            </div>
+            {path === "timeseries" && (
+              <div className="text-sm text-muted-foreground">
+                {loadingSeries
+                  ? "Loading…"
+                  : [
+                      `${formatCount(totalSeriesValue)} total`,
+                      `${interval} buckets`,
+                      seriesMs !== null && formatLatency(seriesMs),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+              </div>
+            )}
           </div>
         )}
       </CardHeader>
@@ -522,20 +932,85 @@ export function SignalWidget({
             <div className="flex h-[260px] items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
+          ) : path !== "timeseries" ? (
+            !hasData ? (
+              <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+                {path === "pairs"
+                  ? "Set the axis signals (one per query line) to plot"
+                  : "No data in this window"}
+              </div>
+            ) : (
+              <PlotChart
+                config={plotConfig}
+                pairs={pairsData}
+                categorical={categoricalSeries}
+                onReady={handlePlotReady}
+              />
+            )
           ) : (
             <QueryChart
               series={visibleSeries}
-              type={chartType}
+              type={chartType as "bar" | "line" | "area"}
               intervalSec={intervalSec}
               groupId={groupId}
               onBrushSelect={onBrushSelect}
               onReady={handleChartReady}
               axisConfig={axisConfig}
+              fillConfig={fillConfig}
               highlights={highlightRanges}
+              interactionMode={interactionMode}
             />
           )}
         </CardContent>
       )}
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        getInstance={() => chartInstance.current}
+        visibleSeries={exportVisible}
+        allSeries={exportAll}
+        chartHidden={hidden}
+        defaultFilename="signals"
+      />
     </Card>
   );
 }
+
+/** One trace-list row: its editing surface plus a remove button (disabled when
+ *  it's the only row). */
+function QueryRow({
+  children,
+  onRemove,
+  disableRemove,
+  axisLabel,
+}: {
+  children: React.ReactNode;
+  onRemove: () => void;
+  disableRemove: boolean;
+  /** Pairs path: the axis (X/Y/Z) this row's signal maps to, by position. */
+  axisLabel?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border bg-card/40 p-2.5">
+      {axisLabel ? (
+        <span className="mt-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-[10px] font-semibold text-primary">
+          {axisLabel}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1">{children}</div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disableRemove}
+        aria-label="Remove query"
+        title={disableRemove ? "A widget needs at least one query" : "Remove query"}
+        className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+// Re-exported so the page/tests can build a trace list from text.
+export { textToQueries };

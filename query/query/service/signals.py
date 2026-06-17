@@ -36,9 +36,9 @@ def utc_iso(dt: datetime | None) -> str | None:
 # Picking a sensible default for a given timeframe is the caller's job.
 #
 # Step is stored in *milliseconds* (int) rather than seconds so sub-second
-# rollups (down to one 60 Hz sample, ~16 ms) stay exact integers — a float
-# `step_seconds` would round-trip badly through the WITH FILL step and the
-# Python zero-fill axis. Consumers that want seconds divide by 1000.0.
+# rollups (down to 50 ms) stay exact integers — a float `step_seconds` would
+# round-trip badly through the WITH FILL step and the Python zero-fill axis.
+# Consumers that want seconds divide by 1000.0.
 #
 # produced_at is DateTime64(6, 'UTC') (microsecond precision), so
 # toStartOfInterval(produced_at, INTERVAL n MILLISECOND) buckets at
@@ -46,7 +46,6 @@ def utc_iso(dt: datetime | None) -> str | None:
 INTERVALS: dict[str, tuple[str, int]] = {
     # name: (INTERVAL clause, step milliseconds). Order is significant —
     # used by the frontend to render the rollup dropdown in ascending order.
-    "16ms":  ("INTERVAL 16 MILLISECOND",  16),
     "50ms":  ("INTERVAL 50 MILLISECOND",  50),
     "100ms": ("INTERVAL 100 MILLISECOND", 100),
     "500ms": ("INTERVAL 500 MILLISECOND", 500),

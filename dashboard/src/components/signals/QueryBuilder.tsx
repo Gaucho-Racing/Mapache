@@ -10,13 +10,14 @@ import {
   COUNT_FIELD,
   defaultFieldFor,
   type FieldName,
+  type FillMode,
+  FILL_MODES,
   type FilterColumn,
   FILTERABLE_COLUMNS,
-  type GroupColumn,
-  GROUPABLE_COLUMNS,
   NUMERIC_FIELDS,
   type Predicate,
   type Query,
+  type RejectNode,
   type Rollup,
   ROLLUP_INTERVALS,
   ROW_COUNT_AGGS,
@@ -25,19 +26,22 @@ import {
 import { cn } from "@/lib/utils";
 import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 interface QueryBuilderProps {
   value: Query;
   onChange: (next: Query) => void;
-  /** Available signal names for the filter-value autocomplete. Pulled from
-   *  the page's existing `/query/signals` fetch so the picker and the
-   *  table never disagree about what exists. */
+  /** Signal names for the filter-value autocomplete. */
   signalNames: string[];
-  /** Parser/execution error from the most recent run. Surfaced under the
-   *  serialized preview; the builder itself stays interactive so the user
-   *  can keep iterating. */
+  /** Parser/execution error from the most recent run, shown under the preview. */
   error?: { message: string; position?: number } | null;
+  /** Opt-in editable MQL line: when provided, the preview becomes a controlled
+   *  `<input>` that calls `onMqlChange` for the parent to re-parse. */
+  onMqlChange?: (mql: string) => void;
+  /** Focus lifecycle of the editable MQL line — the parent uses these to freeze
+   *  the row as a fetch row mid-edit (see SignalWidget's editingRow). */
+  onMqlFocus?: () => void;
+  onMqlBlur?: () => void;
 }
 
 export function QueryBuilder({
@@ -45,6 +49,9 @@ export function QueryBuilder({
   onChange,
   signalNames,
   error,
+  onMqlChange,
+  onMqlFocus,
+  onMqlBlur,
 }: QueryBuilderProps) {
   const fieldOptions: FieldName[] = ROW_COUNT_AGGS.has(value.fn)
     ? [COUNT_FIELD]
@@ -52,9 +59,8 @@ export function QueryBuilder({
   const fieldFixed = fieldOptions.length === 1;
 
   function setFn(fn: Aggregator) {
-    // Swapping aggregator classes (count ↔ avg/sum/...) invalidates the
-    // current field. Reset to the canonical default to keep the AST
-    // valid without a separate "field is wrong" error state.
+    // Swapping aggregator classes (count ↔ avg/sum/...) invalidates the field;
+    // reset to the canonical default to keep the AST valid.
     const fieldClassChanged =
       ROW_COUNT_AGGS.has(fn) !== ROW_COUNT_AGGS.has(value.fn);
     onChange({
@@ -88,36 +94,64 @@ export function QueryBuilder({
     });
   }
 
-  function addGroup() {
-    // Only one groupable column today; if it's already in the list bail
-    // out instead of creating a duplicate the SQL would reject anyway.
-    const next = GROUPABLE_COLUMNS.find((c) => !value.groupBy.includes(c));
-    if (!next) return;
-    onChange({ ...value, groupBy: [...value.groupBy, next] });
-  }
-
-  function removeGroup(col: GroupColumn) {
-    onChange({
-      ...value,
-      groupBy: value.groupBy.filter((c) => c !== col),
-    });
+  // `.by(name)` breakout: on = one series per matching signal, off = one
+  // combined series. Clears any label, which can't combine with `.by`.
+  const breakout = value.groupBy.length > 0;
+  function setBreakout(on: boolean) {
+    if (on) {
+      const { label: _drop, ...rest } = value;
+      onChange({ ...rest, groupBy: ["name"] });
+    } else {
+      onChange({ ...value, groupBy: [] });
+    }
   }
 
   function setRollup(next: Rollup | undefined) {
-    // Pass an explicit undefined to clear instead of leaving rollup
-    // hanging around as an empty string in the AST.
     const { rollup: _drop, ...rest } = value;
     onChange(next ? { ...rest, rollup: next } : rest);
   }
 
-  const canAddGroup = value.groupBy.length < GROUPABLE_COLUMNS.length;
+  function setReject(next: RejectNode | undefined) {
+    const { reject: _drop, ...rest } = value;
+    onChange(next ? { ...rest, reject: next } : rest);
+  }
+
+  function setFill(next: FillMode | undefined) {
+    const { fill: _drop, ...rest } = value;
+    onChange(next ? { ...rest, fill: next } : rest);
+  }
+
+  function setLabel(next: string | undefined) {
+    // Restrict to identifier chars so the `-> name` variable parses.
+    const ident = next?.replace(/[^A-Za-z0-9_]/g, "");
+    const { label: _drop, ...rest } = value;
+    onChange(ident ? { ...rest, label: ident } : rest);
+  }
+
+  // Editable MQL line (two-way chips↔text). Local text is the source of truth
+  // while typing; re-seed from the serialized AST only on chip-driven changes,
+  // never on the user's own keystrokes (which would yank the caret). Mirrors
+  // MqlEditor's `lastEmitted` guard.
+  const serialized = serializeQuery(value);
+  const [mqlText, setMqlText] = useState(serialized);
+  const lastSerialized = useRef(serialized);
+  // Distinguishes our own edit echo (skip overwrite) from a chip change (apply).
+  const fromTextEdit = useRef(false);
+  useEffect(() => {
+    if (fromTextEdit.current) {
+      fromTextEdit.current = false;
+      lastSerialized.current = serialized;
+      return;
+    }
+    if (serialized !== lastSerialized.current) {
+      setMqlText(serialized);
+      lastSerialized.current = serialized;
+    }
+  }, [serialized]);
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* The builder reads as a left-to-right sentence:
-       *   Show <agg> of <field>   where <filters>   grouped by <groups>   every <rollup>
-       * Each clause is its own visual segment with a soft keyword lead-in
-       * so the structure is legible without reading the chips as a run-on. */}
+      {/* Reads as a sentence: Show <agg> of <field> where <filters> … */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 leading-7">
         <Clause keyword="Show">
           <SelectChip
@@ -142,14 +176,14 @@ export function QueryBuilder({
             <Hint>all signals</Hint>
           ) : (
             value.filters.map((pred, i) => {
-              // Adjacent filters on the same column union (OR semantics);
-              // show a tiny "or" between them so the user sees this rather
-              // than reading the visual sequence as AND.
+              // Same-column filters combine: matches union ("or"), negations
+              // intersect ("and"). Show the connector so it doesn't read ambiguously.
               const prev = i > 0 ? value.filters[i - 1] : null;
               const sameColAsPrev = prev !== null && prev.column === pred.column;
+              const connector = pred.op === "!=" ? "and" : "or";
               return (
                 <span key={i} className="inline-flex items-center gap-2">
-                  {sameColAsPrev ? <Connector>or</Connector> : null}
+                  {sameColAsPrev ? <Connector>{connector}</Connector> : null}
                   <FilterChip
                     value={pred}
                     onChange={(next) => updateFilter(i, next)}
@@ -163,37 +197,59 @@ export function QueryBuilder({
           <AddChip label="filter" onClick={addFilter} />
         </Clause>
 
-        <Clause keyword="grouped by">
-          {value.groupBy.length === 0 ? <Hint>nothing</Hint> : null}
-          {value.groupBy.map((col) => (
-            <GroupChip
-              key={col}
-              column={col}
-              onRemove={() => removeGroup(col)}
-            />
-          ))}
-          {canAddGroup ? (
-            <AddChip label="group" onClick={addGroup} />
-          ) : null}
-        </Clause>
+        <BreakoutToggle value={breakout} onChange={setBreakout} />
 
         <Clause keyword="every">
           <RollupChip value={value.rollup} onChange={setRollup} />
         </Clause>
+
+        <Clause keyword="reject">
+          <RejectChip value={value.reject} onChange={setReject} />
+        </Clause>
+
+        <Clause keyword="fill">
+          <FillChip value={value.fill} onChange={setFill} />
+        </Clause>
+
+        {/* `-> name` labels the single result series; hidden while breaking
+            out (a breakdown is already labeled by its group values). */}
+        {!breakout ? (
+          <Clause keyword="→">
+            <LabelChip value={value.label} onChange={setLabel} />
+          </Clause>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           MQL
         </span>
-        <code
-          className={cn(
-            "block break-all font-mono text-xs text-foreground/80",
-            error && "text-destructive",
-          )}
-        >
-          {serializeQuery(value)}
-        </code>
+        {onMqlChange ? (
+          <input
+            value={mqlText}
+            onChange={(e) => {
+              fromTextEdit.current = true;
+              setMqlText(e.target.value);
+              onMqlChange(e.target.value);
+            }}
+            onFocus={onMqlFocus}
+            onBlur={onMqlBlur}
+            spellCheck={false}
+            className={cn(
+              "block w-full break-all bg-transparent font-mono text-xs text-foreground/80 outline-none",
+              error && "text-destructive",
+            )}
+          />
+        ) : (
+          <code
+            className={cn(
+              "block break-all font-mono text-xs text-foreground/80",
+              error && "text-destructive",
+            )}
+          >
+            {serialized}
+          </code>
+        )}
       </div>
       {error ? (
         <p className="text-xs text-destructive">
@@ -245,8 +301,7 @@ function Connector({ children }: { children: ReactNode }) {
   );
 }
 
-/** Muted placeholder shown when a clause has no chips yet, so the sentence
- *  still reads ("where all signals", "grouped by nothing"). */
+/** Muted placeholder shown when a clause has no chips yet. */
 function Hint({ children }: { children: ReactNode }) {
   return (
     <span className="select-none text-xs italic text-muted-foreground/60">
@@ -396,25 +451,294 @@ function RollupChip({
   );
 }
 
-function GroupChip({
-  column,
-  onRemove,
+// Null-gap fill mode. Unset = "gap" (the chart's default), so an untouched
+// widget doesn't serialize a `.fill(...)` clause.
+function FillChip({
+  value,
+  onChange,
 }: {
-  column: GroupColumn;
-  onRemove: () => void;
+  value: FillMode | undefined;
+  onChange: (next: FillMode | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isDefault = !value;
+  const label = value ?? "gap";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            isDefault && "text-muted-foreground",
+          )}
+        >
+          {label}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[200px] p-1">
+        {FILL_MODES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              // "gap" is the implicit default — clear instead of serializing it.
+              onChange(m === "gap" ? undefined : m);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs font-mono hover:bg-accent",
+              label === m && "bg-accent",
+            )}
+          >
+            {m}
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {m === "gap"
+                ? "break at gaps"
+                : m === "last"
+                  ? "hold last value"
+                  : "bridge linearly"}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// The single grouping choice (`.by(name)`): on = one series per matching
+// signal, off = one combined series.
+function BreakoutToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (next: boolean) => void;
 }) {
   return (
-    <span className={cn(CHIP_BASE, "gap-1.5 pr-1 font-medium")}>
-      {column}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-        title="Remove group"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
+    <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 rounded border-input accent-primary"
+      />
+      by name
+    </label>
+  );
+}
+
+// `-> name` chip: names the result series and exposes it as a variable. Unset
+// reads "name". Input is restricted to identifier chars by `setLabel`.
+function LabelChip({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (next: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  // Re-seed from the AST when it changes (e.g. the MQL line edits `-> name`).
+  useEffect(() => setDraft(value ?? ""), [value]);
+  const isDefault = !value;
+  const commit = () => {
+    onChange(draft);
+    setOpen(false);
+  };
+  return (
+    <Popover open={open} onOpenChange={(o) => { if (!o) commit(); setOpen(o); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            isDefault && "text-muted-foreground",
+          )}
+        >
+          {value ?? "name"}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[220px] p-2">
+        <Input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              setDraft(value ?? "");
+              setOpen(false);
+            }
+          }}
+          placeholder="variable name (e.g. ecu)"
+          className="h-8 font-mono text-xs"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Outlier rejection. Two toggles combine into a RejectNode (OR'd): statistical
+// outliers (`sigma > N`) and hard limits (`value outside (min, max)`, or a
+// single comparison). UI state is read back from the node, not held in parallel,
+// so a hand-typed `.reject(...)` round-trips into the controls.
+interface RejectUiState {
+  sigmaOn: boolean;
+  sigmaN: number;
+  min: string;
+  max: string;
+}
+
+/** Read a RejectNode back into the chip's UI state, recognizing the shapes this
+ *  chip writes; anything else falls back to defaults. */
+function rejectToUi(node: RejectNode | undefined): RejectUiState {
+  const ui: RejectUiState = { sigmaOn: false, sigmaN: 3, min: "", max: "" };
+  const visit = (n: RejectNode) => {
+    if (n.kind === "bool") {
+      visit(n.left);
+      visit(n.right);
+    } else if (n.kind === "cmp" && n.metric === "sigma") {
+      ui.sigmaOn = true;
+      ui.sigmaN = n.threshold;
+    } else if (n.kind === "cmp" && (n.metric === "value" || n.metric === "raw_value")) {
+      if (n.op === "<" || n.op === "<=") ui.min = String(n.threshold);
+      else if (n.op === ">" || n.op === ">=") ui.max = String(n.threshold);
+    } else if (n.kind === "range" && !n.inside) {
+      ui.min = String(n.lo);
+      ui.max = String(n.hi);
+    }
+  };
+  if (node) visit(node);
+  return ui;
+}
+
+/** Build a RejectNode from the chip's UI state (or undefined when nothing is
+ *  enabled). Combines an enabled sigma leaf with any hard-limit leaf via OR. */
+function uiToReject(ui: RejectUiState): RejectNode | undefined {
+  const leaves: RejectNode[] = [];
+  if (ui.sigmaOn) {
+    leaves.push({ kind: "cmp", metric: "sigma", op: ">", threshold: ui.sigmaN });
+  }
+  const hasMin = ui.min.trim() !== "" && !Number.isNaN(Number(ui.min));
+  const hasMax = ui.max.trim() !== "" && !Number.isNaN(Number(ui.max));
+  if (hasMin && hasMax) {
+    leaves.push({
+      kind: "range",
+      metric: "value",
+      lo: Number(ui.min),
+      hi: Number(ui.max),
+      inside: false,
+    });
+  } else if (hasMin) {
+    leaves.push({ kind: "cmp", metric: "value", op: "<", threshold: Number(ui.min) });
+  } else if (hasMax) {
+    leaves.push({ kind: "cmp", metric: "value", op: ">", threshold: Number(ui.max) });
+  }
+  if (leaves.length === 0) return undefined;
+  return leaves.reduce((left, right) => ({ kind: "bool", op: "or", left, right }));
+}
+
+/** One-line summary of the active reject for the chip face (e.g.
+ *  "σ>3 · outside 0–100"). */
+function rejectSummary(ui: RejectUiState): string | null {
+  const parts: string[] = [];
+  if (ui.sigmaOn) parts.push(`σ>${ui.sigmaN}`);
+  const hasMin = ui.min.trim() !== "";
+  const hasMax = ui.max.trim() !== "";
+  if (hasMin && hasMax) parts.push(`outside ${ui.min}–${ui.max}`);
+  else if (hasMin) parts.push(`<${ui.min}`);
+  else if (hasMax) parts.push(`>${ui.max}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+function RejectChip({
+  value,
+  onChange,
+}: {
+  value: RejectNode | undefined;
+  onChange: (next: RejectNode | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ui = rejectToUi(value);
+  const summary = rejectSummary(ui);
+
+  // Patch straight through to a RejectNode — the chip is a pure view of `value`.
+  const apply = (patch: Partial<RejectUiState>) =>
+    onChange(uiToReject({ ...ui, ...patch }));
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            CHIP_BASE,
+            "font-medium hover:border-primary/40 hover:bg-accent/50",
+            !summary && "text-muted-foreground",
+          )}
+        >
+          {summary ?? "none"}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[260px] p-3">
+        <div className="flex flex-col gap-3">
+          {/* Statistical outliers → sigma > N */}
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={ui.sigmaOn}
+              onChange={(e) => apply({ sigmaOn: e.target.checked })}
+              className="h-3.5 w-3.5 rounded border-input accent-primary"
+            />
+            <span>remove statistical outliers</span>
+          </label>
+          {ui.sigmaOn ? (
+            <div className="flex items-center gap-2 pl-6 text-xs">
+              <span className="text-muted-foreground">beyond</span>
+              <Input
+                type="number"
+                value={ui.sigmaN}
+                onChange={(e) =>
+                  apply({ sigmaN: Number(e.target.value) || 0 })
+                }
+                className="h-7 w-16 font-mono text-xs"
+              />
+              <span className="text-muted-foreground">σ</span>
+            </div>
+          ) : null}
+
+          <div className="border-t" />
+
+          {/* Hard limits → value range / single comparison */}
+          <span className="text-xs text-muted-foreground">hard limits</span>
+          <div className="flex items-center gap-2 text-xs">
+            <Input
+              type="number"
+              placeholder="min"
+              value={ui.min}
+              onChange={(e) => apply({ min: e.target.value })}
+              className="h-7 flex-1 font-mono text-xs"
+            />
+            <span className="text-muted-foreground">to</span>
+            <Input
+              type="number"
+              placeholder="max"
+              value={ui.max}
+              onChange={(e) => apply({ max: e.target.value })}
+              className="h-7 flex-1 font-mono text-xs"
+            />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -429,8 +753,7 @@ function FilterChip({
   onRemove: () => void;
   signalNames: string[];
 }) {
-  // Open the popover automatically when the chip is freshly added (empty
-  // value) so the user doesn't have to click again to start typing.
+  // Auto-open when freshly added (empty) so the user can start typing.
   const [open, setOpen] = useState(value.value === "");
   const filled = Boolean(value.value);
 
@@ -449,7 +772,9 @@ function FilterChip({
             className="inline-flex items-center gap-1.5 rounded-sm hover:text-primary"
           >
             <span className="font-medium">{value.column}</span>
-            <span className="text-muted-foreground">is</span>
+            <span className="text-muted-foreground">
+              {value.op === "!=" ? "is not" : "is"}
+            </span>
             {filled ? (
               <span>{value.value}</span>
             ) : (
@@ -507,12 +832,9 @@ function FilterEditor({
     const q = search.trim();
     if (!q) return signalNames.slice(0, 50);
     if (hasWildcard) {
-      // Compile the wildcard pattern to a regex so the preview list
-      // shows what would actually match on the backend (`*` ⇒ any run
-      // of characters). Anchor with ^…$ to mirror LIKE's full-string
-      // semantics — `bcu_*_temp` shouldn't match `prefix_bcu_x_temp`.
+      // Compile to an anchored regex mirroring the backend's LIKE semantics.
       const escaped = q
-        .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // escape regex metachars
+        .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
         .replace(/\*/g, ".*");
       try {
         const rx = new RegExp(`^${escaped}$`, "i");
@@ -532,7 +854,14 @@ function FilterEditor({
           options={FILTERABLE_COLUMNS.map((c) => ({ value: c, label: c }))}
           onSelect={(c) => onChange({ ...value, column: c as FilterColumn })}
         />
-        <span className="text-xs text-muted-foreground">is</span>
+        <SelectChip
+          label={value.op === "!=" ? "is not" : "is"}
+          options={[
+            { value: "=", label: "is" },
+            { value: "!=", label: "is not" },
+          ]}
+          onSelect={(op) => onChange({ ...value, op: op as "=" | "!=" })}
+        />
         <Input
           autoFocus
           value={search}
@@ -540,10 +869,8 @@ function FilterEditor({
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              // Wildcards commit the literal pattern (we want LIKE
-              // semantics, not "pick the first match"). Otherwise prefer
-              // the top fuzzy match — saves a click when the user typed
-              // an exact-ish prefix.
+              // Wildcards commit the literal pattern (LIKE semantics); otherwise
+              // take the top fuzzy match.
               const pick = hasWildcard
                 ? search.trim()
                 : (matches[0] ?? search.trim());

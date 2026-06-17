@@ -11,6 +11,7 @@ from query.database.connection import init_db
 from query.routes import (
     clusters,
     ping,
+    query_pairs,
     query_run,
     signal_definition,
     signals,
@@ -56,6 +57,7 @@ def create_app():
 
     app.include_router(ping.router, prefix="/query", tags=["Ping"])
     app.include_router(query_run.router, prefix="/query", tags=["Query"])
+    app.include_router(query_pairs.router, prefix="/query", tags=["Query"])
     app.include_router(signals.router, prefix="/query", tags=["Signals"])
     app.include_router(clusters.router, prefix="/query", tags=["Clusters"])
     app.include_router(signal_definition.router, prefix="/query", tags=["Signal Definition"])
