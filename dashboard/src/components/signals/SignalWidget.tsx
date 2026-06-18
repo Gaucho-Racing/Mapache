@@ -352,8 +352,10 @@ export function SignalWidget({
   const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
 
   // Run every runnable fetch in parallel against /query/run with the shared
-  // interval; concatenation order follows `runnableFetches`.
-  const runFetches = async () => {
+  // interval; concatenation order follows `runnableFetches`. `shouldApply`
+  // lets the caller drop a stale response (a fast timeframe change can let an
+  // earlier Promise.all resolve after a newer one).
+  const runFetches = async (shouldApply: () => boolean) => {
     setLoadingSeries(true);
     try {
       const results = await Promise.all(
@@ -393,9 +395,9 @@ export function SignalWidget({
           }
         }),
       );
-      setFetchResults(results);
+      if (shouldApply()) setFetchResults(results);
     } finally {
-      setLoadingSeries(false);
+      if (shouldApply()) setLoadingSeries(false);
     }
   };
 
@@ -407,7 +409,11 @@ export function SignalWidget({
       setFetchResults([]);
       return;
     }
-    runFetches();
+    let cancelled = false;
+    runFetches(() => !cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
 
