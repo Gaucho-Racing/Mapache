@@ -113,11 +113,24 @@ function rasterizeWithLabels(
   };
 
   try {
+    // A centered top title overlaps the plot, so nudge the grid down to make
+    // room. `grid` may be an object, array, or absent (e.g. pie has none), so
+    // merge defensively only when a title is actually present.
+    const gridNudge = labels.title
+      ? (() => {
+          const g = prev.grid;
+          if (Array.isArray(g)) {
+            return g.map((x) => ({ ...(x as object), top: 48 }));
+          }
+          return { ...((g as object) ?? {}), top: 48 };
+        })()
+      : undefined;
     instance.setOption(
       {
         title: { text: labels.title ?? "", left: "center" },
         xAxis: applyName(prev.xAxis, labels.xName),
         yAxis: applyName(prev.yAxis, labels.yName),
+        ...(gridNudge ? { grid: gridNudge } : {}),
       },
       { lazyUpdate: false },
     );

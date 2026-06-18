@@ -162,6 +162,23 @@ export class SegmentManager {
     this.redoStack = [];
   }
 
+  // Replace segments with an already-projected map (segment index -> points),
+  // marking dirty so the user re-processes laps. Resets edit history.
+  importSegments(map: SegmentMap): void {
+    this.segments = emptySegments();
+    for (let n = 1; n <= NUM_SEGMENTS; n++) {
+      const pts = map[n];
+      if (!pts) continue;
+      for (const pt of pts.slice(0, 2)) {
+        this.segments[n].push([Number(pt[0]), Number(pt[1])]);
+      }
+    }
+    this.activeSeg = 1;
+    this.dirtyFlag = true;
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
   // Serialize defined segments for saving (only segments with points).
   toPayload(): Record<string, number[][]> {
     const out: Record<string, number[][]> = {};

@@ -20,8 +20,8 @@ import {
   SignalSample,
   hasAnalysis,
 } from "@/models/session";
-import { SegmentManager } from "@/lib/sessions/segments";
-import { normalizeCoordinates } from "@/lib/sessions/geo";
+import { NAME_TO_SEGMENT, SegmentManager } from "@/lib/sessions/segments";
+import { buildTransform, normalizeCoordinates } from "@/lib/sessions/geo";
 import {
   DEFAULT_OUTLIER_CONFIG,
   OutlierConfig,
@@ -49,6 +49,7 @@ import SignalTimeChart from "./editor/SignalTimeChart";
 import CalibrationControls from "./editor/CalibrationControls";
 import TimelineCrop from "./editor/TimelineCrop";
 import ResultsPanel from "./editor/ResultsPanel";
+import ImportMarkers from "./editor/ImportMarkers";
 import SessionSidebar, { LoadTarget } from "./editor/SessionSidebar";
 import DateSelector, { dayKey } from "./editor/DateSelector";
 
@@ -507,6 +508,80 @@ export function SessionEditorPage() {
     );
   }, [croppedPoints]);
 
+  // -- Import segments from another session ----------------------------------
+  // Source segments live in the source session's normalized space, whose params
+  // aren't persisted, so re-project: source XY -> geo (via the source's own GPS)
+  // -> target XY (via this session's inlierGeo). Returns false when the imported
+  // geometry doesn't overlap the current track and `force` is not set.
+  const handleImportMarkers = useCallback(
+    async (source: Session, force: boolean): Promise<boolean> => {
+      const a = source.analysis;
+      if (!hasAnalysis(a)) return true;
+      if (inlierGeo.length === 0) {
+        notify.error("Load this session's GPS data before importing.");
+        return true;
+      }
+
+      let sourceGeo: GeoPoint[];
+      try {
+        sourceGeo = await fetchSignalData(
+          vehicleId,
+          a.lat_field,
+          a.lon_field,
+          tsToIso(a.crop_start_ts),
+          tsToIso(a.crop_end_ts),
+        );
+      } catch (e) {
+        notify.error(getAxiosErrorMessage(e));
+        return true;
+      }
+      if (sourceGeo.length === 0) {
+        notify.error("Source session has no GPS data to re-project from.");
+        return true;
+      }
+
+      const srcT = buildTransform(sourceGeo, a.norm_mode as NormMode);
+      const tgtT = buildTransform(inlierGeo, normMode);
+
+      const bounds = croppedGeoBounds;
+      const latPad = bounds
+        ? (bounds.maxLat - bounds.minLat) * 0.15 || 1e-4
+        : 0;
+      const lonPad = bounds
+        ? (bounds.maxLon - bounds.minLon) * 0.15 || 1e-4
+        : 0;
+
+      const projected: Record<number, Vec2[]> = {};
+      let overlaps = false;
+      for (const [name, pts] of Object.entries(a.segments || {})) {
+        const n = NAME_TO_SEGMENT[name];
+        if (n === undefined) continue;
+        projected[n] = [];
+        for (const pt of pts.slice(0, 2)) {
+          const { lat, lon } = srcT.toGeo(Number(pt[0]), Number(pt[1]));
+          if (
+            bounds &&
+            lat >= bounds.minLat - latPad &&
+            lat <= bounds.maxLat + latPad &&
+            lon >= bounds.minLon - lonPad &&
+            lon <= bounds.maxLon + lonPad
+          ) {
+            overlaps = true;
+          }
+          projected[n].push(tgtT.toXY(lat, lon));
+        }
+      }
+
+      if (!overlaps && !force) return false;
+
+      segMgrRef.current.importSegments(projected);
+      bumpSeg();
+      setStatus(`Imported markers from ${source.name || source.id} — press P to process.`);
+      return true;
+    },
+    [vehicleId, inlierGeo, normMode, croppedGeoBounds],
+  );
+
   // -- Keyboard shortcuts ----------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -818,17 +893,24 @@ export function SessionEditorPage() {
                   Click to place points · Shift/right-click to remove · P to
                   process
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => {
-                    segMgrRef.current.clear();
-                    bumpSeg();
-                  }}
-                >
-                  Clear segments
-                </Button>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      segMgrRef.current.clear();
+                      bumpSeg();
+                    }}
+                  >
+                    Clear segments
+                  </Button>
+                  <ImportMarkers
+                    sessions={sessions}
+                    currentSessionId={selectedSession?.id}
+                    disabled={inlierGeo.length === 0}
+                    onImport={handleImportMarkers}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

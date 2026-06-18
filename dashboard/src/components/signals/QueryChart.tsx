@@ -5,6 +5,7 @@ import {
   TooltipComponent,
   MarkAreaComponent,
   DataZoomInsideComponent,
+  TitleComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type {
@@ -25,6 +26,7 @@ echarts.use([
   TooltipComponent,
   MarkAreaComponent,
   DataZoomInsideComponent,
+  TitleComponent,
   CanvasRenderer,
 ]);
 

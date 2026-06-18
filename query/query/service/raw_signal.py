@@ -21,6 +21,7 @@ from typing import Any
 from loguru import logger
 
 from query.database.clickhouse import get_clickhouse
+from query.service.json_safe import json_safe
 
 DEFAULT_MAX_POINTS = 5000
 
@@ -139,7 +140,7 @@ def query_signal_records(
     for ts in ordered_ts:
         rec: dict[str, Any] = {"produced_at": _iso_z(ts)}
         for sig in present_signals:
-            val = by_ts[ts].get(sig)
+            val = json_safe(by_ts[ts].get(sig))
             if val is None and fill == "forward":
                 val = last.get(sig)
             if val is not None:

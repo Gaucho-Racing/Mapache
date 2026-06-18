@@ -701,6 +701,9 @@ function RejectChip({
   stats: RejectStatsEntry[] | null;
 }) {
   const [open, setOpen] = useState(false);
+  // Raw string lets the sigma field be emptied mid-edit without snapping to 0;
+  // null means "show the value read back from the node".
+  const [sigmaDraft, setSigmaDraft] = useState<string | null>(null);
   const ui = rejectToUi(value);
   const summary = rejectSummary(ui);
 
@@ -740,10 +743,18 @@ function RejectChip({
               <span className="text-muted-foreground">beyond</span>
               <Input
                 type="number"
-                value={ui.sigmaN}
-                onChange={(e) =>
-                  apply({ sigmaN: Number(e.target.value) || 0 })
-                }
+                value={sigmaDraft ?? ui.sigmaN}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSigmaDraft(v);
+                  if (v.trim() !== "") apply({ sigmaN: Number(v) });
+                }}
+                onBlur={() => {
+                  if (sigmaDraft !== null && sigmaDraft.trim() === "") {
+                    apply({ sigmaN: 3 });
+                  }
+                  setSigmaDraft(null);
+                }}
                 className="h-7 w-16 font-mono text-xs"
               />
               <span className="text-muted-foreground">σ</span>

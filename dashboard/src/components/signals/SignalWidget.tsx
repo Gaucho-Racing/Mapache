@@ -7,7 +7,11 @@ import {
   compatible,
   dataPath,
 } from "@/components/signals/chartTypes";
-import { PlotChart, type PlotConfig } from "@/components/signals/PlotChart";
+import {
+  PlotChart,
+  isGpsLikePlot,
+  type PlotConfig,
+} from "@/components/signals/PlotChart";
 import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
 import {
   QueryBuilder,
@@ -42,7 +46,7 @@ import { ExportDialog } from "@/components/signals/ExportDialog";
 import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BACKEND_URL } from "@/consts/config";
+import { BACKEND_URL, MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
 import { notify } from "@/lib/notify";
 import {
@@ -65,6 +69,7 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Map as MapIcon,
   Plus,
   Trash2,
   X,
@@ -677,6 +682,11 @@ export function SignalWidget({
         : plottedSeries;
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [mapEnabled, setMapEnabled] = useState(false);
+
+  // A GPS-like scatter/path can show an opt-in Mapbox basemap; the toggle is
+  // hidden otherwise and when no token is configured.
+  const canShowMap = !!MAPBOX_ACCESS_TOKEN && isGpsLikePlot(plotConfig);
 
   const totalSeriesValue = useMemo(() => {
     let acc = 0;
@@ -851,6 +861,21 @@ export function SignalWidget({
           </div>
           <div className="flex items-center gap-2">
             <ChartTypeSelect value={chartType} onChange={changeChartType} />
+            {canShowMap && (
+              <button
+                type="button"
+                onClick={() => setMapEnabled((v) => !v)}
+                title={mapEnabled ? "Hide map" : "Show map"}
+                aria-pressed={mapEnabled}
+                className={`rounded-md p-2 hover:bg-accent hover:text-foreground ${
+                  mapEnabled
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <MapIcon className="h-4 w-4" />
+              </button>
+            )}
             {hasData && (
               <button
                 type="button"
@@ -928,6 +953,7 @@ export function SignalWidget({
                 config={plotConfig}
                 pairs={pairsData}
                 categorical={categoricalSeries}
+                mapEnabled={mapEnabled && canShowMap}
                 onReady={handlePlotReady}
               />
             )

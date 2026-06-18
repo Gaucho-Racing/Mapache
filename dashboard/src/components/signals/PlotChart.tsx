@@ -4,6 +4,8 @@ import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  TitleComponent,
+  GraphicComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 // Granular echarts-gl install paths keep the 2D bundle from pulling in the
@@ -15,6 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { PALETTE, seriesLabel, type Series } from "./QueryChart";
 import type { PairRow, PairsResponse } from "@/lib/pairs";
 import type { ChartType } from "@/components/signals/chartTypes";
+import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 
 // Additive + idempotent against the shared core registry, so this never
 // disturbs QueryChart's registration.
@@ -26,6 +29,8 @@ echarts.use([
   GridComponent,
   TooltipComponent,
   LegendComponent,
+  TitleComponent,
+  GraphicComponent,
   Scatter3DChart,
   Grid3DComponent,
   CanvasRenderer,
@@ -47,6 +52,64 @@ export interface PlotConfig {
   xSignal?: string;
   ySignals: string[];
   zSignal?: string;
+}
+
+const isLatSignal = (name: string | undefined): boolean =>
+  !!name && /lat(itude)?$/i.test(name);
+const isLonSignal = (name: string | undefined): boolean =>
+  !!name && /lon(g(itude)?)?$/i.test(name);
+
+/** True when a scatter/path plot maps a single lon-X / lat-Y signal pair, i.e.
+ *  it's plotting a GPS track and a Mapbox basemap can be aligned behind it. */
+export function isGpsLikePlot(config: PlotConfig): boolean {
+  if (config.kind !== "scatter" && config.kind !== "path") return false;
+  if (config.ySignals.length !== 1) return false;
+  return isLonSignal(config.xSignal) && isLatSignal(config.ySignals[0]);
+}
+
+const MAPBOX_MAX_DIM = 1280;
+const MAPBOX_STREETS_STYLE = "mapbox/streets-v12";
+
+/** Mapbox Static Images for a geographic bbox; matching the image aspect ratio
+ *  to the bbox keeps Mapbox from expanding it to fill a mismatched canvas. */
+function staticImageUrl(
+  bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+  w: number,
+  h: number,
+): string {
+  const W = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(w)));
+  const H = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(h)));
+  const bbox = `[${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}]`;
+  return `https://api.mapbox.com/styles/v1/${MAPBOX_STREETS_STYLE}/static/${bbox}/${W}x${H}@2x?access_token=${MAPBOX_ACCESS_TOKEN}&attribution=false&logo=false`;
+}
+
+/** Pad a lon/lat bbox so its aspect ratio matches the pixel rect, growing the
+ *  short axis symmetrically. This is what makes the static image line up with
+ *  the locked axis bounds. */
+function padBboxToAspect(
+  bbox: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+  pxW: number,
+  pxH: number,
+) {
+  let { minLon, maxLon, minLat, maxLat } = bbox;
+  const lonSpan = maxLon - minLon || 1e-6;
+  const latSpan = maxLat - minLat || 1e-6;
+  const targetAspect = pxW / pxH; // lon-span / lat-span we want
+  const dataAspect = lonSpan / latSpan;
+  if (dataAspect < targetAspect) {
+    // Too tall: grow lon.
+    const want = latSpan * targetAspect;
+    const pad = (want - lonSpan) / 2;
+    minLon -= pad;
+    maxLon += pad;
+  } else {
+    // Too wide: grow lat.
+    const want = lonSpan / targetAspect;
+    const pad = (want - latSpan) / 2;
+    minLat -= pad;
+    maxLat += pad;
+  }
+  return { minLon, maxLon, minLat, maxLat };
 }
 
 /** Resolve an HSL CSS custom property to an `hsl(...)` string (mirrors
@@ -73,6 +136,9 @@ interface PlotChartProps {
   /** Categorical aggregate series from /query/run — used by bar/pie. Each
    *  series is one group; its value is the sum of its points. */
   categorical: Series[];
+  /** Opt-in Mapbox basemap behind a GPS-like scatter/path track. No effect
+   *  unless the plot is GPS-like and a Mapbox token is configured. */
+  mapEnabled?: boolean;
   onReady?: (instance: ECharts | null) => void;
 }
 
@@ -87,8 +153,18 @@ export function PlotChart({
   config,
   pairs,
   categorical,
+  mapEnabled,
   onReady,
 }: PlotChartProps) {
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const instanceRef = useRef<ECharts | null>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+
+  // Map only applies to a GPS-like scatter/path with a configured token.
+  const mapActive =
+    !!mapEnabled && !!MAPBOX_ACCESS_TOKEN && isGpsLikePlot(config);
+
   const option = useMemo<EChartsCoreOption>(() => {
     const axisLabelColor = cssHsl("--muted-foreground", "#a1a1aa");
     const splitLineColor = cssHsl("--border", "#27272a");
@@ -228,17 +304,61 @@ export function PlotChart({
       };
     });
 
+    const grid = { top: 16, right: 16, bottom: 40, left: 56 };
+
+    // GPS basemap: lock axes to a bbox padded to the grid pixel aspect so the
+    // static image (sized to the grid rect) registers with the track. Axis
+    // bounds and the image must share the same aspect to line up.
+    let axisBounds:
+      | { xMin: number; xMax: number; yMin: number; yMax: number }
+      | null = null;
+    if (mapActive) {
+      let minLon = Infinity,
+        maxLon = -Infinity,
+        minLat = Infinity,
+        maxLat = -Infinity;
+      for (const s of series) {
+        for (const [lon, lat] of s.data) {
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+      if (Number.isFinite(minLon) && Number.isFinite(minLat)) {
+        const el = chartRef.current;
+        const cw = el?.clientWidth || 600;
+        const ch = el?.clientHeight || 320;
+        // Grid pixel rect (container minus grid insets).
+        const pxW = Math.max(1, cw - grid.left - grid.right);
+        const pxH = Math.max(1, ch - grid.top - grid.bottom);
+        const padded = padBboxToAspect(
+          { minLon, maxLon, minLat, maxLat },
+          pxW,
+          pxH,
+        );
+        axisBounds = {
+          xMin: padded.minLon,
+          xMax: padded.maxLon,
+          yMin: padded.minLat,
+          yMax: padded.maxLat,
+        };
+      }
+    }
+
     return {
       animation: false,
       tooltip: { trigger: "item", ...baseTooltip },
-      grid: { top: 16, right: 16, bottom: 40, left: 56 },
+      grid,
       xAxis: {
         type: "value",
         name: x,
         nameLocation: "middle",
         nameGap: 26,
         nameTextStyle: { color: axisLabelColor },
-        scale: true,
+        ...(axisBounds
+          ? { scale: false, min: axisBounds.xMin, max: axisBounds.xMax }
+          : { scale: true }),
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: { color: axisLabelColor },
@@ -246,7 +366,9 @@ export function PlotChart({
       },
       yAxis: {
         type: "value",
-        scale: true,
+        ...(axisBounds
+          ? { scale: false, min: axisBounds.yMin, max: axisBounds.yMax }
+          : { scale: true }),
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: { color: axisLabelColor },
@@ -254,12 +376,7 @@ export function PlotChart({
       },
       series,
     };
-  }, [config, pairs, categorical]);
-
-  const chartRef = useRef<HTMLDivElement | null>(null);
-  const instanceRef = useRef<ECharts | null>(null);
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  }, [config, pairs, categorical, mapActive]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -278,12 +395,83 @@ export function PlotChart({
     };
   }, []);
 
+  // Lon/lat bbox of the locked axes — drives the basemap image bbox + URL.
+  const mapBbox = useMemo(() => {
+    if (!mapActive) return null;
+    const o = option as {
+      xAxis?: { min?: number; max?: number };
+      yAxis?: { min?: number; max?: number };
+    };
+    const { min: minLon, max: maxLon } = o.xAxis ?? {};
+    const { min: minLat, max: maxLat } = o.yAxis ?? {};
+    if (
+      minLon === undefined ||
+      maxLon === undefined ||
+      minLat === undefined ||
+      maxLat === undefined
+    ) {
+      return null;
+    }
+    return { minLon, maxLon, minLat, maxLat };
+  }, [mapActive, option]);
+
   // notMerge so switching plot kinds never leaves stale components behind.
   useEffect(() => {
     const inst = instanceRef.current;
     if (!inst) return;
     inst.setOption(option, { notMerge: true });
   }, [option]);
+
+  // Position a Mapbox static-image graphic over the grid rect, behind the
+  // series. Recomputes on option change and on resize so it stays registered.
+  useEffect(() => {
+    const inst = instanceRef.current;
+    const el = chartRef.current;
+    if (!inst || !el) return;
+
+    const sync = () => {
+      if (!mapBbox) {
+        inst.setOption({ graphic: [{ id: "__basemap__", $action: "remove" }] });
+        return;
+      }
+      // Grid rect in pixels from the locked axis corners.
+      const tl = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
+        mapBbox.minLon,
+        mapBbox.maxLat,
+      ]) as [number, number] | undefined;
+      const br = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
+        mapBbox.maxLon,
+        mapBbox.minLat,
+      ]) as [number, number] | undefined;
+      if (!tl || !br) return;
+      const left = tl[0];
+      const top = tl[1];
+      const width = br[0] - tl[0];
+      const height = br[1] - tl[1];
+      if (!(width > 0) || !(height > 0)) return;
+      inst.setOption({
+        graphic: [
+          {
+            id: "__basemap__",
+            type: "image",
+            z: -10,
+            left,
+            top,
+            style: {
+              image: staticImageUrl(mapBbox, width, height),
+              width,
+              height,
+            },
+          },
+        ],
+      });
+    };
+
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mapBbox]);
 
   return <div ref={chartRef} className="h-[320px] w-full" />;
 }

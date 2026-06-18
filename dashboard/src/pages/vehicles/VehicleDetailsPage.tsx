@@ -650,9 +650,15 @@ function EditVehicleDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [edited, setEdited] = useState<Vehicle>(vehicle);
+  // Raw string lets the upload key field be emptied mid-edit without snapping
+  // to 0; null means "show the committed numeric value".
+  const [uploadKeyDraft, setUploadKeyDraft] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setEdited(vehicle);
+    if (open) {
+      setEdited(vehicle);
+      setUploadKeyDraft(null);
+    }
   }, [open, vehicle]);
 
   const save = async () => {
@@ -726,15 +732,19 @@ function EditVehicleDialog({
             <Label htmlFor="edit-upload_key">Upload Key</Label>
             <Input
               id="edit-upload_key"
-              value={edited.upload_key}
+              value={uploadKeyDraft ?? edited.upload_key}
               onChange={(e) => {
-                const n = e.target.value === "" ? 0 : parseInt(e.target.value);
+                const v = e.target.value;
+                setUploadKeyDraft(v);
+                if (v.trim() === "") return;
+                const n = parseInt(v);
                 if (isNaN(n)) {
                   notify.error("Upload key must be a valid integer");
                   return;
                 }
                 setEdited({ ...edited, upload_key: n });
               }}
+              onBlur={() => setUploadKeyDraft(null)}
             />
           </div>
           <OutlineButton className="mt-2 w-full" onClick={save}>
