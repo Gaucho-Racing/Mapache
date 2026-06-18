@@ -576,7 +576,9 @@ export function QueryChart({
           xAxisIndex: 0,
           zoomOnMouseWheel: true,
           moveOnMouseWheel: false,
-          moveOnMouseMove: interactionMode === "pan",
+          // `moveOnMouseMove` is owned by a dedicated effect so flipping
+          // select/pan doesn't rebuild this whole (expensive) option.
+          moveOnMouseMove: false,
           filterMode: "none",
         },
       ],
@@ -592,7 +594,6 @@ export function QueryChart({
     hasNormalized,
     normalizedAxisIndex,
     highlights,
-    interactionMode,
   ]);
 
   // Initialize the instance once.
@@ -750,6 +751,19 @@ export function QueryChart({
       { notMerge: true },
     );
   }, [option]);
+
+  // Apply the left-drag mode as a cheap merge so toggling select/pan never
+  // rebuilds the full option. Re-runs after an option change too, since the
+  // notMerge re-render above resets the dataZoom to its `false` default.
+  useEffect(() => {
+    const inst = instanceRef.current;
+    if (!inst) return;
+    inst.setOption({
+      dataZoom: [
+        { id: "__inside_zoom__", moveOnMouseMove: interactionMode === "pan" },
+      ],
+    });
+  }, [interactionMode, option]);
 
   // Clear any in-flight brush state when switching into pan mid-drag, so the
   // gesture can't leak across modes.
