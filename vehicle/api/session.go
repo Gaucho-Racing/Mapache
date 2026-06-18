@@ -16,13 +16,12 @@ const maxSessionsPageLimit = 200
 func GetAllSessions(c *gin.Context) {
 	param, exists := c.GetQuery("vehicle_id")
 	if exists {
+		// Vehicle-scoped reads materialize each session (plus its laps/markers
+		// via an N+1), so cap the default to the most recent page instead of the
+		// whole vehicle's history. Callers can walk older sessions with
+		// limit/offset.
 		limit, _ := strconv.Atoi(c.Query("limit"))
-		if limit <= 0 {
-			result := service.GetAllSessionsByVehicleID(param)
-			c.JSON(http.StatusOK, result)
-			return
-		}
-		if limit > maxSessionsPageLimit {
+		if limit <= 0 || limit > maxSessionsPageLimit {
 			limit = maxSessionsPageLimit
 		}
 		offset, _ := strconv.Atoi(c.Query("offset"))
