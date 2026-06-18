@@ -6,7 +6,7 @@ class Config:
     """Configuration settings for the application"""
 
     # Server settings
-    VERSION: str = "4.0.0"
+    VERSION: str = "3.9.0"
     PORT: int = int(os.getenv('PORT', 7000))
 
     # Postgres (operational tables: signal_definition, token, log, etc.)
