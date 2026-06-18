@@ -5,6 +5,7 @@ import (
 
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/database"
+	"gorm.io/gorm"
 )
 
 func GetAllSessionsPaged(limit, offset int) []mapache.Session {
@@ -82,6 +83,26 @@ func CreateSession(session mapache.Session) error {
 		}
 	}
 	return nil
+}
+
+// SaveSessionAnalysisAndLaps upserts the session (geometry/analysis blob) and
+// replaces its laps in a single transaction, so a mid-save failure can't leave
+// the analysis and the session_lap table inconsistent. It mirrors CreateSession's
+// insert-or-update behavior for the session row.
+func SaveSessionAnalysisAndLaps(session mapache.Session, laps []mapache.Lap) error {
+	return database.DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Create(&session)
+		if result.Error != nil {
+			if strings.Contains(result.Error.Error(), "duplicate key") {
+				if err := tx.Where("id = ?", session.ID).Updates(&session).Error; err != nil {
+					return err
+				}
+			} else {
+				return result.Error
+			}
+		}
+		return replaceLapsTx(tx, session.ID, laps)
+	})
 }
 
 func DeleteSession(id string) error {

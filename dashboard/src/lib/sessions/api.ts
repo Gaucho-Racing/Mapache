@@ -221,6 +221,32 @@ export async function saveSessionAnalysis(
   return res.data?.data ?? session;
 }
 
+// Persist analysis + replace laps in a single backend transaction
+// (POST /sessions/:id/analysis), so a mid-save failure can't leave the analysis
+// blob and the session_lap table inconsistent. Returns the stored session.
+export async function saveSessionAnalysisWithLaps(
+  session: Session,
+  analysis: AnalysisPayload,
+  laps: LapInput[],
+): Promise<Session> {
+  const body = {
+    id: session.id,
+    vehicle_id: session.vehicle_id,
+    name: session.name,
+    description: session.description,
+    start_time: session.start_time,
+    end_time: session.end_time,
+    analysis,
+    laps,
+  };
+  const res = await axios.post(
+    `${BACKEND_URL}/sessions/${session.id}/analysis`,
+    body,
+    { headers: authHeaders() },
+  );
+  return res.data?.data ?? session;
+}
+
 // Create a new named session covering a time window (for sessioning raw data).
 export async function createSession(session: {
   id: string;

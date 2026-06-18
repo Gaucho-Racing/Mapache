@@ -39,8 +39,7 @@ import {
   fetchSignalData,
   fetchSignalNames,
   fetchSignalSeries,
-  saveSessionAnalysis,
-  saveSessionLaps,
+  saveSessionAnalysisWithLaps,
 } from "@/lib/sessions/api";
 import { cn } from "@/lib/utils";
 import TrackCanvas, { BaseMap } from "./editor/TrackCanvas";
@@ -606,6 +605,8 @@ export function SessionEditorPage() {
   }, [handleProcess]);
 
   // -- Build the analysis blob persisted on the session ----------------------
+  // Geometry only: lap times/summary are derived into the session_lap table
+  // (deriveLapInputs + the transactional save), which is canonical.
   const buildPayload = (): AnalysisPayload => ({
     lat_field: latField,
     lon_field: lonField,
@@ -613,28 +614,23 @@ export function SessionEditorPage() {
     crop_start_ts: cropStartTs,
     crop_end_ts: cropEndTs,
     segments: segMgrRef.current.toPayload(),
-    laps: (lapResult?.lapTimes ?? []).map((total, i) => ({
-      lap: i + 1,
-      total,
-    })),
-    summary: {
-      count: lapResult?.lapCount ?? 0,
-      best: lapResult?.bestTime ?? 0,
-      avg: lapResult?.avgTime ?? 0,
-      worst: lapResult?.worstTime ?? 0,
-    },
   });
 
-  // Persist geometry/analysis + the derived laps, then route to the analysis
-  // page for the session. Works for both edit and freshly-created sessions.
+  // Persist geometry/analysis + the derived laps in one transactional call,
+  // then route to the analysis page. A single endpoint keeps the analysis blob
+  // and the session_lap table from drifting apart on a partial save.
   const persistAndNavigate = async (session: Session) => {
     setSaving(true);
     try {
-      const updated = await saveSessionAnalysis(session, buildPayload());
-      if (lapResult && lapResult.lapCount > 0) {
-        const laps = deriveLapInputs(lapResult, croppedPoints);
-        await saveSessionLaps(updated.id, laps);
-      }
+      const laps =
+        lapResult && lapResult.lapCount > 0
+          ? deriveLapInputs(lapResult, croppedPoints)
+          : [];
+      const updated = await saveSessionAnalysisWithLaps(
+        session,
+        buildPayload(),
+        laps,
+      );
       notify.success(`Saved analysis for ${updated.name}`);
       navigate(`/sessions/${updated.id}`);
     } catch (e) {
