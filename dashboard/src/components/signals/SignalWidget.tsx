@@ -12,11 +12,16 @@ import {
   isGpsLikePlot,
   type PlotConfig,
 } from "@/components/signals/PlotChart";
-import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
+import { pairsToSeries } from "@/lib/pairs";
 import {
   QueryBuilder,
   type RejectStatsEntry,
 } from "@/components/signals/QueryBuilder";
+import {
+  useRunSeries,
+  usePairsData,
+  useDerived,
+} from "@/components/signals/useSignalData";
 import {
   QueryChart,
   seriesColorMap,
@@ -24,10 +29,7 @@ import {
   type AxisSetting,
   type Series,
 } from "@/components/signals/QueryChart";
-import {
-  buildSeriesVariables,
-  computeDerivedSeries,
-} from "@/lib/derived";
+import { buildSeriesVariables } from "@/lib/derived";
 import {
   MqlEditor,
   textToQueries,
@@ -38,7 +40,6 @@ import {
   TraceAxisControls,
 } from "@/components/signals/TraceAxisControls";
 import {
-  evaluateHighlights,
   Highlights,
   type Highlight,
 } from "@/components/signals/Highlights";
@@ -47,10 +48,8 @@ import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BACKEND_URL, MAPBOX_ACCESS_TOKEN } from "@/consts/config";
-import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
+import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 import { formatMetric } from "@/lib/format";
-import { notify } from "@/lib/notify";
 import {
   DEFAULT_QUERY,
   type FillMode,
@@ -63,7 +62,6 @@ import {
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import { http } from "@/lib/http";
 import {
   ChevronDown,
   ChevronRight,
@@ -78,7 +76,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type Interval = Rollup;
 
@@ -175,19 +173,6 @@ function queryToSignalNames(q: Query, known: string[]): string[] {
   return out;
 }
 
-/** One trace statement as the widget understands it — fetch or expression is
- *  decided at render via `looksLikeFetchQuery`, not stored. */
-type FetchResult = {
-  /** The owning statement id (for inline error placement). */
-  id: string;
-  series: Series[];
-  /** Per-statement parse/run error in the backend's {message, position} shape. */
-  error?: { message: string; position?: number };
-  /** Cut-summary from `.reject(...)`; null when the query has no reject clause. */
-  rejectStats?: RejectStatsEntry[] | null;
-  ms: number | null;
-};
-
 export interface SignalWidgetProps {
   vehicleId: string;
   /** Re-run the query when the vehicle type flips (different fleet/schema). */
@@ -250,23 +235,16 @@ export function SignalWidget({
     kind: "fetch" | "expr";
   } | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
-  // Fetched base series, one entry per fetch statement in trace order.
-  const [fetchResults, setFetchResults] = useState<FetchResult[]>([]);
   // Per-trace y-scaling, keyed by series label. Sparse; absent = default.
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
   >({});
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [loadingSeries, setLoadingSeries] = useState(false);
 
   // Render path for the current chart type (see chartTypes.ts): "timeseries" →
   // QueryChart, "categorical" → PlotChart @ 1d, "pairs" → /query/pairs.
   const path = dataPath(chartType);
-  const [pairsData, setPairsData] = useState<PairsResponse>({
-    columns: ["produced_at"],
-    rows: [],
-  });
 
   // Reset the trace list to the target's default MQL when the current MQL can't
   // carry across (crossing into/out of the pairs path).
@@ -346,70 +324,17 @@ export function SignalWidget({
   // vehicle/path deps stay un-debounced so those refetch immediately.
   const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
 
-  // Run every runnable fetch in parallel against /query/run with the shared
-  // interval; concatenation order follows `runnableFetches`. `shouldApply`
-  // lets the caller drop a stale response (a fast timeframe change can let an
-  // earlier Promise.all resolve after a newer one).
-  const runFetches = async (shouldApply: () => boolean) => {
-    setLoadingSeries(true);
-    try {
-      const results = await Promise.all(
-        runnableFetches.map(async (p): Promise<FetchResult> => {
-          const startedAt = performance.now();
-          try {
-            const res = await http.post(
-              `${BACKEND_URL}/query/run`,
-              {
-                query: p.mql,
-                vehicle_id: vehicleId,
-                start: startIso,
-                end: endIso,
-                interval,
-              },
-            );
-            return {
-              id: p.id,
-              series: res.data.data?.series ?? [],
-              rejectStats: res.data.data?.reject_stats ?? null,
-              ms: Math.round(performance.now() - startedAt),
-            };
-          } catch (e) {
-            // Parser errors come back 400 with {message, position} — surface
-            // inline under the offending statement and keep the rest.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const body: any = (e as any)?.response?.data?.data;
-            const error =
-              body && typeof body.message === "string"
-                ? { message: body.message, position: body.position }
-                : { message: getAxiosErrorMessage(e) };
-            if (!body || typeof body.message !== "string") {
-              notify.error(getAxiosErrorMessage(e));
-            }
-            return { id: p.id, series: [], error, ms: null };
-          }
-        }),
-      );
-      if (shouldApply()) setFetchResults(results);
-    } finally {
-      if (shouldApply()) setLoadingSeries(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!vehicleId) return;
-    // The pairs path has its own /query/pairs effect; categorical runs here.
-    if (path === "pairs") return;
-    if (runnableFetches.length === 0) {
-      setFetchResults([]);
-      return;
-    }
-    let cancelled = false;
-    runFetches(() => !cancelled);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
+  const { fetchResults, loadingSeries, setLoadingSeries } = useRunSeries({
+    vehicleId,
+    vehicleType,
+    startIso,
+    endIso,
+    rangeSeconds,
+    interval,
+    path,
+    runnableFetches,
+    debouncedFetchKey,
+  });
 
   // Pairs path: each trace resolves to ONE signal (first `.where` name), and
   // trace position assigns the axis (line 1 → X, 2 → Y, 3 → Z).
@@ -436,37 +361,17 @@ export function SignalWidget({
   // Debounce the pairs refetch too — axis signals come from live-edited lines.
   const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
 
-  useEffect(() => {
-    if (path !== "pairs") return;
-    if (!vehicleId || !pairReady) {
-      setPairsData({ columns: ["produced_at"], rows: [] });
-      return;
-    }
-    let cancelled = false;
-    setLoadingSeries(true);
-    fetchPairs({ vehicleId, signals: pairFetchSignals, startIso, endIso })
-      .then((resp) => {
-        if (!cancelled) setPairsData(resp);
-      })
-      .catch((e) => {
-        if (!cancelled) notify.error(getAxiosErrorMessage(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSeries(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    path,
+  const { pairsData } = usePairsData({
     vehicleId,
     vehicleType,
-    pairReady,
-    debouncedPairKey,
     startIso,
     endIso,
-  ]);
+    path,
+    pairReady,
+    pairFetchSignals,
+    debouncedPairKey,
+    setLoadingSeries,
+  });
 
   // PlotConfig assembled from the resolved axis signals (by trace position).
   const plotConfig = useMemo<PlotConfig>(() => {
@@ -555,11 +460,13 @@ export function SignalWidget({
     [classified],
   );
 
-  // Evaluate expressions in order; each named result is appended so a later
-  // expression can reference an earlier one (e.g. `ecu / other -> ratio`).
-  const derivedResults = useMemo(
-    () => computeDerivedSeries(baseSeries, exprTraces),
-    [baseSeries, exprTraces],
+  // Evaluate expressions in order (each named result feeds a later one) and
+  // resolve highlight bands, both over the shared base-series bucket axis.
+  const { derivedResults, highlightRanges, highlightErrors } = useDerived(
+    baseSeries,
+    exprTraces,
+    highlights,
+    laps,
   );
 
   // Named derived series are referenceable variables — carry each one's explicit
@@ -611,11 +518,6 @@ export function SignalWidget({
         (s) => !axisSettingFor(axisSettings, seriesLabel(s.tags)).hidden,
       ),
     [plottedSeries, axisSettings],
-  );
-
-  const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
-    () => evaluateHighlights(baseSeries, highlights, laps),
-    [baseSeries, highlights, laps],
   );
 
   // Narrow the (possibly stale) settings map to just the plotted labels.
