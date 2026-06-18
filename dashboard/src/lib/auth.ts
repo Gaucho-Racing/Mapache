@@ -38,3 +38,10 @@ export const logout = () => {
 export const saveAccessToken = (accessToken: string) => {
   localStorage.setItem("sentinel_access_token", accessToken);
 };
+
+// Single source of truth for the stored access token. The shared HTTP client
+// (lib/http.ts) reads this to inject the Authorization header; prefer it over
+// reaching into localStorage directly.
+export const getAccessToken = (): string | null => {
+  return localStorage.getItem("sentinel_access_token");
+};

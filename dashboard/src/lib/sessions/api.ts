@@ -6,6 +6,7 @@
 
 import axios from "axios";
 import { BACKEND_URL } from "@/consts/config";
+import { http } from "@/lib/http";
 import {
   AnalysisPayload,
   DataCluster,
@@ -14,12 +15,6 @@ import {
   Session,
   SignalSample,
 } from "@/models/session";
-
-function authHeaders() {
-  return {
-    Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
-  };
-}
 
 // Query endpoints reject a trailing "Z"; the desktop app passed naive strings.
 function stripZ(ts: string): string {
@@ -45,9 +40,7 @@ export async function fetchClusters(
     params.append("date", date);
     params.append("tz", browserTz());
   }
-  const res = await axios.get(`${BACKEND_URL}/query/clusters?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/query/clusters?${params}`);
   return res.data?.data?.data ?? [];
 }
 
@@ -56,9 +49,7 @@ export async function fetchClusters(
 // "days with data" hints in the calendar.
 export async function fetchDataDates(vehicleId: string): Promise<string[]> {
   const params = new URLSearchParams({ vehicle_id: vehicleId, tz: browserTz() });
-  const res = await axios.get(`${BACKEND_URL}/query/clusters/dates?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/query/clusters/dates?${params}`);
   return res.data?.data?.data ?? [];
 }
 
@@ -70,9 +61,7 @@ export async function fetchSignalNames(
   const params = new URLSearchParams({ vehicle_id: vehicleId });
   if (start) params.append("start", stripZ(start));
   if (end) params.append("end", stripZ(end));
-  const res = await axios.get(`${BACKEND_URL}/query/signals/names?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/query/signals/names?${params}`);
   return res.data?.data?.data ?? [];
 }
 
@@ -100,9 +89,7 @@ export async function fetchSignalData(
   params.append("fill", "forward");
   params.append("max_points", String(TRACK_MAX_POINTS));
 
-  const res = await axios.get(`${BACKEND_URL}/query/signals/data?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/query/signals/data?${params}`);
   const records: Record<string, unknown>[] = res.data?.data?.data ?? [];
 
   const points: GeoPoint[] = [];
@@ -147,9 +134,7 @@ export async function fetchSignalSeries(
   params.append("fill", "forward");
   params.append("max_points", String(TRACK_MAX_POINTS));
 
-  const res = await axios.get(`${BACKEND_URL}/query/signals/data?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/query/signals/data?${params}`);
   const records: Record<string, unknown>[] = res.data?.data?.data ?? [];
 
   const samples: SignalSample[] = [];
@@ -178,9 +163,7 @@ export async function fetchSessions(
     params.append("limit", String(opts.limit));
     params.append("offset", String(opts.offset ?? 0));
   }
-  const res = await axios.get(`${BACKEND_URL}/sessions?${params}`, {
-    headers: authHeaders(),
-  });
+  const res = await http.get(`${BACKEND_URL}/sessions?${params}`);
   return res.data?.data ?? [];
 }
 
@@ -189,9 +172,7 @@ export async function fetchSessions(
 // without catching. Other errors propagate.
 export async function fetchSession(id: string): Promise<Session | null> {
   try {
-    const res = await axios.get(`${BACKEND_URL}/sessions/${id}`, {
-      headers: authHeaders(),
-    });
+    const res = await http.get(`${BACKEND_URL}/sessions/${id}`);
     return res.data?.data ?? null;
   } catch (e) {
     if (axios.isAxiosError(e) && e.response?.status === 404) return null;
@@ -213,10 +194,9 @@ export async function saveSessionAnalysis(
     end_time: session.end_time,
     analysis,
   };
-  const res = await axios.post(
+  const res = await http.post(
     `${BACKEND_URL}/sessions/${session.id}`,
     body,
-    { headers: authHeaders() },
   );
   return res.data?.data ?? session;
 }
@@ -239,10 +219,9 @@ export async function saveSessionAnalysisWithLaps(
     analysis,
     laps,
   };
-  const res = await axios.post(
+  const res = await http.post(
     `${BACKEND_URL}/sessions/${session.id}/analysis`,
     body,
-    { headers: authHeaders() },
   );
   return res.data?.data ?? session;
 }
@@ -256,10 +235,9 @@ export async function createSession(session: {
   start_time: string;
   end_time: string;
 }): Promise<Session> {
-  const res = await axios.post(
+  const res = await http.post(
     `${BACKEND_URL}/sessions/${session.id}`,
     session,
-    { headers: authHeaders() },
   );
   return res.data?.data ?? (session as Session);
 }
@@ -277,9 +255,8 @@ export interface LapInput {
 
 // Fetch the persisted laps for a session.
 export async function fetchSessionLaps(sessionId: string): Promise<Lap[]> {
-  const res = await axios.get(
+  const res = await http.get(
     `${BACKEND_URL}/sessions/${sessionId}/laps`,
-    { headers: authHeaders() },
   );
   return res.data?.data ?? [];
 }
@@ -289,10 +266,9 @@ export async function saveSessionLaps(
   sessionId: string,
   laps: LapInput[],
 ): Promise<Lap[]> {
-  const res = await axios.put(
+  const res = await http.put(
     `${BACKEND_URL}/sessions/${sessionId}/laps`,
     { laps },
-    { headers: authHeaders() },
   );
   return res.data?.data ?? [];
 }

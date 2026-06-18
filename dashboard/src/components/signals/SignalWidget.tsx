@@ -63,7 +63,7 @@ import {
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import axios from "axios";
+import { http } from "@/lib/http";
 import {
   ChevronDown,
   ChevronRight,
@@ -81,12 +81,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type Interval = Rollup;
-
-function authHeader() {
-  return {
-    Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
-  };
-}
 
 // Auto-pick a bucket width targeting ~24–168 bars across the selected range.
 function autoInterval(rangeSeconds: number): Interval {
@@ -363,7 +357,7 @@ export function SignalWidget({
         runnableFetches.map(async (p): Promise<FetchResult> => {
           const startedAt = performance.now();
           try {
-            const res = await axios.post(
+            const res = await http.post(
               `${BACKEND_URL}/query/run`,
               {
                 query: p.mql,
@@ -372,7 +366,6 @@ export function SignalWidget({
                 end: endIso,
                 interval,
               },
-              { headers: authHeader() },
             );
             return {
               id: p.id,
