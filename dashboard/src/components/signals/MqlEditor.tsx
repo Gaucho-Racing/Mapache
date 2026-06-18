@@ -1,6 +1,7 @@
 import { looksLikeFetchQuery, parseQuery } from "@/lib/query";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useTextMirror } from "@/lib/useTextMirror";
+import { useMemo, useRef } from "react";
 
 // Raw MQL editor — one statement per line, the textual view of the same
 // `QueryStmt[]` the chip rows edit. Splits text back to statements on every
@@ -45,30 +46,18 @@ interface MqlEditorProps {
 }
 
 export function MqlEditor({ queries, onChange }: MqlEditorProps) {
-  // Local text state so the textarea is freely editable without the parent's
-  // normalized list yanking the caret; re-sync only on external (chip) changes.
-  const [text, setText] = useState(() => queriesToText(queries));
-  const incoming = useMemo(() => queriesToText(queries), [queries]);
-  // Distinguishes an external change from the echo of our own edit.
-  const lastEmitted = useRef(incoming);
-  useEffect(() => {
-    if (incoming !== lastEmitted.current) {
-      setText(incoming);
-      lastEmitted.current = incoming;
-    }
-  }, [incoming]);
-
-  function handle(next: string) {
-    setText(next);
-    const queries = textToQueries(next, prevRef.current);
-    prevRef.current = queries;
-    lastEmitted.current = queriesToText(queries);
-    onChange(queries);
-  }
-
   // Latest list for positional id reuse, kept out of the render deps.
   const prevRef = useRef(queries);
   prevRef.current = queries;
+
+  // Local text mirrors the serialized statement list, but stays the source of
+  // truth while typing so the caret never jumps on the parent's normalization.
+  const incoming = useMemo(() => queriesToText(queries), [queries]);
+  const [text, handle] = useTextMirror(incoming, (next) => {
+    const parsed = textToQueries(next, prevRef.current);
+    prevRef.current = parsed;
+    onChange(parsed);
+  });
 
   // Per-line parse hints for fetch lines (skip blank + expression lines).
   const lineErrors = useMemo(() => {

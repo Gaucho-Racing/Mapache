@@ -24,9 +24,10 @@ import {
   serializeQuery,
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
+import { useTextMirror } from "@/lib/useTextMirror";
 import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 /** Per-series summary of the raw samples a `.reject(...)` clause cut before
  *  aggregation. One entry per series (single entry with empty `tags` when the
@@ -144,24 +145,12 @@ export function QueryBuilder({
 
   // Editable MQL line (two-way chips↔text). Local text is the source of truth
   // while typing; re-seed from the serialized AST only on chip-driven changes,
-  // never on the user's own keystrokes (which would yank the caret). Mirrors
-  // MqlEditor's `lastEmitted` guard.
+  // never on the user's own keystrokes (which would yank the caret).
   const serialized = serializeQuery(value);
-  const [mqlText, setMqlText] = useState(serialized);
-  const lastSerialized = useRef(serialized);
-  // Distinguishes our own edit echo (skip overwrite) from a chip change (apply).
-  const fromTextEdit = useRef(false);
-  useEffect(() => {
-    if (fromTextEdit.current) {
-      fromTextEdit.current = false;
-      lastSerialized.current = serialized;
-      return;
-    }
-    if (serialized !== lastSerialized.current) {
-      setMqlText(serialized);
-      lastSerialized.current = serialized;
-    }
-  }, [serialized]);
+  const [mqlText, onMqlTextChange] = useTextMirror(
+    serialized,
+    (next) => onMqlChange?.(next),
+  );
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -245,11 +234,7 @@ export function QueryBuilder({
         {onMqlChange ? (
           <input
             value={mqlText}
-            onChange={(e) => {
-              fromTextEdit.current = true;
-              setMqlText(e.target.value);
-              onMqlChange(e.target.value);
-            }}
+            onChange={(e) => onMqlTextChange(e.target.value)}
             onFocus={onMqlFocus}
             onBlur={onMqlBlur}
             spellCheck={false}
