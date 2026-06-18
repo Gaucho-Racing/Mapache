@@ -160,6 +160,10 @@ export function PlotChart({
   const instanceRef = useRef<ECharts | null>(null);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
+  // Tracks whether the basemap graphic is currently registered, so we never
+  // emit a `$action: "remove"` for a graphic that was never added — doing so
+  // crashes ECharts' GraphicComponent.
+  const hasBasemapRef = useRef(false);
 
   // Map only applies to a GPS-like scatter/path with a configured token.
   const mapActive =
@@ -431,7 +435,12 @@ export function PlotChart({
 
     const sync = () => {
       if (!mapBbox) {
-        inst.setOption({ graphic: [{ id: "__basemap__", $action: "remove" }] });
+        if (hasBasemapRef.current) {
+          inst.setOption({
+            graphic: [{ id: "__basemap__", $action: "remove" }],
+          });
+          hasBasemapRef.current = false;
+        }
         return;
       }
       // Grid rect in pixels from the locked axis corners.
@@ -465,6 +474,7 @@ export function PlotChart({
           },
         ],
       });
+      hasBasemapRef.current = true;
     };
 
     sync();

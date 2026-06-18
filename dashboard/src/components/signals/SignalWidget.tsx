@@ -45,6 +45,7 @@ import {
 import { ExportDialog } from "@/components/signals/ExportDialog";
 import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL, MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
@@ -68,8 +69,10 @@ import {
   Download,
   Eye,
   EyeOff,
+  Hand,
   Loader2,
   Map as MapIcon,
+  MousePointer,
   Plus,
   Trash2,
   X,
@@ -122,6 +125,29 @@ function formatCount(n: number): string {
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+// Compact span like "2h 15m" / "45s" for the visible (zoomed) chart window.
+function formatWindowDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "—";
+  const d = Math.floor(sec / 86_400);
+  const h = Math.floor((sec % 86_400) / 3_600);
+  const m = Math.floor((sec % 3_600) / 60);
+  const s = Math.floor(sec % 60);
+  const parts: string[] = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  if (s && !d && !h) parts.push(`${s}s`);
+  return parts.slice(0, 2).join(" ") || "0s";
+}
+
+function clockLabel(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 // Stable-id generator for trace statements. Shares the `tr_` prefix with the
@@ -195,6 +221,8 @@ export interface SignalWidgetProps {
   onChartReady?: (instance: ECharts | null) => void;
   /** Left-drag mode: "select" brushes a timeframe, "pan" slides the zoom. */
   interactionMode?: "select" | "pan";
+  /** Set the shared left-drag mode from the chart's own toolbar. */
+  onInteractionModeChange?: (mode: "select" | "pan") => void;
   /** Laps of the currently-selected session, enabling the `lap` highlight
    *  pseudo-variable + the "alternate by lap" shortcut. */
   laps?: Lap[] | null;
@@ -214,6 +242,7 @@ export function SignalWidget({
   onBrushSelect,
   onChartReady,
   interactionMode,
+  onInteractionModeChange,
   laps,
 }: SignalWidgetProps) {
   // Ordered list of MQL trace statements, classified at render via
@@ -648,10 +677,29 @@ export function SignalWidget({
   const lastGoodQuery = useRef<Map<string, Query>>(new Map());
 
   const chartInstance = useRef<ECharts | null>(null);
+  // Visible-window zoom as [start, end] percentages of the fetched range,
+  // tracked off the chart's inside-dataZoom so the header can show the span.
+  const [zoomPct, setZoomPct] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 100,
+  });
   const handleChartReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
     // Only the time-series chart joins the shared connect group.
     onChartReady?.(instance);
+    if (instance) {
+      const readZoom = () => {
+        const opt = instance.getOption() as
+          | { dataZoom?: { start?: number; end?: number }[] }
+          | undefined;
+        const dz = opt?.dataZoom?.[0];
+        setZoomPct({ start: dz?.start ?? 0, end: dz?.end ?? 100 });
+      };
+      instance.on("datazoom", readZoom);
+      readZoom();
+    } else {
+      setZoomPct({ start: 0, end: 100 });
+    }
   };
   const handlePlotReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
@@ -937,6 +985,52 @@ export function SignalWidget({
       </CardHeader>
       {!hidden && (
         <CardContent>
+          {path === "timeseries" && onInteractionModeChange && (
+            // Left-drag mode sits just above the chart so it's a short hop to
+            // the gesture; "select" brushes a timeframe, "pan" slides the zoom.
+            // The left side surfaces the visible (zoomed) window span.
+            <div className="mb-3 flex items-center justify-between gap-2">
+              {(() => {
+                const startMs = new Date(startIso).getTime();
+                const endMs = new Date(endIso).getTime();
+                const span = endMs - startMs;
+                const fromMs = startMs + (zoomPct.start / 100) * span;
+                const toMs = startMs + (zoomPct.end / 100) * span;
+                return (
+                  <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {formatWindowDuration((toMs - fromMs) / 1000)}
+                    </span>
+                    <span className="font-mono">
+                      {clockLabel(fromMs)} – {clockLabel(toMs)}
+                    </span>
+                  </div>
+                );
+              })()}
+              <div className="flex items-center rounded-md border">
+                <Button
+                  variant={interactionMode === "pan" ? "ghost" : "secondary"}
+                  size="sm"
+                  className="rounded-r-none border-0"
+                  onClick={() => onInteractionModeChange("select")}
+                  title="Select: drag to set the timeframe"
+                >
+                  <MousePointer className="mr-2 h-4 w-4" />
+                  Select
+                </Button>
+                <Button
+                  variant={interactionMode === "pan" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="rounded-l-none border-0"
+                  onClick={() => onInteractionModeChange("pan")}
+                  title="Pan: drag to slide the zoom window"
+                >
+                  <Hand className="mr-2 h-4 w-4" />
+                  Pan
+                </Button>
+              </div>
+            </div>
+          )}
           {loadingSeries ? (
             <div className="flex h-[260px] items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
