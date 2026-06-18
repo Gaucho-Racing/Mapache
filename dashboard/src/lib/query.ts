@@ -533,11 +533,23 @@ function parseRejectNumber(c: MqlCursor): number {
   return parseFloat(t.value);
 }
 
-/** True when a line reads as a fetch query (known aggregator followed by `(`)
- *  rather than a derived expression. Routes each trace line in the widget. */
+const ALL_FIELD_SET = new Set<string>([COUNT_FIELD, ...NUMERIC_FIELDS]);
+
+/** True when a line reads as a fetch query rather than a derived expression.
+ *
+ *  `min`/`max` are BOTH aggregators (fetch) and expr.ts functions, so an
+ *  aggregator name alone can't discriminate: `min(s0, s1) -> lo` is a derived
+ *  expression, not a fetch. A line is a fetch only when it's a known aggregator
+ *  whose first call argument is a known fetch field (signal/value/raw_value) —
+ *  anything else (extra args, an unknown first arg) routes to the expression
+ *  evaluator. A field-valid but otherwise-broken fetch still classifies as a
+ *  fetch so its parse error surfaces inline rather than misrouting to expr. */
 export function looksLikeFetchQuery(input: string): boolean {
-  const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(input);
-  return m !== null && AGG_SET.has(m[1].toLowerCase());
+  const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/.exec(
+    input,
+  );
+  if (!m) return false;
+  return AGG_SET.has(m[1].toLowerCase()) && ALL_FIELD_SET.has(m[2].toLowerCase());
 }
 
 /** Split a trailing `-> name` off an expression line (fetch lines carry `->`
