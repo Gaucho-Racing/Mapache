@@ -1,9 +1,12 @@
 // Types for the sessions lap-analysis tool (web port of the PyQt desktop app).
 
+// Only Local cartesian is metric (equal-scale meters from the centroid), so it
+// registers correctly against the satellite underlay. The old WGS84 / Custom
+// scale modes stretched lat/lon independently (anamorphic) and misregistered
+// the basemap, so they were removed. Legacy analyses with those norm_mode
+// strings fall back to Local cartesian (see geo.buildTransform).
 export enum NormMode {
-  WGS84 = "WGS84",
   LocalCartesian = "Local cartesian",
-  CustomScale = "Custom scale",
 }
 
 // A raw GPS sample fetched from the telemetry API.
