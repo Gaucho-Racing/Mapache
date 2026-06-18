@@ -4,17 +4,43 @@ import { compileExpression, type DerivedTrace } from "@/lib/expr";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 
-// Variable model: each base series is referenceable by a positional alias
-// (`s0, s1, …`, always present) and, when its label sanitizes to a unique valid
-// identifier, a friendly alias (`current_ac`).
+// Variable model: each series is referenceable by a positional alias
+// (`s0, s1, …`, always present). On top of that it may carry:
+//   - an explicit name from a `-> name` label (e.g. `power -> p`), which is a
+//     first-class, validated variable — referencing an undeclared name or
+//     declaring the same name twice is a compile error, never a silent flat
+//     line; and
+//   - a friendly alias auto-derived from the series label (e.g. `current_ac`)
+//     when that label sanitizes to a unique identifier AND no explicit name was
+//     given. The explicit name takes precedence so the two never fight.
+
+/** A series paired with an optional explicit variable name from `-> name`.
+ *  Plain `Series[]` is still accepted everywhere a `NamedSeries[]` is (the name
+ *  defaults to absent), keeping every existing caller working unchanged. */
+export interface NamedSeries {
+  series: Series;
+  /** Explicit `-> name` identifier, or undefined for an unnamed series. */
+  name?: string;
+}
 
 export interface SeriesVariable {
   /** Positional alias — always present. */
   index: string;
-  /** Friendly alias, or null if the label didn't sanitize to a unique ident. */
+  /** Explicit `-> name` alias, or null when the series wasn't named. */
+  name: string | null;
+  /** Friendly label-derived alias, or null when absent/superseded by `name`. */
   friendly: string | null;
   /** Human label of the underlying series (for the hint UI). */
   label: string;
+}
+
+/** Normalize the `Series[] | NamedSeries[]` overload into `NamedSeries[]`. A
+ *  `Series` has `tags`/`points` and never a `series` key, so that key uniquely
+ *  distinguishes the wrapped form. */
+function toNamedSeries(input: Series[] | NamedSeries[]): NamedSeries[] {
+  return (input as Array<Series | NamedSeries>).map((s) =>
+    "series" in s ? s : { series: s },
+  );
 }
 
 /** Sanitize a series label to a candidate identifier, or null if nothing valid
@@ -29,23 +55,34 @@ function sanitizeIdent(label: string): string | null {
   return cleaned;
 }
 
-/** Build the variable table. A friendly alias is assigned only when unique
- *  across the set and not colliding with a positional alias; else `sN` only. */
-export function buildSeriesVariables(series: Series[]): SeriesVariable[] {
-  const candidates = series.map((s) => sanitizeIdent(seriesLabel(s.tags)));
+/** Build the variable table over a list of series. Each entry always exposes a
+ *  positional `sN` alias. An explicit `-> name` (when present) is exposed as-is.
+ *  A label-derived friendly alias is assigned only when the series has no
+ *  explicit name, the candidate is unique across the set, and it doesn't collide
+ *  with a positional alias; else `sN` only. */
+export function buildSeriesVariables(
+  input: Series[] | NamedSeries[],
+): SeriesVariable[] {
+  const named = toNamedSeries(input);
+  const candidates = named.map((n) => sanitizeIdent(seriesLabel(n.series.tags)));
   const counts = new Map<string, number>();
   for (const c of candidates) {
     if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
   }
-  const positional = new Set(series.map((_, i) => `s${i}`));
+  const positional = new Set(named.map((_, i) => `s${i}`));
 
-  return series.map((s, i) => {
+  return named.map((n, i) => {
     const cand = candidates[i];
-    const unique = cand !== null && counts.get(cand) === 1 && !positional.has(cand);
+    // The explicit name owns the slot; only fall back to the label heuristic
+    // when there's no name, so a `-> name` is never shadowed by its own label.
+    const hasName = n.name != null && n.name !== "";
+    const unique =
+      !hasName && cand !== null && counts.get(cand) === 1 && !positional.has(cand);
     return {
       index: `s${i}`,
+      name: hasName ? (n.name as string) : null,
       friendly: unique ? cand : null,
-      label: seriesLabel(s.tags),
+      label: seriesLabel(n.series.tags),
     };
   });
 }
@@ -72,9 +109,29 @@ export interface ExtraVariables {
 
 export function compileAgainstSeries(
   expression: string,
-  series: Series[],
+  input: Series[] | NamedSeries[],
   extra?: ExtraVariables,
 ): SeriesEvaluator {
+  const named = toNamedSeries(input);
+
+  // Reject duplicate `-> name` labels before parsing: two series claiming the
+  // same name would make any reference to it ambiguous, so surface it as a
+  // compile error rather than silently letting the last one win.
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const n of named) {
+    if (n.name == null || n.name === "") continue;
+    if (seen.has(n.name)) dupes.add(n.name);
+    seen.add(n.name);
+  }
+  if (dupes.size > 0) {
+    const list = [...dupes].join(", ");
+    return {
+      ok: false,
+      error: `Duplicate series name${dupes.size === 1 ? "" : "s"}: ${list}`,
+    };
+  }
+
   const result = compileExpression(expression);
   if (!result.ok || !result.compiled) {
     const err = result.error;
@@ -86,13 +143,14 @@ export function compileAgainstSeries(
     };
   }
 
-  const variables = buildSeriesVariables(series);
+  const variables = buildSeriesVariables(named);
 
   // Validate referenced variables up-front so a typo'd alias is a clear
   // message instead of a silently flat (all-zero) line / empty highlight.
   const known = new Set<string>();
   for (const v of variables) {
     known.add(v.index);
+    if (v.name) known.add(v.name);
     if (v.friendly) known.add(v.friendly);
   }
   if (extra) for (const name of extra.names) known.add(name);
@@ -106,12 +164,14 @@ export function compileAgainstSeries(
 
   const compiled = result.compiled;
   const evalAt = (i: number): number => {
-    // Each base series contributes its value at `i` under both its aliases.
+    // Each series contributes its value at `i` under every alias it carries
+    // (positional, explicit name, and/or label-derived friendly).
     const vars: Record<string, number> = {};
-    for (let si = 0; si < series.length; si++) {
-      const value = series[si].points[i]?.value ?? 0;
+    for (let si = 0; si < named.length; si++) {
+      const value = named[si].series.points[i]?.value ?? 0;
       vars[`s${si}`] = value;
-      const friendly = variables[si].friendly;
+      const { name, friendly } = variables[si];
+      if (name) vars[name] = value;
       if (friendly) vars[friendly] = value;
     }
     if (extra) Object.assign(vars, extra.valueAt(i));
@@ -139,15 +199,29 @@ export function computeDerivedSeries(
   // Shared (server-zero-filled) bucket axis; the derived series reuse it.
   const buckets = series[0]?.points.map((p) => p.bucket) ?? [];
 
-  // Growing pool: each named result is appended so a later expression can
-  // reference an earlier one (`ecu / other -> ratio`, then `ratio * 2`).
-  const pool = [...series];
+  // Growing pool: each named result is appended (carrying its explicit `->
+  // name`) so a later expression can reference it as a first-class variable
+  // (`power -> p`, `torque -> t`, then `p / t -> ratio`). Base series enter
+  // unnamed and keep their label-derived friendly aliases.
+  const pool: NamedSeries[] = series.map((s) => ({ series: s }));
+
+  // Names already claimed by an earlier trace, so a second `-> x` is flagged on
+  // the row that introduces the clash (the pool only sees a duplicate one trace
+  // later, which would miss a final two-trace collision).
+  const claimedNames = new Set<string>();
 
   return traces.map((trace) => {
     const label = trace.label.trim() || trace.expression.trim() || "derived";
 
     if (trace.expression.trim() === "") {
       return { id: trace.id }; // skip empty rows mid-edit
+    }
+
+    if (trace.name && claimedNames.has(trace.name)) {
+      return {
+        id: trace.id,
+        error: `Duplicate series name: ${trace.name}`,
+      };
     }
 
     const evaluator = compileAgainstSeries(trace.expression, pool);
@@ -163,7 +237,10 @@ export function computeDerivedSeries(
     });
 
     const computed: Series = { tags: { [DERIVED_KEY]: label }, points };
-    if (trace.name) pool.push(computed);
+    if (trace.name) {
+      pool.push({ series: computed, name: trace.name });
+      claimedNames.add(trace.name);
+    }
     return { id: trace.id, series: computed };
   });
 }
@@ -272,11 +349,14 @@ export function DerivedTraces({
       {variables.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
           <span className="uppercase tracking-wider">vars</span>
-          {variables.map((v) => (
-            <code key={v.index} className="font-mono">
-              {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
-            </code>
-          ))}
+          {variables.map((v) => {
+            const alias = v.name ?? v.friendly;
+            return (
+              <code key={v.index} className="font-mono">
+                {alias ? `${v.index} = ${alias}` : v.index}
+              </code>
+            );
+          })}
         </div>
       ) : null}
     </div>

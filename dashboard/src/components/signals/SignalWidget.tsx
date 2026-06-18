@@ -322,8 +322,14 @@ export function SignalWidget({
       }));
   }, [classified]);
 
-  // INVARIANT: every fetch in a widget shares ONE interval so they share the
-  // bucket axis (computeDerivedSeries relies on it). Take the first statement's
+  // JOIN INVARIANT: every fetch in a widget shares ONE interval, so every
+  // fetched series lands on the SAME server-zero-filled bucket axis. Cross-series
+  // math — both derived traces (`computeDerivedSeries`) and `-> name` links —
+  // aligns operands purely BY BUCKET INDEX (points[i] ↔ points[i]); there is no
+  // timestamp join. That alignment is only sound because of this one-interval
+  // contract, so it is enforced here for the whole widget. Any future
+  // link-by-name feature (frontend or server-side) builds on exactly this: a
+  // single shared bucket axis is the join key. Take the first statement's
   // `.every`, else the auto interval. Categorical collapses to one 1d bucket.
   const interval = useMemo<Interval>(() => {
     if (path === "categorical") return "1d";
@@ -568,19 +574,25 @@ export function SignalWidget({
     [baseSeries, exprTraces],
   );
 
-  // Named derived series are referenceable variables — surface them in the hint.
+  // Named derived series are referenceable variables — carry each one's explicit
+  // `-> name` so the hint and validation use it as a first-class alias (matching
+  // the pool `computeDerivedSeries` builds), not the label-derived heuristic.
   const namedDerivedSeries = useMemo(() => {
-    const named = new Set(
-      exprTraces.filter((t) => t.name).map((t) => t.id),
+    const nameById = new Map(
+      exprTraces.filter((t) => t.name).map((t) => [t.id, t.name as string]),
     );
     return derivedResults
-      .filter((r) => named.has(r.id) && r.series)
-      .map((r) => r.series as Series);
+      .filter((r) => nameById.has(r.id) && r.series)
+      .map((r) => ({ series: r.series as Series, name: nameById.get(r.id) }));
   }, [exprTraces, derivedResults]);
 
-  // Variable hint (s0 = current_ac, …) shown near the rows.
+  // Variable hint (s0 = current_ac, s1 = ratio, …) shown near the rows.
   const seriesVariables = useMemo(
-    () => buildSeriesVariables([...baseSeries, ...namedDerivedSeries]),
+    () =>
+      buildSeriesVariables([
+        ...baseSeries.map((s) => ({ series: s })),
+        ...namedDerivedSeries,
+      ]),
     [baseSeries, namedDerivedSeries],
   );
 
@@ -843,11 +855,14 @@ export function SignalWidget({
                   {seriesVariables.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
                       <span className="uppercase tracking-wider">vars</span>
-                      {seriesVariables.map((v) => (
-                        <code key={v.index} className="font-mono">
-                          {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
-                        </code>
-                      ))}
+                      {seriesVariables.map((v) => {
+                        const alias = v.name ?? v.friendly;
+                        return (
+                          <code key={v.index} className="font-mono">
+                            {alias ? `${v.index} = ${alias}` : v.index}
+                          </code>
+                        );
+                      })}
                     </div>
                   ) : null}
 
