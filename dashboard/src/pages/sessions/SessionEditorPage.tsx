@@ -74,6 +74,10 @@ function deriveLapInputs(result: LapResult, points: Point[]): LapInput[] {
   const { crossingIndices, lapTimes, bestTime, sectorNumbers } = result;
   if (crossingIndices.length < 2) return [];
 
+  // Flag only the first lap whose time equals the minimum, so tied-best laps
+  // don't both get is_best.
+  const bestLapIdx = lapTimes.findIndex((t) => t === bestTime);
+
   const laps: LapInput[] = [];
   for (let k = 0; k < crossingIndices.length - 1; k++) {
     const startIdx = crossingIndices[k];
@@ -108,7 +112,7 @@ function deriveLapInputs(result: LapResult, points: Point[]): LapInput[] {
       start_time: tsToIso(startTs),
       end_time: tsToIso(endTs),
       duration_ms: Math.round(durationS * 1000),
-      is_best: durationS === bestTime,
+      is_best: k === bestLapIdx,
       sectors,
     });
   }
