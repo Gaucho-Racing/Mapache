@@ -83,7 +83,7 @@ func GetLapSummariesByVehicle(vehicleID string) map[string]mapache.LapSummary {
 		Select("session_lap.session_id AS session_id, "+
 			"COUNT(*) AS count, "+
 			"MIN(session_lap.duration_ms) AS best_ms, "+
-			"COALESCE(AVG(session_lap.duration_ms), 0) AS avg_ms, "+
+			"COALESCE(ROUND(AVG(session_lap.duration_ms)), 0) AS avg_ms, "+
 			"MAX(session_lap.duration_ms) AS worst_ms").
 		Joins("JOIN session ON session.id = session_lap.session_id").
 		Where("session.vehicle_id = ?", vehicleID).
