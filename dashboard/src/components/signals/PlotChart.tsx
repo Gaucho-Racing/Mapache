@@ -54,17 +54,23 @@ export interface PlotConfig {
   zSignal?: string;
 }
 
+// Match a lat/lon token anywhere in the signal name (e.g. "latitude",
+// "mobile_latitude", "gps_lat_deg") without tripping on words like "lateral".
 const isLatSignal = (name: string | undefined): boolean =>
-  !!name && /lat(itude)?$/i.test(name);
+  !!name && /(^|[_\s-])lat(itude)?([_\s-]|$)/i.test(name);
 const isLonSignal = (name: string | undefined): boolean =>
-  !!name && /lon(g(itude)?)?$/i.test(name);
+  !!name && /(^|[_\s-])lon(g(itude)?)?([_\s-]|$)/i.test(name);
 
 /** True when a scatter/path plot maps a single lon-X / lat-Y signal pair, i.e.
  *  it's plotting a GPS track and a Mapbox basemap can be aligned behind it. */
 export function isGpsLikePlot(config: PlotConfig): boolean {
   if (config.kind !== "scatter" && config.kind !== "path") return false;
   if (config.ySignals.length !== 1) return false;
-  return isLonSignal(config.xSignal) && isLatSignal(config.ySignals[0]);
+  const a = config.xSignal;
+  const b = config.ySignals[0];
+  return (
+    (isLonSignal(a) && isLatSignal(b)) || (isLatSignal(a) && isLonSignal(b))
+  );
 }
 
 const MAPBOX_MAX_DIM = 1280;
@@ -81,6 +87,40 @@ function staticImageUrl(
   const H = Math.max(1, Math.min(MAPBOX_MAX_DIM, Math.round(h)));
   const bbox = `[${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}]`;
   return `https://api.mapbox.com/styles/v1/${MAPBOX_STREETS_STYLE}/static/${bbox}/${W}x${H}@2x?access_token=${MAPBOX_ACCESS_TOKEN}&attribution=false&logo=false`;
+}
+
+// Add/update the basemap image graphic over the grid rect (merge-only; never
+// issues a remove — the option effect's notMerge clears it when not wanted).
+function placeBasemap(
+  inst: ECharts,
+  bbox: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+): void {
+  const tl = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
+    bbox.minLon,
+    bbox.maxLat,
+  ]) as [number, number] | undefined;
+  const br = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
+    bbox.maxLon,
+    bbox.minLat,
+  ]) as [number, number] | undefined;
+  if (!tl || !br) return;
+  const left = tl[0];
+  const top = tl[1];
+  const width = br[0] - tl[0];
+  const height = br[1] - tl[1];
+  if (!(width > 0) || !(height > 0)) return;
+  inst.setOption({
+    graphic: [
+      {
+        id: "__basemap__",
+        type: "image",
+        z: -10,
+        left,
+        top,
+        style: { image: staticImageUrl(bbox, width, height), width, height },
+      },
+    ],
+  });
 }
 
 /** Pad a lon/lat bbox so its aspect ratio matches the pixel rect, growing the
@@ -160,10 +200,6 @@ export function PlotChart({
   const instanceRef = useRef<ECharts | null>(null);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
-  // Tracks whether the basemap graphic is currently registered, so we never
-  // emit a `$action: "remove"` for a graphic that was never added — doing so
-  // crashes ECharts' GraphicComponent.
-  const hasBasemapRef = useRef(false);
 
   // Map only applies to a GPS-like scatter/path with a configured token.
   const mapActive =
@@ -277,9 +313,18 @@ export function PlotChart({
     }
 
     // --- scatter / path: XY from /query/pairs ---
-    const x = config.xSignal;
+    // With the basemap on, plot geographically (lon = X, lat = Y) regardless of
+    // the trace order the user picked, so the static map aligns north-up.
+    const lonSig = isLonSignal(config.xSignal)
+      ? config.xSignal
+      : config.ySignals[0];
+    const latSig = isLatSignal(config.xSignal)
+      ? config.xSignal
+      : config.ySignals[0];
+    const x = mapActive ? lonSig : config.xSignal;
+    const ySignals = mapActive ? [latSig] : config.ySignals;
 
-    const series = config.ySignals.map((ySig, si) => {
+    const series = ySignals.map((ySig, si) => {
       const pts: number[][] = [];
       pairs.rows.forEach((r) => {
         const xv = num(r, x);
@@ -419,66 +464,24 @@ export function PlotChart({
     return { minLon, maxLon, minLat, maxLat };
   }, [mapActive, option]);
 
-  // notMerge so switching plot kinds never leaves stale components behind.
+  // notMerge so switching plot kinds (and toggling the map off) never leaves
+  // stale components behind — including the basemap graphic, which this wipes.
+  // The basemap is then re-added in the same pass when a bbox is active, so the
+  // two operations never race and no `$action: "remove"` is ever issued.
   useEffect(() => {
     const inst = instanceRef.current;
     if (!inst) return;
     inst.setOption(option, { notMerge: true });
-  }, [option]);
+    if (mapBbox) placeBasemap(inst, mapBbox);
+  }, [option, mapBbox]);
 
-  // Position a Mapbox static-image graphic over the grid rect, behind the
-  // series. Recomputes on option change and on resize so it stays registered.
+  // Re-place the basemap over the (resized) grid rect. Merge-only, so it just
+  // updates the existing image and can never remove a missing graphic.
   useEffect(() => {
     const inst = instanceRef.current;
     const el = chartRef.current;
-    if (!inst || !el) return;
-
-    const sync = () => {
-      if (!mapBbox) {
-        if (hasBasemapRef.current) {
-          inst.setOption({
-            graphic: [{ id: "__basemap__", $action: "remove" }],
-          });
-          hasBasemapRef.current = false;
-        }
-        return;
-      }
-      // Grid rect in pixels from the locked axis corners.
-      const tl = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
-        mapBbox.minLon,
-        mapBbox.maxLat,
-      ]) as [number, number] | undefined;
-      const br = inst.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [
-        mapBbox.maxLon,
-        mapBbox.minLat,
-      ]) as [number, number] | undefined;
-      if (!tl || !br) return;
-      const left = tl[0];
-      const top = tl[1];
-      const width = br[0] - tl[0];
-      const height = br[1] - tl[1];
-      if (!(width > 0) || !(height > 0)) return;
-      inst.setOption({
-        graphic: [
-          {
-            id: "__basemap__",
-            type: "image",
-            z: -10,
-            left,
-            top,
-            style: {
-              image: staticImageUrl(mapBbox, width, height),
-              width,
-              height,
-            },
-          },
-        ],
-      });
-      hasBasemapRef.current = true;
-    };
-
-    sync();
-    const ro = new ResizeObserver(sync);
+    if (!inst || !el || !mapBbox) return;
+    const ro = new ResizeObserver(() => placeBasemap(inst, mapBbox));
     ro.observe(el);
     return () => ro.disconnect();
   }, [mapBbox]);
