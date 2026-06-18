@@ -184,6 +184,21 @@ export async function fetchSessions(
   return res.data?.data ?? [];
 }
 
+// Fetch a single session by id (GET /sessions/:id). Returns null when the
+// backend reports no such session (404), so callers can branch on existence
+// without catching. Other errors propagate.
+export async function fetchSession(id: string): Promise<Session | null> {
+  try {
+    const res = await axios.get(`${BACKEND_URL}/sessions/${id}`, {
+      headers: authHeaders(),
+    });
+    return res.data?.data ?? null;
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+    throw e;
+  }
+}
+
 // Persist analysis onto a session (upsert via POST /sessions/:id).
 export async function saveSessionAnalysis(
   session: Session,

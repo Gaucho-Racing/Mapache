@@ -14,8 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useVehicle } from "@/lib/store";
-import { fetchSessions, fetchSessionLaps } from "@/lib/sessions/api";
+import { fetchSession, fetchSessionLaps } from "@/lib/sessions/api";
 import { Lap, LapSummary, Session, hasAnalysis } from "@/models/session";
 import { notify } from "@/lib/notify";
 
@@ -76,7 +75,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
 export default function SessionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const currentVehicle = useVehicle();
 
   const [session, setSession] = useState<Session | null>(null);
   const [laps, setLaps] = useState<Lap[]>([]);
@@ -88,13 +86,12 @@ export default function SessionDetailPage() {
     setLoading(true);
     (async () => {
       try {
-        const vehicleId = currentVehicle.id;
-        const [all, lapList] = await Promise.all([
-          vehicleId ? fetchSessions(vehicleId) : Promise.resolve([]),
+        const [sess, lapList] = await Promise.all([
+          fetchSession(id),
           fetchSessionLaps(id).catch(() => [] as Lap[]),
         ]);
         if (cancelled) return;
-        setSession(all.find((s) => s.id === id) ?? null);
+        setSession(sess);
         setLaps(lapList);
       } catch (e) {
         if (!cancelled) notify.error("Failed to load session: " + e);
@@ -105,7 +102,7 @@ export default function SessionDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, currentVehicle.id]);
+  }, [id]);
 
   const summary = useMemo<LapSummary | null>(() => {
     if (session?.lap_summary) return session.lap_summary;

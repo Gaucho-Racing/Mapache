@@ -34,6 +34,7 @@ import {
   createSession,
   fetchClusters,
   fetchDataDates,
+  fetchSession,
   fetchSessions,
   fetchSignalData,
   fetchSignalNames,
@@ -261,13 +262,13 @@ export function SessionEditorPage() {
     setCalSignals([]);
 
     (async () => {
-      const loaded = await loadSessions();
+      await loadSessions();
       const dates = await fetchDataDates(vehicleId).catch(() => []);
       setAvailableDates(dates);
 
-      // EDIT mode: find the routed session and load it directly.
-      if (isEditMode) {
-        const existing = loaded.find((s) => s.id === routeId);
+      // EDIT mode: fetch the routed session by id and load it directly.
+      if (isEditMode && routeId) {
+        const existing = await fetchSession(routeId).catch(() => null);
         if (existing) {
           const [y, m, d] = (existing.start_time.split("T")[0] || "")
             .split("-")
