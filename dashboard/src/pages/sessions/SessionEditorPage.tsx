@@ -554,7 +554,17 @@ export function SessionEditorPage() {
   const persistAndNavigate = async (session: Session) => {
     setSaving(true);
     try {
-      const updated = await saveSessionAnalysis(session, buildPayload());
+      // Keep the session window in sync with the current crop so the stored
+      // start/end reflect the trimmed range, not the full data cluster.
+      const windowed =
+        cropStartTs && cropEndTs
+          ? {
+              ...session,
+              start_time: tsToIso(cropStartTs),
+              end_time: tsToIso(cropEndTs),
+            }
+          : session;
+      const updated = await saveSessionAnalysis(windowed, buildPayload());
       if (lapResult && lapResult.lapCount > 0) {
         const laps = deriveLapInputs(lapResult, croppedPoints);
         await saveSessionLaps(updated.id, laps);
@@ -588,8 +598,8 @@ export function SessionEditorPage() {
         vehicle_id: vehicleId,
         name: newSessionName,
         description: "",
-        start_time: windowStart,
-        end_time: windowEnd,
+        start_time: tsToIso(cropStartTs),
+        end_time: tsToIso(cropEndTs),
       });
       setSelectedSession(created);
       setSelectedLabel(`ssn:${created.id}`);
