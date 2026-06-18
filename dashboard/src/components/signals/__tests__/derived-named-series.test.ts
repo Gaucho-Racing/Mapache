@@ -4,7 +4,7 @@ import {
   compileAgainstSeries,
   computeDerivedSeries,
   type NamedSeries,
-} from "@/components/signals/DerivedTraces";
+} from "@/lib/derived";
 import { DERIVED_KEY, type Series } from "@/components/signals/QueryChart";
 import type { DerivedTrace } from "@/lib/expr";
 

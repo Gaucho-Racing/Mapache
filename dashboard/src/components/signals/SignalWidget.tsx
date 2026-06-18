@@ -27,7 +27,7 @@ import {
 import {
   buildSeriesVariables,
   computeDerivedSeries,
-} from "@/components/signals/DerivedTraces";
+} from "@/lib/derived";
 import {
   MqlEditor,
   textToQueries,

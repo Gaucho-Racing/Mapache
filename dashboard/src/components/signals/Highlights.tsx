@@ -4,7 +4,7 @@ import {
   compileAgainstSeries,
   type ExtraVariables,
   type SeriesVariable,
-} from "./DerivedTraces";
+} from "@/lib/derived";
 import type { Lap } from "@/models/session";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
