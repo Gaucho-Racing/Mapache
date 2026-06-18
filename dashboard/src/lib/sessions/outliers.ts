@@ -2,10 +2,18 @@
 // carries "bus noise" — numeric, in-range readings that sit far from the real
 // track. Both normalization modes (geo.ts) derive their frame from the data, so
 // one far-off point collapses the path and shoots a stray line out to it. We
-// flag those points client-side before normalization, mirroring the signals
-// page's rejection model (z-score beyond N sigma OR outside a hard limit).
+// flag those points client-side before normalization.
+//
+// The detector is a robust 2-D radial test: convert each point's offset from
+// the *median* centroid into meters (equal-scale, via geo.ts), take its radial
+// distance, then compare against the median distance plus N robust sigmas, where
+// the spread is the MAD (median absolute deviation) of the distances scaled by
+// 1.4826 (the normal-consistency constant, so N stays comparable to a z-score).
+// Median + MAD are used instead of mean + std so the outliers don't inflate the
+// thresholds that are meant to catch them. A separate hard meter limit remains.
 
 import { GeoPoint } from "@/models/session";
+import { M_PER_DEG_LAT, mPerDegLon } from "./geo";
 
 export interface OutlierConfig {
   sigmaOn: boolean;
@@ -19,9 +27,9 @@ export const DEFAULT_OUTLIER_CONFIG: OutlierConfig = {
   maxDistanceM: null,
 };
 
-// Same lat-scaled degree factors used by geo.ts localCartesian.
-const M_PER_DEG_LAT = 111_132.0;
-const M_PER_DEG_LON_EQ = 111_320.0;
+// Scales MAD to a normal-consistent estimate of the standard deviation, so
+// sigmaN reads like a z-score threshold (≈ the old per-axis sigma semantics).
+const MAD_TO_SIGMA = 1.4826;
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -31,13 +39,9 @@ function median(values: number[]): number {
     : sorted[mid];
 }
 
-// Population mean + standard deviation, matching the signals page's stddevPop.
-function meanStd(values: number[]): { mean: number; std: number } {
-  const n = values.length;
-  const mean = values.reduce((s, v) => s + v, 0) / n;
-  const variance =
-    values.reduce((s, v) => s + (v - mean) * (v - mean), 0) / n;
-  return { mean, std: Math.sqrt(variance) };
+// Median absolute deviation about `center` (a robust spread measure).
+function mad(values: number[], center: number): number {
+  return median(values.map((v) => Math.abs(v - center)));
 }
 
 // Returns a boolean[] parallel to `points` (true = outlier).
@@ -49,38 +53,37 @@ export function detectOutliers(
   if (points.length === 0) return flags;
   if (!cfg.sigmaOn && cfg.maxDistanceM == null) return flags;
 
-  const lats = points.map((p) => p.lat);
-  const lons = points.map((p) => p.lon);
+  // Robust center: median of each axis. Meters are scaled at that latitude so
+  // dx/dy share one metric frame (matching geo.ts localCartesian).
+  const latC = median(points.map((p) => p.lat));
+  const lonC = median(points.map((p) => p.lon));
+  const mLon = mPerDegLon(latC);
 
-  const latStat = cfg.sigmaOn ? meanStd(lats) : null;
-  const lonStat = cfg.sigmaOn ? meanStd(lons) : null;
+  // Radial distance (m) of each point from the median centroid.
+  const dist = points.map((p) => {
+    const dx = (p.lon - lonC) * mLon;
+    const dy = (p.lat - latC) * M_PER_DEG_LAT;
+    return Math.hypot(dx, dy);
+  });
 
-  // Robust center for the distance limit; meters scaled at that latitude.
+  // Robust radial threshold. A degenerate spread (MAD === 0, e.g. a tight or
+  // stationary track) disables the sigma test rather than flagging everything —
+  // mirroring the old std===0 guard. The hard meter limit still applies.
+  let sigmaThreshold = Infinity;
+  if (cfg.sigmaOn) {
+    const distMedian = median(dist);
+    const distScale = MAD_TO_SIGMA * mad(dist, distMedian);
+    if (distScale > 0) {
+      sigmaThreshold = distMedian + cfg.sigmaN * distScale;
+    }
+  }
+
   const useDistance = cfg.maxDistanceM != null && cfg.maxDistanceM > 0;
-  const latC = useDistance ? median(lats) : 0;
-  const lonC = useDistance ? median(lons) : 0;
-  const mPerDegLon = M_PER_DEG_LON_EQ * Math.cos((latC * Math.PI) / 180);
+  const hardLimit = useDistance ? (cfg.maxDistanceM as number) : Infinity;
 
   for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-
-    if (latStat && lonStat) {
-      // std === 0 means a degenerate axis (all identical) — not an outlier,
-      // matching the signals page's nullIf(_std, 0) guard.
-      const zLat = latStat.std > 0 ? Math.abs(p.lat - latStat.mean) / latStat.std : 0;
-      const zLon = lonStat.std > 0 ? Math.abs(p.lon - lonStat.mean) / lonStat.std : 0;
-      if (zLat > cfg.sigmaN || zLon > cfg.sigmaN) {
-        flags[i] = true;
-        continue;
-      }
-    }
-
-    if (useDistance) {
-      const dx = (p.lon - lonC) * mPerDegLon;
-      const dy = (p.lat - latC) * M_PER_DEG_LAT;
-      if (Math.hypot(dx, dy) > (cfg.maxDistanceM as number)) {
-        flags[i] = true;
-      }
+    if (dist[i] > sigmaThreshold || dist[i] > hardLimit) {
+      flags[i] = true;
     }
   }
 
