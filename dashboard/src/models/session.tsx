@@ -1,4 +1,4 @@
-// Types for the sessions lap-analysis tool (web port of the PyQt desktop app).
+// Types for the Sessions lap-analysis tool.
 
 // Only Local cartesian is metric (equal-scale meters from the centroid), so it
 // registers correctly against the satellite underlay. The old WGS84 / Custom
@@ -26,7 +26,7 @@ export interface Point {
 // Two modes: "lap" sessions data off a GPS track and detects laps;
 // "calibration" plots arbitrary signals against time (for runs without usable
 // GPS) and only trims a session window.
-export type LapacheMode = "lap" | "calibration";
+export type SessionMode = "lap" | "calibration";
 
 // One row of the calibration time series: a timestamp plus one numeric value
 // per selected signal (signal id -> value).

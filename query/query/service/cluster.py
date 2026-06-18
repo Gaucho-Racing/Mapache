@@ -1,14 +1,12 @@
 """Raw-signal browsing: distinct signal names and contiguous data clusters.
 
-Lapache is the tool used to *create* sessions, so it must browse all raw signal
-data regardless of whether a session already covers it. A "cluster" is a
-contiguous block of signal data separated from the next block by a gap larger
-than `gap_seconds`. Clusters are derived from minute-bucketed timestamps of a
-single anchor signal per vehicle, which keeps the query cheap on the large
-signal table.
+The Sessions editor *creates* sessions, so it must browse all raw signal data
+regardless of whether a session already covers it. A "cluster" is a contiguous
+block of signal data separated from the next block by a gap larger than
+`gap_seconds`. Clusters are derived from minute-bucketed timestamps of a single
+anchor signal per vehicle, which keeps the query cheap on the large signal table.
 
-This is the ClickHouse port of the original Postgres implementation. The
-`signal` table is a ReplacingMergeTree (see clickhouse.py / signals.py):
+The `signal` table is a ReplacingMergeTree (see clickhouse.py / signals.py):
     id, timestamp (Int64 micros), vehicle_id, name, value, raw_value,
     produced_at DateTime64(6, 'UTC'), created_at DateTime64(6, 'UTC')
 partitioned by toYYYYMM(produced_at) and ordered by

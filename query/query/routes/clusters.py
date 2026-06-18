@@ -1,4 +1,4 @@
-"""Raw-signal browsing endpoints for the Sessions/lapache editor.
+"""Raw-signal browsing endpoints for the Sessions editor.
 
 The Sessions editor creates sessions over raw signal data, so it browses the
 signal table directly:
@@ -12,10 +12,9 @@ signal table directly:
     GET /query/signals/data?vehicle_id=&signals=&start=&end=&merge=&fill=&max_points=
         -> { data: [ { produced_at, <signal>: value, ... } ], metadata: {...} }
 
-NOTE (deviation from lapache): lapache served the decimated geo/series read at
-GET /query/signals. On this branch that path is already taken by the Datadog-
-metrics signals endpoint (routes/signals.py), so the read lives at
-/query/signals/data instead. The ported frontend api.ts must target
+NOTE: the decimated geo/series read lives at GET /query/signals/data rather than
+GET /query/signals, because the latter path is already taken by the Datadog-
+metrics signals endpoint (routes/signals.py). The frontend api.ts must target
 /query/signals/data for fetchSignalData / fetchSignalSeries.
 """
 

@@ -12,7 +12,7 @@ import {
   AnalysisPayload,
   DataCluster,
   GeoPoint,
-  LapacheMode,
+  SessionMode,
   LapResult,
   NormMode,
   Point,
@@ -77,7 +77,7 @@ export function SessionEditorPage() {
 
   // "lap" is the GPS track flow; "calibration" plots signals vs time for runs
   // without usable GPS and only trims a session window.
-  const [mode, setMode] = useState<LapacheMode>("lap");
+  const [mode, setMode] = useState<SessionMode>("lap");
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clusters, setClusters] = useState<DataCluster[]>([]);
@@ -686,7 +686,7 @@ export function SessionEditorPage() {
         <div className="flex flex-1 flex-col gap-3">
           {/* Mode toggle */}
           <div className="flex gap-1 self-start rounded-md border border-neutral-800 p-1">
-            {(["lap", "calibration"] as LapacheMode[]).map((m) => (
+            {(["lap", "calibration"] as SessionMode[]).map((m) => (
               <Button
                 key={m}
                 size="sm"
