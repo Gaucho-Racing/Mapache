@@ -16,6 +16,11 @@ import type {
 import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
 import type { FillMode } from "@/lib/query";
+import { PALETTE, cssHsl, seriesTotal } from "@/lib/echartsTheme";
+
+// Re-exported so existing importers (PlotChart, swatches) can keep pulling the
+// shared palette from the chart module they already depend on.
+export { PALETTE };
 
 // `inside` dataZoom only (wheel-zoom, client-side); the slider is skipped to
 // keep the gesture surface clear for the left-drag brush.
@@ -80,23 +85,6 @@ interface QueryChartProps {
   fillConfig?: Record<string, FillMode>;
 }
 
-// First slot matches gr-pink so single-series bars keep their color when
-// flipping into multi-series.
-export const PALETTE = [
-  "#e105a3",
-  "#8412fc",
-  "#10b981",
-  "#f59e0b",
-  "#3b82f6",
-  "#ef4444",
-  "#06b6d4",
-  "#84cc16",
-  "#a855f7",
-  "#ec4899",
-  "#14b8a6",
-  "#f97316",
-];
-
 const OTHER_KEY = "__other__";
 
 // Tag key marking a user-defined derived/expression trace (value = its label).
@@ -159,13 +147,6 @@ export function seriesLabel(tags: Record<string, string | null>): string {
   return entries.map(([, v]) => v ?? "—").join(" · ");
 }
 
-/** Sum every point in a series (nulls = 0) — for top-K ranking. */
-function seriesTotal(s: Series): number {
-  let acc = 0;
-  for (const p of s.points) acc += p.value ?? 0;
-  return acc;
-}
-
 /** Roll base series past `max` into a single "+N other" series. Derived traces
  *  are exempt and don't participate in the ranking. */
 function topK(series: Series[], max: number): { kept: Series[]; otherCount: number } {
@@ -200,17 +181,6 @@ export function seriesColorMap(
     map.set(seriesLabel(s.tags), PALETTE[i % PALETTE.length]);
   });
   return map;
-}
-
-/** Resolve an HSL CSS custom property ("H S% L%") to an `hsl(...)` string,
- *  with optional alpha. Falls back to a dark-theme grey (e.g. on SSR). */
-function cssHsl(varName: string, fallback: string, alpha = 1): string {
-  if (typeof window === "undefined") return fallback;
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue(varName)
-    .trim();
-  if (!raw) return fallback;
-  return alpha === 1 ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
 }
 
 /** Default y-scaling for an unconfigured label: native group "1". */

@@ -16,18 +16,7 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart";
 import { SignalSample } from "@/models/session";
-
-// Line colors, shared with the Query page's palette.
-const CHART_COLORS = [
-  "#FF6B6B",
-  "#4ECDC4",
-  "#45B7D1",
-  "#96CEB4",
-  "#FFEEAD",
-  "#D4A5A5",
-  "#9B59B6",
-  "#3498DB",
-] as const;
+import { PALETTE } from "@/lib/echartsTheme";
 
 interface SignalTimeChartProps {
   samples: SignalSample[];
@@ -94,7 +83,7 @@ export default function SignalTimeChart({
       Object.fromEntries(
         signals.map((sig, i) => [
           sig,
-          { label: sig, color: CHART_COLORS[i % CHART_COLORS.length] },
+          { label: sig, color: PALETTE[i % PALETTE.length] },
         ]),
       ),
     [signals],
@@ -154,7 +143,7 @@ export default function SignalTimeChart({
             name={sig}
             dot={false}
             strokeWidth={2}
-            stroke={CHART_COLORS[i % CHART_COLORS.length]}
+            stroke={PALETTE[i % PALETTE.length]}
             isAnimationActive={false}
           />
         ))}

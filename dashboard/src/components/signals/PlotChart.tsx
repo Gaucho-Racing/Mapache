@@ -14,7 +14,8 @@ import { install as Scatter3DChart } from "echarts-gl/lib/chart/scatter3D/instal
 import { install as Grid3DComponent } from "echarts-gl/lib/component/grid3D/install";
 import type { ECharts, EChartsCoreOption } from "echarts/core";
 import { useEffect, useMemo, useRef } from "react";
-import { PALETTE, seriesLabel, type Series } from "./QueryChart";
+import { seriesLabel, type Series } from "./QueryChart";
+import { PALETTE, cssHsl, seriesTotal } from "@/lib/echartsTheme";
 import type { PairRow, PairsResponse } from "@/lib/pairs";
 import type { ChartType } from "@/components/signals/chartTypes";
 import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
@@ -152,17 +153,6 @@ function padBboxToAspect(
   return { minLon, maxLon, minLat, maxLat };
 }
 
-/** Resolve an HSL CSS custom property to an `hsl(...)` string (mirrors
- *  QueryChart.cssHsl). */
-function cssHsl(varName: string, fallback: string, alpha = 1): string {
-  if (typeof window === "undefined") return fallback;
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue(varName)
-    .trim();
-  if (!raw) return fallback;
-  return alpha === 1 ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
-}
-
 function num(row: PairRow, name: string | undefined): number | null {
   if (!name) return null;
   const v = row[name];
@@ -180,13 +170,6 @@ interface PlotChartProps {
    *  unless the plot is GPS-like and a Mapbox token is configured. */
   mapEnabled?: boolean;
   onReady?: (instance: ECharts | null) => void;
-}
-
-/** Aggregate value (point sum) for a categorical series' bar/slice. */
-function seriesTotal(s: Series): number {
-  let acc = 0;
-  for (const p of s.points) acc += p.value ?? 0;
-  return acc;
 }
 
 export function PlotChart({
