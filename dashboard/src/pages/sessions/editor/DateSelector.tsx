@@ -5,12 +5,7 @@ import { addDays, format, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-// Local-day key (matches the YYYY-MM-DD strings the backend returns in the
-// browser's timezone), used to test membership in the "days with data" set.
-export function dayKey(d: Date): string {
-  return format(d, "yyyy-MM-dd");
-}
+import { parseDayKeys } from "@/lib/date";
 
 interface DateSelectorProps {
   value: Date;
@@ -27,10 +22,7 @@ export default function DateSelector({
 }: DateSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  const withData = availableDates.map((s) => {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  });
+  const withData = parseDayKeys(availableDates);
   const hasData = (d: Date) => withData.some((w) => isSameDay(w, d));
 
   return (

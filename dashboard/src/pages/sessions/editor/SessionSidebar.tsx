@@ -1,5 +1,5 @@
 import { DataCluster, Session, hasAnalysis } from "@/models/session";
-import { dayKey } from "./DateSelector";
+import { dayKey } from "@/lib/date";
 
 export interface LoadTarget {
   startTime: string;

@@ -19,15 +19,12 @@ import { useVehicle } from "@/lib/store";
 import { fetchSessions, fetchDataDates } from "@/lib/sessions/api";
 import { Session } from "@/models/session";
 import { notify } from "@/lib/notify";
+import { dayKey } from "@/lib/date";
 
 type SortKey = "name" | "start" | "duration" | "laps";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 20;
-
-function dayKey(iso: string): string {
-  return format(new Date(iso), "yyyy-MM-dd");
-}
 
 function formatTime(iso: string): string {
   return format(new Date(iso), "HH:mm:ss");
@@ -227,7 +224,7 @@ export default function SessionsPage() {
 
   // Scroll the matching (or nearest available) day group into view.
   const jumpToDay = (target: Date) => {
-    const key = format(target, "yyyy-MM-dd");
+    const key = dayKey(target);
     const exact = dayRefs.current[key];
     if (exact) {
       exact.scrollIntoView({ behavior: "smooth", block: "start" });

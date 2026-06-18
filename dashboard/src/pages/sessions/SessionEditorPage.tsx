@@ -51,7 +51,8 @@ import TimelineCrop from "./editor/TimelineCrop";
 import ResultsPanel from "./editor/ResultsPanel";
 import ImportMarkers from "./editor/ImportMarkers";
 import SessionSidebar, { LoadTarget } from "./editor/SessionSidebar";
-import DateSelector, { dayKey } from "./editor/DateSelector";
+import DateSelector from "./editor/DateSelector";
+import { dayKey } from "@/lib/date";
 
 // Convert a point's epoch-seconds timestamp into an ISO string for the API.
 function tsToIso(tsSeconds: number): string {
