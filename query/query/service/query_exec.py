@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from query.database.clickhouse import get_clickhouse
+from query.service.json_safe import json_safe
 from query.service.query_lang import (
     Query,
     RejectBool,
@@ -43,7 +44,8 @@ def _build_filter_sql(
     and inequality (`!=`) predicates are AND'd (none-of); the two groups are
     then AND'd together. Across columns fragments are AND'd by being separate
     elements in the final WHERE list. Values containing `*` are translated to
-    LIKE / NOT LIKE patterns by swapping `*` → `%`.
+    LIKE / NOT LIKE patterns; literal LIKE metacharacters (`\\ % _`) are escaped
+    before the wildcard `*` is swapped to `%`.
     """
     by_col: dict[str, list] = {}
     for p in filters:
@@ -51,8 +53,16 @@ def _build_filter_sql(
 
     def _leaf(col: str, key: str, value: str, negate: bool) -> str:
         if "*" in value:
-            # ClickHouse LIKE uses `%`; `*` is what users type.
-            params[key] = value.replace("*", "%")
+            # Escape LIKE metacharacters in the literal portion FIRST so a
+            # user's `_`/`%`/`\` match themselves, then translate the wildcard
+            # `*` (what users type) to LIKE's `%`. `\` is ClickHouse LIKE's
+            # default escape char, so it must be doubled before `%`/`_`.
+            escaped = (
+                value.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            params[key] = escaped.replace("*", "%")
             return f"{col} NOT LIKE {{{key}:String}}" if negate else f"{col} LIKE {{{key}:String}}"
         params[key] = value
         return f"{col} != {{{key}:String}}" if negate else f"{col} = {{{key}:String}}"
@@ -417,12 +427,17 @@ def _bucket_axis(
 
 
 def _coerce_number(v: Any) -> float | int | None:
-    """ClickHouse hands us Decimal / Float / int — collapse to JSON-safe."""
+    """ClickHouse hands us Decimal / Float / int — collapse to JSON-safe.
+
+    Routes through `json_safe` so non-finite floats (NaN/Inf, e.g. an agg over
+    an all-NULL bucket) become None instead of tripping JSONResponse's
+    allow_nan=False.
+    """
     if v is None:
         return None
     if isinstance(v, (int, float)):
-        return v
+        return json_safe(v)
     try:
-        return float(v)
+        return json_safe(float(v))
     except (TypeError, ValueError):
         return None
