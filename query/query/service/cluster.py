@@ -25,6 +25,7 @@ from typing import Any
 from loguru import logger
 
 from query.database.clickhouse import get_clickhouse
+from query.service.json_safe import iso_utc_z
 
 DEFAULT_GAP_SECONDS = 30
 
@@ -50,18 +51,6 @@ def _as_utc_naive(dt: datetime) -> datetime:
     return dt
 
 
-def _iso_utc_z(dt: datetime) -> str:
-    """Serialize a (naive-UTC or tz-aware) datetime as an ISO-8601 string with a
-    trailing 'Z'. produced_at is stored as UTC but clickhouse-connect returns it
-    naive, whose bare isoformat() omits the offset — Go's RFC3339 unmarshal then
-    rejects it, and JS Date() misreads it as local time. Emitting 'Z' keeps the
-    UTC instant explicit for both consumers.
-    """
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
-
-
 @dataclass
 class Cluster:
     """A contiguous block of signal data for a vehicle."""
@@ -73,8 +62,8 @@ class Cluster:
     def to_dict(self) -> dict[str, Any]:
         return {
             "vehicle_id": self.vehicle_id,
-            "start_time": _iso_utc_z(self.start_time),
-            "end_time": _iso_utc_z(self.end_time),
+            "start_time": iso_utc_z(self.start_time),
+            "end_time": iso_utc_z(self.end_time),
         }
 
 
