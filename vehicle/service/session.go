@@ -99,8 +99,11 @@ func DeleteSession(id string) error {
 	return nil
 }
 
+// populateSession attaches the laps the frontend Session model actually reads.
+// Markers/Segments (and the DeriveSegments compute they fed) are dropped: the
+// fields are gorm:"-" (never persisted), no Go caller reads them, and the
+// frontend Session model has no markers/segments fields, so computing them on
+// every read was dead work. DeriveSegments itself remains for direct callers.
 func populateSession(session *mapache.Session) {
-	session.Markers = GetAllMarkersForSession(session.ID)
-	session.Segments = mapache.DeriveSegments(*session)
 	session.Laps = GetLapsForSession(session.ID)
 }
