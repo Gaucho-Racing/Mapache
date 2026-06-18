@@ -49,6 +49,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BACKEND_URL, MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
+import { formatMetric } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import {
   DEFAULT_QUERY,
@@ -114,12 +115,6 @@ function intervalToSeconds(i: Interval): number {
     case "6h":  return 6 * 60 * 60;
     case "1d":  return 24 * 60 * 60;
   }
-}
-
-function formatCount(n: number): string {
-  if (n < 1_000) return n.toString();
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 function formatLatency(ms: number): string {
@@ -993,7 +988,7 @@ export function SignalWidget({
                 {loadingSeries
                   ? "Loading…"
                   : [
-                      `${formatCount(totalSeriesValue)} total`,
+                      `${formatMetric(totalSeriesValue)} total`,
                       `${interval} buckets`,
                       seriesMs !== null && formatLatency(seriesMs),
                     ]

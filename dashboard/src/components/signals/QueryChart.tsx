@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
 import type { FillMode } from "@/lib/query";
 import { PALETTE, cssHsl, seriesTotal } from "@/lib/echartsTheme";
+import { formatMetric } from "@/lib/format";
 
 // Re-exported so existing importers (PlotChart, swatches) can keep pulling the
 // shared palette from the chart module they already depend on.
@@ -129,13 +130,6 @@ function formatBucketTick(iso: string, intervalSec: number): string {
     minute: "2-digit",
     second: "2-digit",
   });
-}
-
-function formatCount(n: number): string {
-  const abs = Math.abs(n);
-  if (abs < 1_000) return Number.isInteger(n) ? n.toString() : n.toFixed(2);
-  if (abs < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 /** Stable label for a series from its tag values (empty tags → "value").
@@ -465,7 +459,7 @@ export function QueryChart({
                 "raw" in p.data
                   ? p.data.raw
                   : p.value;
-              const shown = isNull ? "—" : formatCount(trueValue);
+              const shown = isNull ? "—" : formatMetric(trueValue);
               return (
                 `<div style="display:flex;justify-content:space-between;gap:12px">` +
                 `<span>${p.marker}${p.seriesName}</span>` +
@@ -507,7 +501,7 @@ export function QueryChart({
                 rightAxisCount > 0
                   ? { show: true, lineStyle: { color } }
                   : { show: false },
-              axisLabel: { color, formatter: formatCount },
+              axisLabel: { color, formatter: formatMetric },
               splitLine: { lineStyle: { color: splitLineColor, type: "dashed" } },
             };
           }
@@ -517,7 +511,7 @@ export function QueryChart({
             offset: (gi - 1) * 48,
             axisTick: { show: false },
             axisLine: { show: true, lineStyle: { color } },
-            axisLabel: { color, formatter: formatCount },
+            axisLabel: { color, formatter: formatMetric },
             splitLine: { show: false },
           };
         }),
