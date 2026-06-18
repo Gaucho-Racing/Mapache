@@ -16,6 +16,7 @@ import type { ECharts, EChartsCoreOption } from "echarts/core";
 import { useEffect, useMemo, useRef } from "react";
 import { seriesLabel, type Series } from "./QueryChart";
 import { PALETTE, cssHsl, seriesTotal } from "@/lib/echartsTheme";
+import { useEchartInstance } from "@/lib/useEchartInstance";
 import type { PairRow, PairsResponse } from "@/lib/pairs";
 import type { ChartType } from "@/components/signals/chartTypes";
 import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
@@ -180,9 +181,7 @@ export function PlotChart({
   onReady,
 }: PlotChartProps) {
   const chartRef = useRef<HTMLDivElement | null>(null);
-  const instanceRef = useRef<ECharts | null>(null);
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  const instanceRef = useEchartInstance(chartRef, { onReady });
 
   // Map only applies to a GPS-like scatter/path with a configured token.
   const mapActive =
@@ -409,23 +408,6 @@ export function PlotChart({
       series,
     };
   }, [config, pairs, categorical, mapActive]);
-
-  useEffect(() => {
-    if (!chartRef.current) return;
-    const inst = echarts.init(chartRef.current, undefined, {
-      renderer: "canvas",
-    });
-    instanceRef.current = inst;
-    onReadyRef.current?.(inst);
-    const ro = new ResizeObserver(() => inst.resize());
-    ro.observe(chartRef.current);
-    return () => {
-      ro.disconnect();
-      onReadyRef.current?.(null);
-      inst.dispose();
-      instanceRef.current = null;
-    };
-  }, []);
 
   // Lon/lat bbox of the locked axes — drives the basemap image bbox + URL.
   const mapBbox = useMemo(() => {

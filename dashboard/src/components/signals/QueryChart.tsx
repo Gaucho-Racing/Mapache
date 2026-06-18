@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ChartType } from "./ChartTypeToggle";
 import type { FillMode } from "@/lib/query";
 import { PALETTE, cssHsl, seriesTotal } from "@/lib/echartsTheme";
+import { useEchartInstance } from "@/lib/useEchartInstance";
 import { formatMetric } from "@/lib/format";
 
 // Re-exported so existing importers (PlotChart, swatches) can keep pulling the
@@ -282,13 +283,8 @@ export function QueryChart({
       : undefined;
 
   const chartRef = useRef<HTMLDivElement | null>(null);
-  const instanceRef = useRef<ECharts | null>(null);
-  // These refs feed the once-only init effect / zrender handlers the latest
-  // props without re-binding, keeping the effect's empty dep array honest.
-  const groupIdRef = useRef(groupId);
-  groupIdRef.current = groupId;
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
+  // These refs feed the zrender handlers the latest props without re-binding,
+  // keeping the once-only init honest.
   const brushRef = useRef<{ startIdx: number | null; curIdx: number | null }>({
     startIdx: null,
     curIdx: null,
@@ -300,6 +296,121 @@ export function QueryChart({
     interactionMode: "select" | "pan";
   }>({ onBrushSelect, buckets, intervalSec, interactionMode });
   cbRef.current = { onBrushSelect, buckets, intervalSec, interactionMode };
+
+  // Instance lifecycle (init + connect group + resize + dispose + onReady) lives
+  // in the shared hook; the brush-to-select zrender wiring is attached via
+  // onInit so it keeps the exact attach-after-init / detach-before-dispose
+  // ordering it had as one effect.
+  const instanceRef = useEchartInstance(chartRef, {
+    groupId,
+    onReady,
+    onInit: (inst) => {
+      // Brush-to-select-timeframe: mousedown records the bucket, mousemove draws
+      // a markArea, mouseup commits [start, end) — but only across different
+      // buckets (same-bucket release is a click). `end` is extended one bucket
+      // width so the brush includes the bar it visually covers.
+      const zr = inst.getZr();
+
+      // Pixel x → nearest category index, or null if outside the plot.
+      const pixelToIndex = (event: ElementEvent): number | null => {
+        const x = event.offsetX;
+        const y = event.offsetY;
+        if (!inst.containPixel({ gridIndex: 0 }, [x, y])) return null;
+        const val = inst.convertFromPixel({ gridIndex: 0 }, [x, y]);
+        const idx = Array.isArray(val) ? Math.round(val[0] as number) : null;
+        if (idx === null) return null;
+        const len = cbRef.current.buckets.length;
+        if (idx < 0 || idx >= len) return null;
+        return idx;
+      };
+
+      const renderHighlight = () => {
+        const { startIdx, curIdx } = brushRef.current;
+        if (startIdx === null || curIdx === null || startIdx === curIdx) {
+          inst.setOption({ series: [{ id: "__brush__", markArea: { data: [] } }] });
+          return;
+        }
+        const lo = Math.min(startIdx, curIdx);
+        const hi = Math.max(startIdx, curIdx);
+        inst.setOption({
+          series: [
+            {
+              id: "__brush__",
+              type: "line",
+              data: [],
+              silent: true,
+              markArea: {
+                itemStyle: { color: cssHsl("--foreground", "#fafafa", 0.12) },
+                data: [[{ xAxis: lo }, { xAxis: hi }]],
+              },
+            },
+          ],
+        });
+      };
+
+      const onDown = (event: ElementEvent) => {
+        // In pan mode the dataZoom owns left-drag; the brush stands down.
+        if (cbRef.current.interactionMode === "pan") return;
+        if (!cbRef.current.onBrushSelect) return;
+        const idx = pixelToIndex(event);
+        if (idx === null) return;
+        brushRef.current = { startIdx: idx, curIdx: idx };
+      };
+      const onMove = (event: ElementEvent) => {
+        if (cbRef.current.interactionMode === "pan") return;
+        if (!cbRef.current.onBrushSelect) return;
+        if (brushRef.current.startIdx === null) return;
+        const idx = pixelToIndex(event);
+        if (idx === null) return;
+        brushRef.current.curIdx = idx;
+        renderHighlight();
+      };
+      const commit = () => {
+        const { onBrushSelect: cb, buckets: bkts, intervalSec: iv } =
+          cbRef.current;
+        const { startIdx, curIdx } = brushRef.current;
+        brushRef.current = { startIdx: null, curIdx: null };
+        renderHighlight();
+        if (
+          cb &&
+          startIdx !== null &&
+          curIdx !== null &&
+          startIdx !== curIdx
+        ) {
+          const lo = Math.min(startIdx, curIdx);
+          const hi = Math.max(startIdx, curIdx);
+          const startIso = bkts[lo];
+          const endIso = bkts[hi];
+          if (startIso && endIso) {
+            const start = new Date(startIso);
+            // Extend to the end of the bucket so the covered bar is included.
+            const end = new Date(new Date(endIso).getTime() + iv * 1000);
+            cb(start, end);
+          }
+        }
+      };
+
+      const onGlobalOut = () => {
+        if (brushRef.current.startIdx !== null) {
+          brushRef.current = { startIdx: null, curIdx: null };
+          renderHighlight();
+        }
+      };
+
+      zr.on("mousedown", onDown);
+      zr.on("mousemove", onMove);
+      zr.on("mouseup", commit);
+      // Cancel an in-progress drag if the cursor leaves the canvas.
+      zr.on("globalout", onGlobalOut);
+
+      return () => {
+        zr.off("mousedown", onDown);
+        zr.off("mousemove", onMove);
+        zr.off("mouseup", commit);
+        zr.off("globalout", onGlobalOut);
+      };
+    },
+  });
 
   // Build the ECharts option (memoized; the brush markArea is layered on
   // separately during a drag).
@@ -559,131 +670,6 @@ export function QueryChart({
     normalizedAxisIndex,
     highlights,
   ]);
-
-  // Initialize the instance once.
-  useEffect(() => {
-    if (!chartRef.current) return;
-    const inst = echarts.init(chartRef.current, undefined, {
-      renderer: "canvas",
-    });
-    instanceRef.current = inst;
-
-    if (groupIdRef.current) {
-      inst.group = groupIdRef.current;
-      echarts.connect(groupIdRef.current);
-    }
-
-    onReadyRef.current?.(inst);
-
-    const ro = new ResizeObserver(() => inst.resize());
-    ro.observe(chartRef.current);
-
-    // Brush-to-select-timeframe: mousedown records the bucket, mousemove draws
-    // a markArea, mouseup commits [start, end) — but only across different
-    // buckets (same-bucket release is a click). `end` is extended one bucket
-    // width so the brush includes the bar it visually covers.
-    const zr = inst.getZr();
-
-    // Pixel x → nearest category index, or null if outside the plot.
-    const pixelToIndex = (event: ElementEvent): number | null => {
-      const x = event.offsetX;
-      const y = event.offsetY;
-      if (!inst.containPixel({ gridIndex: 0 }, [x, y])) return null;
-      const val = inst.convertFromPixel({ gridIndex: 0 }, [x, y]);
-      const idx = Array.isArray(val) ? Math.round(val[0] as number) : null;
-      if (idx === null) return null;
-      const len = cbRef.current.buckets.length;
-      if (idx < 0 || idx >= len) return null;
-      return idx;
-    };
-
-    const renderHighlight = () => {
-      const { startIdx, curIdx } = brushRef.current;
-      if (startIdx === null || curIdx === null || startIdx === curIdx) {
-        inst.setOption({ series: [{ id: "__brush__", markArea: { data: [] } }] });
-        return;
-      }
-      const lo = Math.min(startIdx, curIdx);
-      const hi = Math.max(startIdx, curIdx);
-      inst.setOption({
-        series: [
-          {
-            id: "__brush__",
-            type: "line",
-            data: [],
-            silent: true,
-            markArea: {
-              itemStyle: { color: cssHsl("--foreground", "#fafafa", 0.12) },
-              data: [[{ xAxis: lo }, { xAxis: hi }]],
-            },
-          },
-        ],
-      });
-    };
-
-    const onDown = (event: ElementEvent) => {
-      // In pan mode the dataZoom owns left-drag; the brush stands down.
-      if (cbRef.current.interactionMode === "pan") return;
-      if (!cbRef.current.onBrushSelect) return;
-      const idx = pixelToIndex(event);
-      if (idx === null) return;
-      brushRef.current = { startIdx: idx, curIdx: idx };
-    };
-    const onMove = (event: ElementEvent) => {
-      if (cbRef.current.interactionMode === "pan") return;
-      if (!cbRef.current.onBrushSelect) return;
-      if (brushRef.current.startIdx === null) return;
-      const idx = pixelToIndex(event);
-      if (idx === null) return;
-      brushRef.current.curIdx = idx;
-      renderHighlight();
-    };
-    const commit = () => {
-      const { onBrushSelect: cb, buckets: bkts, intervalSec: iv } =
-        cbRef.current;
-      const { startIdx, curIdx } = brushRef.current;
-      brushRef.current = { startIdx: null, curIdx: null };
-      renderHighlight();
-      if (
-        cb &&
-        startIdx !== null &&
-        curIdx !== null &&
-        startIdx !== curIdx
-      ) {
-        const lo = Math.min(startIdx, curIdx);
-        const hi = Math.max(startIdx, curIdx);
-        const startIso = bkts[lo];
-        const endIso = bkts[hi];
-        if (startIso && endIso) {
-          const start = new Date(startIso);
-          // Extend to the end of the bucket so the covered bar is included.
-          const end = new Date(new Date(endIso).getTime() + iv * 1000);
-          cb(start, end);
-        }
-      }
-    };
-
-    zr.on("mousedown", onDown);
-    zr.on("mousemove", onMove);
-    zr.on("mouseup", commit);
-    // Cancel an in-progress drag if the cursor leaves the canvas.
-    zr.on("globalout", () => {
-      if (brushRef.current.startIdx !== null) {
-        brushRef.current = { startIdx: null, curIdx: null };
-        renderHighlight();
-      }
-    });
-
-    return () => {
-      ro.disconnect();
-      zr.off("mousedown", onDown);
-      zr.off("mousemove", onMove);
-      zr.off("mouseup", commit);
-      onReadyRef.current?.(null);
-      inst.dispose();
-      instanceRef.current = null;
-    };
-  }, []);
 
   // Push option changes, capturing the live zoom window first so a notMerge
   // rebuild (e.g. a chart-type toggle) doesn't snap back to the full range.
