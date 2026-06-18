@@ -1,15 +1,14 @@
 """Decimated multi-signal reads against the ClickHouse `signal` table.
 
-Backs the Sessions/lapache track map and calibration views: fetch a small set
-of signals over a time window, merged onto a single timeline and decimated
-server-side so wide windows don't transfer every raw sample.
+Backs the Sessions track map and calibration views: fetch a small set of signals
+over a time window, merged onto a single timeline and decimated server-side so
+wide windows don't transfer every raw sample.
 
-This is the ClickHouse port of lapache's pandas-based query_signals/merge_signals
-(query/query/service/query.py on origin/jake/lapache). The frontend only
-consumes the row records ({produced_at, <signal>: value, ...}); the heavy pandas
-merge metadata is not used by the track/calibration views, so the merge + fill +
-decimation are done directly in ClickHouse to avoid pulling pandas/numpy into
-this service.
+The frontend only consumes the row records ({produced_at, <signal>: value, ...});
+the heavy pandas merge metadata is not used by the track/calibration views, so
+the merge + fill are done here (a union-of-timestamps pivot with optional
+forward-fill) without pulling pandas/numpy into this path. The decimation query
+itself is shared with the /query/pairs path via service/decimate.
 
 Schema (see clickhouse.py): signal(vehicle_id, name, timestamp Int64 micros,
 value, produced_at DateTime64(6, 'UTC')).
@@ -21,7 +20,8 @@ from typing import Any
 from loguru import logger
 
 from query.database.clickhouse import get_clickhouse
-from query.service.json_safe import json_safe
+from query.service.decimate import bucket_micros, bucket_seconds, build_decimation_sql
+from query.service.json_safe import iso_utc_z, json_safe
 
 DEFAULT_MAX_POINTS = 5000
 
@@ -38,20 +38,6 @@ def _parse_ts(value: str | None) -> datetime | None:
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
-
-
-def _bucket_seconds(
-    start: datetime | None, end: datetime | None, max_points: int | None
-) -> float | None:
-    """Bucket width (seconds) that yields at most ~`max_points` rows over
-    [start, end], or None if the window is unknown/degenerate (no decimation).
-    """
-    if start is None or end is None or not max_points or max_points <= 0:
-        return None
-    span = (end - start).total_seconds()
-    if span <= 0:
-        return None
-    return span / max_points
 
 
 def query_signal_records(
@@ -87,7 +73,7 @@ def query_signal_records(
     if not max_points or max_points <= 0:
         max_points = DEFAULT_MAX_POINTS
     max_points = min(max_points, MAX_MAX_POINTS)
-    bucket = _bucket_seconds(start_dt, end_dt, max_points)
+    bucket = bucket_seconds(start_dt, end_dt, max_points)
     if bucket is None:
         raise ValueError("end must be after start")
 
@@ -98,30 +84,8 @@ def query_signal_records(
     where.append("produced_at < {end:DateTime64(6)}")
     params["end"] = end_dt
 
-    # Decimate: keep the earliest sample per (name, time-bucket) via argMin,
-    # which ties the kept value to that earliest produced_at so the pair is
-    # consistent. The bucket timestamp uses a distinct alias (bucket_ts) so it
-    # does not collide with the real `produced_at` column referenced in
-    # WHERE/GROUP BY — reusing `produced_at` as the alias makes ClickHouse
-    # resolve those references to the aggregate and fail with
-    # ILLEGAL_AGGREGATION.
-    #
-    # Bucket on the microsecond epoch with an integer divisor: the bucket width
-    # is fractional seconds (e.g. 0.12s), and intDiv requires an integer divisor
-    # — and toUnixTimestamp() truncates to whole seconds, which would collapse
-    # all sub-second buckets. toUnixTimestamp64Micro keeps full DateTime64(6)
-    # precision.
-    params["bucket"] = max(1, round(bucket * 1_000_000))
-    sql = f"""
-    SELECT
-        min(produced_at) AS bucket_ts,
-        name,
-        argMin(value, produced_at) AS value
-    FROM signal
-    WHERE {' AND '.join(where)}
-    GROUP BY name, intDiv(toUnixTimestamp64Micro(produced_at), {{bucket:Int64}})
-    ORDER BY bucket_ts ASC
-    """
+    params["bucket"] = bucket_micros(bucket)
+    sql = build_decimation_sql(where, "bucket")
 
     logger.info(f"Raw signal query: {sql} | Params: {params}")
     result = get_clickhouse().query(sql, parameters=params)
@@ -138,7 +102,7 @@ def query_signal_records(
     last: dict[str, Any] = {}
     records: list[dict[str, Any]] = []
     for ts in ordered_ts:
-        rec: dict[str, Any] = {"produced_at": _iso_z(ts)}
+        rec: dict[str, Any] = {"produced_at": iso_utc_z(ts)}
         for sig in present_signals:
             val = json_safe(by_ts[ts].get(sig))
             if val is None and fill == "forward":
@@ -155,13 +119,3 @@ def query_signal_records(
         "merge_strategy": f"{merge}_{fill}",
     }
     return records, metadata
-
-
-def _iso_z(dt: datetime) -> str:
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return (
-        dt.astimezone(timezone.utc)
-        .strftime("%Y-%m-%dT%H:%M:%S.%f")
-        + "Z"
-    )
