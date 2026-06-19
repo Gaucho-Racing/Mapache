@@ -47,12 +47,10 @@ services:
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
       SENTINEL_URL: ${SENTINEL_URL}
-      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
       SENTINEL_CLIENT_SECRET: ${SENTINEL_CLIENT_SECRET}
-      SENTINEL_TOKEN: ${SENTINEL_TOKEN}
+      SENTINEL_SA_TOKEN: ${SENTINEL_SA_TOKEN}
       SENTINEL_REDIRECT_URI: ${SENTINEL_REDIRECT_URI}
-      SKIP_AUTH_CHECK: "true"
 
   vehicle:
     container_name: mapache-vehicle
@@ -170,9 +168,7 @@ services:
       KERBECS_USER: "admin"
       KERBECS_PASSWORD: "admin"
       SENTINEL_URL: ${SENTINEL_URL}
-      SENTINEL_JWKS_URL: ${SENTINEL_JWKS_URL}
       SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
-      SKIP_AUTH_CHECK: "true"
 
   foreman:
     container_name: mapache-foreman
@@ -209,7 +205,6 @@ services:
       VITE_BACKEND_WS_URL: "ws://localhost:10310/api"
       VITE_SENTINEL_CLIENT_ID: ${SENTINEL_CLIENT_ID}
       VITE_MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN}
-      VITE_SKIP_AUTH_CHECK: "true"
 
   nanomq:
     container_name: mapache-nanomq

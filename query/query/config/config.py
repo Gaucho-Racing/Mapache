@@ -29,11 +29,13 @@ class Config:
     KERBECS_USER: str = os.getenv('KERBECS_USER')
     KERBECS_PASSWORD: str = os.getenv('KERBECS_PASSWORD')
 
-    # Auth settings
+    # Auth settings. Sentinel v5 hosts JWKS at /api/core/keys under
+    # SENTINEL_URL, so the separate JWKS env var is gone — main.py derives
+    # the path. The issuer is fixed in v5; see SENTINEL_ISSUER below.
     SKIP_AUTH_CHECK: bool = os.getenv('SKIP_AUTH_CHECK', 'false').lower() == 'true'
     SENTINEL_URL: str = os.getenv('SENTINEL_URL')
-    SENTINEL_JWKS_URL: str = os.getenv('SENTINEL_JWKS_URL')
     SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')
+    SENTINEL_ISSUER: str = 'https://sentinel-v5.gauchoracing.com'
 
     @staticmethod
     def get_database_url() -> URL:
