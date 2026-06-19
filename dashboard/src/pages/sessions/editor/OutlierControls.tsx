@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { GeoPoint } from "@/models/session";
-import { OutlierConfig } from "@/lib/sessions/outliers";
+import { DEFAULT_OUTLIER_CONFIG, OutlierConfig } from "@/lib/sessions/outliers";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -23,6 +23,9 @@ export default function OutlierControls({
   excluded,
 }: OutlierControlsProps) {
   const [listOpen, setListOpen] = useState(false);
+  // Raw string lets the field be emptied mid-edit without snapping to 0;
+  // null means "show the committed config value".
+  const [sigmaDraft, setSigmaDraft] = useState<string | null>(null);
 
   const apply = (patch: Partial<OutlierConfig>) =>
     onChange({ ...config, ...patch });
@@ -48,8 +51,18 @@ export default function OutlierControls({
           <span>beyond</span>
           <Input
             type="number"
-            value={config.sigmaN}
-            onChange={(e) => apply({ sigmaN: Number(e.target.value) || 0 })}
+            value={sigmaDraft ?? config.sigmaN}
+            onChange={(e) => {
+              const v = e.target.value;
+              setSigmaDraft(v);
+              if (v.trim() !== "") apply({ sigmaN: Number(v) });
+            }}
+            onBlur={() => {
+              if (sigmaDraft !== null && sigmaDraft.trim() === "") {
+                apply({ sigmaN: DEFAULT_OUTLIER_CONFIG.sigmaN });
+              }
+              setSigmaDraft(null);
+            }}
             className="h-7 w-16 font-mono text-xs"
           />
           <span>σ</span>

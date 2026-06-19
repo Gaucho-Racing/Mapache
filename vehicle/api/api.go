@@ -59,6 +59,7 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/sessions/:sessionID", GetSessionByID)
 	router.GET("/sessions/ongoing", GetAllOngoingSessions)
 	router.POST("/sessions/:sessionID", CreateSession)
+	router.POST("/sessions/:sessionID/analysis", SaveSessionAnalysis)
 	router.POST("/sessions/new", NewSession)
 	router.DELETE("/sessions/:sessionID", DeleteSession)
 	router.POST("/sessions/:sessionID/markers", CreateMarker)

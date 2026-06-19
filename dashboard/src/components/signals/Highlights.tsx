@@ -4,7 +4,7 @@ import {
   compileAgainstSeries,
   type ExtraVariables,
   type SeriesVariable,
-} from "./DerivedTraces";
+} from "@/lib/derived";
 import type { Lap } from "@/models/session";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
@@ -288,11 +288,14 @@ export function Highlights({
       {variables.length > 0 || lapsAvailable ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
           <span className="uppercase tracking-wider">vars</span>
-          {variables.map((v) => (
-            <code key={v.index} className="font-mono">
-              {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
-            </code>
-          ))}
+          {variables.map((v) => {
+            const alias = v.name ?? v.friendly;
+            return (
+              <code key={v.index} className="font-mono">
+                {alias ? `${v.index} = ${alias}` : v.index}
+              </code>
+            );
+          })}
           {lapsAvailable ? <code className="font-mono">{LAP_VAR}</code> : null}
         </div>
       ) : null}

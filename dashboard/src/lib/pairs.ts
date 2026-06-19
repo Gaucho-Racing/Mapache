@@ -1,5 +1,5 @@
-import axios from "axios";
 import { BACKEND_URL } from "@/consts/config";
+import { http } from "@/lib/http";
 import type { Series } from "@/components/signals/QueryChart";
 
 /** One aligned row from /query/pairs: a produced_at ISO plus a numeric (or
@@ -23,12 +23,6 @@ export interface FetchPairsArgs {
   maxPoints?: number;
 }
 
-function authHeader() {
-  return {
-    Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
-  };
-}
-
 /** Fetch time-aligned paired samples for 2+ signals over a window. Returns the
  *  bare `{columns, rows}` body (unwrapped from the gateway envelope). */
 export async function fetchPairs({
@@ -39,7 +33,7 @@ export async function fetchPairs({
   toleranceMs = 50,
   maxPoints = 5000,
 }: FetchPairsArgs): Promise<PairsResponse> {
-  const res = await axios.post(
+  const res = await http.post(
     `${BACKEND_URL}/query/pairs`,
     {
       vehicle_id: vehicleId,
@@ -49,7 +43,6 @@ export async function fetchPairs({
       tolerance_ms: toleranceMs,
       max_points: maxPoints,
     },
-    { headers: authHeader() },
   );
   const body = res.data?.data ?? res.data;
   return {

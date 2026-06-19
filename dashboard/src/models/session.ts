@@ -1,9 +1,12 @@
-// Types for the sessions lap-analysis tool (web port of the PyQt desktop app).
+// Types for the Sessions lap-analysis tool.
 
+// Only Local cartesian is metric (equal-scale meters from the centroid), so it
+// registers correctly against the satellite underlay. The old WGS84 / Custom
+// scale modes stretched lat/lon independently (anamorphic) and misregistered
+// the basemap, so they were removed. Legacy analyses with those norm_mode
+// strings fall back to Local cartesian (see geo.buildTransform).
 export enum NormMode {
-  WGS84 = "WGS84",
   LocalCartesian = "Local cartesian",
-  CustomScale = "Custom scale",
 }
 
 // A raw GPS sample fetched from the telemetry API.
@@ -23,7 +26,7 @@ export interface Point {
 // Two modes: "lap" sessions data off a GPS track and detects laps;
 // "calibration" plots arbitrary signals against time (for runs without usable
 // GPS) and only trims a session window.
-export type LapacheMode = "lap" | "calibration";
+export type SessionMode = "lap" | "calibration";
 
 // One row of the calibration time series: a timestamp plus one numeric value
 // per selected signal (signal id -> value).
@@ -67,7 +70,10 @@ export interface DataCluster {
   end_time: string;
 }
 
-// The analysis result blob persisted on a Session (matches the Go/Python schema).
+// The analysis result blob persisted on a Session. Holds only the geometry
+// needed to restore/import the editor; lap times and the summary are NOT stored
+// here — the session_lap table is canonical (read via fetchSessionLaps and the
+// backend-aggregated lap_summary).
 export interface AnalysisPayload {
   lat_field: string;
   lon_field: string;
@@ -76,8 +82,6 @@ export interface AnalysisPayload {
   crop_end_ts: number;
   // segment name ("S/F", "S1", ...) -> list of [x, y] coordinate pairs
   segments: Record<string, number[][]>;
-  laps: { lap: number; total: number }[];
-  summary: { count: number; best: number; avg: number; worst: number };
 }
 
 // A single sector split within a lap (matches the Go JSON contract).

@@ -1,32 +1,38 @@
 """Record-style signal querying: pull raw rows from the `signal` table, pivot
-them onto a single timeline, then merge/fill/decimate for the dashboard.
+them onto a single timeline, then merge/fill for the dashboard.
 
-This is the data path behind Lapache's track-map / calibration views and the
-legacy `components/widgets/SignalWidget` chart, which read
-`/query/signals?signals=...` as a list of `{produced_at, <name>: value, ...}`
-records. Reads go through main's shared ClickHouse client (`get_clickhouse()`).
+This is the data path behind the track-map / calibration views and the legacy
+`components/widgets/SignalWidget` chart, which read paired signal samples as a
+list of `{produced_at, <name>: value, ...}` records and plot one signal against
+another. Reads go through main's shared ClickHouse client (`get_clickhouse()`).
+
+The server-side decimation (one representative per (name, time-bucket)) is shared
+with the /query/signals/data path via service/decimate; only the timeline merge
+differs — here it is a pandas merge_asof (nearest within tolerance), which keeps
+this path on pandas/numpy.
 """
+
+from datetime import datetime, timezone
 
 import pandas as pd
 from loguru import logger
 
 from query.database.clickhouse import get_clickhouse
 from query.model.query import Metadata
+from query.service.decimate import bucket_micros, bucket_seconds, build_decimation_sql
 
 
-def _bucket_seconds(start: str | None, end: str | None, max_points: int) -> float | None:
-    """Bucket width (seconds) that yields at most ~`max_points` per signal over
-    [start, end], or None if the window is unknown/degenerate (no decimation).
-    """
-    if start is None or end is None or max_points <= 0:
+def _parse_ts(value: str | None) -> datetime | None:
+    """Parse an ISO timestamp to a naive-UTC datetime for DateTime64 binding."""
+    if value is None:
         return None
     try:
-        span = (pd.to_datetime(end) - pd.to_datetime(start)).total_seconds()
-    except (ValueError, TypeError):
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
         return None
-    if span <= 0:
-        return None
-    return span / max_points
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def query_signals(
@@ -40,48 +46,43 @@ def query_signals(
         raise ValueError("Vehicle ID is required")
 
     params: dict = {"vehicle_id": vehicle_id, "signals": list(signals)}
-
-    # With max_points and a known window, decimate in SQL: keep one
-    # representative per time bucket so wide windows don't time out.
-    bucket = _bucket_seconds(start, end, max_points) if max_points else None
-
-    # `timestamp` is the raw Int64 microsecond column; integer-dividing it by the
-    # bucket width keeps the grouping exact without EXTRACT(EPOCH ...).
-    bucket_expr = ""
-    if bucket is not None:
-        params["bm"] = max(int(bucket * 1_000_000), 1)
-        bucket_expr = "intDiv(timestamp, {bm:UInt64})"
+    start_dt = _parse_ts(start)
+    end_dt = _parse_ts(end)
 
     where = ["name IN {signals:Array(String)}", "vehicle_id = {vehicle_id:String}"]
-    if start is not None:
-        where.append("produced_at > parseDateTime64BestEffort({start:String}, 6, 'UTC')")
-        params["start"] = start
-    if end is not None:
-        where.append("produced_at < parseDateTime64BestEffort({end:String}, 6, 'UTC')")
-        params["end"] = end
+    if start_dt is not None:
+        where.append("produced_at > {start:DateTime64(6)}")
+        params["start"] = start_dt
+    if end_dt is not None:
+        where.append("produced_at < {end:DateTime64(6)}")
+        params["end"] = end_dt
 
-    query_str = (
-        "SELECT produced_at, name, value FROM signal WHERE " + " AND ".join(where)
+    # With max_points and a bounded window, decimate in SQL (one representative
+    # per (name, time-bucket)) so wide windows don't time out. Otherwise stream
+    # the full-resolution rows ordered by time.
+    bucket = (
+        bucket_seconds(start_dt, end_dt, max_points) if max_points else None
     )
-
     if bucket is not None:
-        # ClickHouse has no DISTINCT ON. `ORDER BY name, bucket, produced_at`
-        # then `LIMIT 1 BY name, bucket` keeps the earliest row per (signal,
-        # time bucket) — the same "one representative per bucket" semantics.
-        query_str += (
-            f" ORDER BY name ASC, {bucket_expr} ASC, produced_at ASC"
-            f" LIMIT 1 BY name, {bucket_expr}"
-        )
+        params["bucket"] = bucket_micros(bucket)
+        query_str = build_decimation_sql(where, "bucket")
+        ts_col = "bucket_ts"
     else:
-        query_str += " ORDER BY produced_at ASC"
+        query_str = (
+            "SELECT produced_at, name, value FROM signal WHERE "
+            + " AND ".join(where)
+            + " ORDER BY produced_at ASC"
+        )
+        ts_col = "produced_at"
     logger.info(f"Query: {query_str} | Params: {params}")
 
     result = get_clickhouse().query_df(query_str, parameters=params)
 
-    # Empty window → no `produced_at` column; bail rather than KeyError-ing.
-    if result.empty or "produced_at" not in result.columns:
+    # Empty window → no timestamp column; bail rather than KeyError-ing.
+    if result.empty or ts_col not in result.columns:
         return []
 
+    result = result.rename(columns={ts_col: "produced_at"})
     result["produced_at"] = pd.to_datetime(result["produced_at"], utc=True)
 
     pivoted = result.pivot_table(index="produced_at", columns="name", values="value", aggfunc="first")

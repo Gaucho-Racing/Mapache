@@ -25,8 +25,26 @@ dependencies = [
     "numpy>=2.4.6",
 ]
 
+[project.optional-dependencies]
+# pip-installable dev extras (used by CI's `pip install -e ".[dev]"`).
+dev = [
+    "pytest>=8.0,<9",
+    "httpx",
+]
+
 [project.scripts]
 query = "query.main:main"
+
+[dependency-groups]
+# uv-native dev group (used by `uv run pytest` / `uv sync`). Mirrors the
+# pip-installable [project.optional-dependencies].dev above.
+dev = [
+    "pytest>=8.0,<9",
+    "httpx",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling"]

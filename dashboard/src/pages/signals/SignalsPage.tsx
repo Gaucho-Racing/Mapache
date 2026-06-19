@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { BACKEND_URL } from "@/consts/config";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
+import { formatMetric } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import { fetchSessionLaps } from "@/lib/sessions/api";
 import type { Lap, Session } from "@/models/session";
@@ -30,9 +31,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Hand,
   Loader2,
-  MousePointer,
   Plus,
   Search,
 } from "lucide-react";
@@ -60,12 +59,6 @@ function authHeader() {
   return {
     Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
   };
-}
-
-function formatCount(n: number): string {
-  if (n < 1_000) return n.toString();
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 function formatAbsolute(iso: string | null): string {
@@ -320,30 +313,6 @@ function SignalsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Left-drag mode: Select brushes a timeframe (refetches), Pan
-                slides the client-side zoom window. */}
-            <div className="flex items-center rounded-md border">
-              <Button
-                variant={interactionMode === "select" ? "secondary" : "ghost"}
-                size="sm"
-                className="rounded-r-none border-0"
-                onClick={() => setInteractionMode("select")}
-                title="Select: drag to set the timeframe"
-              >
-                <MousePointer className="mr-2 h-4 w-4" />
-                Select
-              </Button>
-              <Button
-                variant={interactionMode === "pan" ? "secondary" : "ghost"}
-                size="sm"
-                className="rounded-l-none border-0"
-                onClick={() => setInteractionMode("pan")}
-                title="Pan: drag to slide the zoom window"
-              >
-                <Hand className="mr-2 h-4 w-4" />
-                Pan
-              </Button>
-            </div>
             {/* Snap the synced panels back to the full fetched window — no requery. */}
             <Button
               variant="outline"
@@ -380,6 +349,7 @@ function SignalsPage() {
             onBrushSelect={onBrushSelect}
             onChartReady={onChartReady}
             interactionMode={interactionMode}
+            onInteractionModeChange={setInteractionMode}
             laps={sessionLaps}
           />
         ))}
@@ -464,7 +434,7 @@ function SignalsPage() {
                     <TableRow key={s.name}>
                       <TableCell className="font-mono">{s.name}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCount(s.count)}
+                        {formatMetric(s.count)}
                       </TableCell>
                       <TableCell
                         className="text-right text-sm text-muted-foreground"

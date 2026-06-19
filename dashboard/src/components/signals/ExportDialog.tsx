@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { seriesLabel, type Series } from "@/components/signals/QueryChart";
+import { cssHsl } from "@/lib/echartsTheme";
 import {
   copyChartToClipboard,
   downloadChartPng,
@@ -51,18 +52,12 @@ const BG_LABELS: Record<BgKey, string> = {
   transparent: "Transparent",
 };
 
-/** Resolve an HSL CSS custom property (stored as "H S% L%") to an `hsl(...)`
- *  string. Replicated locally (cf. QueryChart's `cssHsl`) so the export path
- *  doesn't couple to the chart module. Falls back to a dark grey. */
+/** Resolve the export background. Light/transparent are literal; "dark" maps to
+ *  the app's themed `--background` var via the shared `cssHsl`. */
 function resolveBackground(key: BgKey): string {
   if (key === "light") return "#fff";
   if (key === "transparent") return "transparent";
-  // Dark → the app's themed background var.
-  if (typeof window === "undefined") return "#0a0a0a";
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue("--background")
-    .trim();
-  return raw ? `hsl(${raw})` : "#0a0a0a";
+  return cssHsl("--background", "#0a0a0a");
 }
 
 export function ExportDialog({

@@ -26,17 +26,16 @@ Response (BARE — the gateway adds the {data: ...} envelope):
 
 from __future__ import annotations
 
-import math
 import traceback
 from datetime import datetime, timedelta, timezone
 
-import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from query.service.auth_guard import require_user
+from query.service.json_safe import json_safe
 from query.service.query import merge_signals, query_signals
 
 router = APIRouter()
@@ -66,21 +65,6 @@ def _parse_ts(value: str | None, field: str) -> datetime | None:
         raise HTTPException(
             status_code=400, detail=f"invalid {field} timestamp: {e}"
         )
-
-
-def _json_safe(value: object) -> object:
-    """Coerce a cell to a JSON-serializable scalar. pandas/NaN → None."""
-    if value is None:
-        return None
-    if isinstance(value, float):
-        return None if math.isnan(value) else value
-    if isinstance(value, pd.Timestamp):
-        # produced_at is UTC; render an ISO string with a trailing Z so the
-        # frontend's `new Date(...)` parses it as UTC like the rest of the app.
-        return value.tz_convert("UTC").isoformat().replace("+00:00", "Z")
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return value
 
 
 @router.post("/pairs")
@@ -126,7 +110,7 @@ async def post_query_pairs(
 
         columns = merged_df.columns.tolist()
         rows = [
-            {col: _json_safe(rec[col]) for col in columns}
+            {col: json_safe(rec[col]) for col in columns}
             for rec in merged_df.to_dict(orient="records")
         ]
 

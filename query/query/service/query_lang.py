@@ -69,9 +69,11 @@ ALLOWED_ROLLUPS = frozenset(ROLLUP_INTERVALS)
 FILL_MODES: tuple[str, ...] = ("gap", "last", "linear")
 ALLOWED_FILL_MODES = frozenset(FILL_MODES)
 
-# `.reject(...)` metrics. `sigma` is a sample's distance from its group mean in
-# standard deviations (computed in the executor). Rejection drops matching raw
-# samples before aggregation so a spike can't skew a bucket.
+# `.reject(...)` metrics. `sigma` is a sample's distance, in standard
+# deviations, from the mean of its series computed WINDOW-GLOBAL: the executor's
+# avg/stddevPop run OVER (PARTITION BY <group-by>) across the entire queried
+# window, not per time bucket. Rejection drops matching raw samples before
+# aggregation so a spike can't skew a bucket.
 REJECT_METRICS = {"value", "raw_value", "sigma"}
 _COMPARISON_OPS = {">", ">=", "<", "<=", "=", "!="}
 

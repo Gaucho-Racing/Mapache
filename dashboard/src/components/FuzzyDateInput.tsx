@@ -11,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { dayKey, parseDayKeys } from "@/lib/date";
 
 interface FuzzyDateInputProps {
   value?: Date;
@@ -20,10 +21,6 @@ interface FuzzyDateInputProps {
   availableDates?: string[];
   placeholder?: string;
   className?: string;
-}
-
-function toDayKey(d: Date): string {
-  return format(d, "yyyy-MM-dd");
 }
 
 // Parse free text into a single Date using chrono. Handled inputs include:
@@ -62,15 +59,11 @@ export default function FuzzyDateInput({
   );
 
   const availableDayDates = useMemo(
-    () =>
-      (availableDates ?? []).map((s) => {
-        const [y, m, d] = s.split("-").map(Number);
-        return new Date(y, m - 1, d);
-      }),
+    () => parseDayKeys(availableDates ?? []),
     [availableDates],
   );
 
-  const hasData = parsed ? availableSet.has(toDayKey(parsed)) : true;
+  const hasData = parsed ? availableSet.has(dayKey(parsed)) : true;
   const showError = touched && text.trim().length > 0 && !parsed;
   const showNoData =
     touched && parsed != null && availableDates != null && !hasData;

@@ -16,13 +16,12 @@ const maxSessionsPageLimit = 200
 func GetAllSessions(c *gin.Context) {
 	param, exists := c.GetQuery("vehicle_id")
 	if exists {
+		// Vehicle-scoped reads materialize each session (plus its laps/markers
+		// via an N+1), so cap the default to the most recent page instead of the
+		// whole vehicle's history. Callers can walk older sessions with
+		// limit/offset.
 		limit, _ := strconv.Atoi(c.Query("limit"))
-		if limit <= 0 {
-			result := service.GetAllSessionsByVehicleID(param)
-			c.JSON(http.StatusOK, result)
-			return
-		}
-		if limit > maxSessionsPageLimit {
+		if limit <= 0 || limit > maxSessionsPageLimit {
 			limit = maxSessionsPageLimit
 		}
 		offset, _ := strconv.Atoi(c.Query("offset"))
@@ -81,6 +80,26 @@ func CreateSession(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, service.GetSessionByID(input.ID))
+}
+
+// SaveSessionAnalysis upserts a session and replaces its laps in one
+// transaction (POST /sessions/:id/analysis), so analysis and laps can't drift
+// apart on a partial save. The body is a session plus a laps array.
+func SaveSessionAnalysis(c *gin.Context) {
+	var input struct {
+		mapache.Session
+		Laps []mapache.Lap `json:"laps"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+	input.Session.ID = c.Param("sessionID")
+	if err := service.SaveSessionAnalysisAndLaps(input.Session, input.Laps); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, service.GetSessionByID(input.Session.ID))
 }
 
 func NewSession(c *gin.Context) {

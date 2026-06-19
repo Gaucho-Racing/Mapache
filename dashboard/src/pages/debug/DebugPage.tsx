@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import MessageTraceDialog from "@/components/debug/MessageTraceDialog";
 import { BACKEND_URL } from "@/consts/config";
+import { PALETTE } from "@/lib/echartsTheme";
 import { formatCount } from "@/lib/job-stream";
 import { useVehicle, useVehicleList } from "@/lib/store";
 import { formatTimeWithMillis } from "@/lib/utils";
@@ -70,21 +71,8 @@ type WindowSec = (typeof WINDOW_PRESETS_SEC)[number];
 const MAX_WINDOW_SEC = WINDOW_PRESETS_SEC[WINDOW_PRESETS_SEC.length - 1];
 const SERIES_KEEP_MS = MAX_WINDOW_SEC * 1000 + 2_000;
 
-// Stable palette for the graph. colorFor hashes the signal name so the same
-// signal keeps the same color across add/remove cycles.
-const PALETTE = [
-  "#e105a3",
-  "#8412fc",
-  "#10b981",
-  "#f59e0b",
-  "#3b82f6",
-  "#ef4444",
-  "#06b6d4",
-  "#f97316",
-  "#a855f7",
-  "#22c55e",
-];
-
+// colorFor hashes the signal name against the shared palette so the same signal
+// keeps the same color across add/remove cycles.
 function colorFor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {

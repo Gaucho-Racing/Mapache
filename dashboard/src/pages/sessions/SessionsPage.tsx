@@ -19,15 +19,12 @@ import { useVehicle } from "@/lib/store";
 import { fetchSessions, fetchDataDates } from "@/lib/sessions/api";
 import { Session } from "@/models/session";
 import { notify } from "@/lib/notify";
+import { dayKey } from "@/lib/date";
 
 type SortKey = "name" | "start" | "duration" | "laps";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 20;
-
-function dayKey(iso: string): string {
-  return format(new Date(iso), "yyyy-MM-dd");
-}
 
 function formatTime(iso: string): string {
   return format(new Date(iso), "HH:mm:ss");
@@ -73,7 +70,10 @@ function SortHeader({
   className?: string;
 }) {
   return (
-    <TableHead className={className}>
+    <TableHead
+      className={className}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         type="button"
         onClick={onClick}
@@ -167,8 +167,13 @@ export default function SessionsPage() {
     }
   };
 
-  // Days that have at least one session, ordered by sortDir on start time.
-  // Sessions within a day are sorted by the active sort key.
+  // Group every loaded session by day. The backend pages a flat start_time DESC
+  // list, so a day can straddle a page boundary; keying a Map by dayKey across
+  // ALL loaded sessions merges those pages, so a day never renders under two
+  // headers. Sort and counts are therefore honest over the loaded window — but
+  // they are window-local: a day with sessions still beyond the current page
+  // (the trailing day while hasMore is true) is shown as incomplete, see the
+  // "Load more" hint below.
   const groups = useMemo(() => {
     const byDay = new Map<string, Session[]>();
     for (const s of sessions) {
@@ -178,6 +183,9 @@ export default function SessionsPage() {
       else byDay.set(k, [s]);
     }
 
+    // Stable comparator: fall back to start_time then id so equal keys (e.g.
+    // duplicate names or identical durations) keep a deterministic order across
+    // renders instead of reshuffling.
     const cmp = (a: Session, b: Session): number => {
       let v = 0;
       switch (sortKey) {
@@ -195,9 +203,15 @@ export default function SessionsPage() {
           v =
             new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
       }
+      if (v === 0) {
+        v =
+          new Date(a.start_time).getTime() - new Date(b.start_time).getTime() ||
+          a.id.localeCompare(b.id);
+      }
       return sortDir === "asc" ? v : -v;
     };
 
+    // dayKey is "yyyy-MM-dd", so a lexicographic sort is chronological.
     const days = Array.from(byDay.keys()).sort((a, b) =>
       sortDir === "asc" ? a.localeCompare(b) : b.localeCompare(a),
     );
@@ -210,7 +224,7 @@ export default function SessionsPage() {
 
   // Scroll the matching (or nearest available) day group into view.
   const jumpToDay = (target: Date) => {
-    const key = format(target, "yyyy-MM-dd");
+    const key = dayKey(target);
     const exact = dayRefs.current[key];
     if (exact) {
       exact.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -282,18 +296,31 @@ export default function SessionsPage() {
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody aria-busy={loading}>
+              {loading && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    role="status"
+                    className="py-8 text-center text-muted-foreground"
+                  >
+                    Loading sessions…
+                  </TableCell>
+                </TableRow>
+              )}
               {!loading && groups.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={6}
+                    role="status"
                     className="py-8 text-center text-muted-foreground"
                   >
                     No sessions found
                   </TableCell>
                 </TableRow>
               )}
-              {groups.map((group) => (
+              {!loading &&
+                groups.map((group) => (
                 <DayGroup
                   key={group.day}
                   day={group.day}

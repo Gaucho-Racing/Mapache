@@ -12,7 +12,7 @@ import {
   AnalysisPayload,
   DataCluster,
   GeoPoint,
-  LapacheMode,
+  SessionMode,
   LapResult,
   NormMode,
   Point,
@@ -21,7 +21,9 @@ import {
   hasAnalysis,
 } from "@/models/session";
 import { SegmentManager } from "@/lib/sessions/segments";
-import { normalizeCoordinates } from "@/lib/sessions/geo";
+import { buildTransform, normalizeCoordinates } from "@/lib/sessions/geo";
+import { deriveLapInputs, tsToIso } from "@/lib/sessions/lapInputs";
+import { reprojectImportedSegments } from "@/lib/sessions/importMarkers";
 import {
   DEFAULT_OUTLIER_CONFIG,
   OutlierConfig,
@@ -30,16 +32,15 @@ import {
 import { processLaps } from "@/lib/sessions/lapEngine";
 import { Vec2 } from "@/lib/sessions/intersect";
 import {
-  LapInput,
   createSession,
   fetchClusters,
   fetchDataDates,
+  fetchSession,
   fetchSessions,
   fetchSignalData,
   fetchSignalNames,
   fetchSignalSeries,
-  saveSessionAnalysis,
-  saveSessionLaps,
+  saveSessionAnalysisWithLaps,
 } from "@/lib/sessions/api";
 import { cn } from "@/lib/utils";
 import TrackCanvas, { BaseMap } from "./editor/TrackCanvas";
@@ -49,69 +50,15 @@ import SignalTimeChart from "./editor/SignalTimeChart";
 import CalibrationControls from "./editor/CalibrationControls";
 import TimelineCrop from "./editor/TimelineCrop";
 import ResultsPanel from "./editor/ResultsPanel";
+import ImportMarkers from "./editor/ImportMarkers";
 import SessionSidebar, { LoadTarget } from "./editor/SessionSidebar";
-import DateSelector, { dayKey } from "./editor/DateSelector";
-
-// Convert a point's epoch-seconds timestamp into an ISO string for the API.
-function tsToIso(tsSeconds: number): string {
-  return new Date(tsSeconds * 1000).toISOString();
-}
+import DateSelector from "./editor/DateSelector";
+import { dayKey } from "@/lib/date";
 
 // First signal whose name matches `re` (e.g. /latitude/i), or "" if none. Used
 // to autofill the lat/lon pickers when a session has no saved analysis.
 function matchSignal(names: string[], re: RegExp): string {
   return names.find((n) => re.test(n)) ?? "";
-}
-
-// Derive the persisted lap shape from the lap-engine result. `crossingIndices`
-// are the filtered S/F crossings, so lap k spans points[crossingIndices[k]] →
-// points[crossingIndices[k+1]], and lapTimes[k] is that span's duration (s).
-// Sector splits within a lap come from transitions in `sectorNumbers` between
-// those two crossings; each sector's duration is the time between its boundary
-// crossings (or the lap's start/end at the edges).
-function deriveLapInputs(result: LapResult, points: Point[]): LapInput[] {
-  const { crossingIndices, lapTimes, bestTime, sectorNumbers } = result;
-  if (crossingIndices.length < 2) return [];
-
-  const laps: LapInput[] = [];
-  for (let k = 0; k < crossingIndices.length - 1; k++) {
-    const startIdx = crossingIndices[k];
-    const endIdx = crossingIndices[k + 1];
-    const startTs = points[startIdx].ts;
-    const endTs = points[endIdx].ts;
-    const durationS = lapTimes[k] ?? endTs - startTs;
-
-    // Sector boundaries inside this lap: indices where the sector number
-    // changes. The lap opens with whatever sector is active at startIdx.
-    const sectors: { sector_number: number; duration_ms: number }[] = [];
-    let segStartIdx = startIdx;
-    let segSector = sectorNumbers[startIdx] || 1;
-    for (let i = startIdx + 1; i <= endIdx; i++) {
-      const sec = sectorNumbers[i] || 0;
-      if (sec !== segSector || i === endIdx) {
-        const segEndIdx = i;
-        const durMs = (points[segEndIdx].ts - points[segStartIdx].ts) * 1000;
-        if (segSector > 0 && durMs > 0) {
-          sectors.push({
-            sector_number: segSector,
-            duration_ms: Math.round(durMs),
-          });
-        }
-        segStartIdx = segEndIdx;
-        segSector = sec;
-      }
-    }
-
-    laps.push({
-      lap_number: k + 1,
-      start_time: tsToIso(startTs),
-      end_time: tsToIso(endTs),
-      duration_ms: Math.round(durationS * 1000),
-      is_best: durationS === bestTime,
-      sectors,
-    });
-  }
-  return laps;
 }
 
 export function SessionEditorPage() {
@@ -130,7 +77,7 @@ export function SessionEditorPage() {
 
   // "lap" is the GPS track flow; "calibration" plots signals vs time for runs
   // without usable GPS and only trims a session window.
-  const [mode, setMode] = useState<LapacheMode>("lap");
+  const [mode, setMode] = useState<SessionMode>("lap");
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clusters, setClusters] = useState<DataCluster[]>([]);
@@ -260,13 +207,13 @@ export function SessionEditorPage() {
     setCalSignals([]);
 
     (async () => {
-      const loaded = await loadSessions();
+      await loadSessions();
       const dates = await fetchDataDates(vehicleId).catch(() => []);
       setAvailableDates(dates);
 
-      // EDIT mode: find the routed session and load it directly.
-      if (isEditMode) {
-        const existing = loaded.find((s) => s.id === routeId);
+      // EDIT mode: fetch the routed session by id and load it directly.
+      if (isEditMode && routeId) {
+        const existing = await fetchSession(routeId).catch(() => null);
         if (existing) {
           const [y, m, d] = (existing.start_time.split("T")[0] || "")
             .split("-")
@@ -507,6 +454,58 @@ export function SessionEditorPage() {
     );
   }, [croppedPoints]);
 
+  // -- Import segments from another session ----------------------------------
+  // Source segments live in the source session's normalized space, whose params
+  // aren't persisted, so re-project: source XY -> geo (via the source's own GPS)
+  // -> target XY (via this session's inlierGeo). Returns false when the imported
+  // geometry doesn't overlap the current track and `force` is not set.
+  const handleImportMarkers = useCallback(
+    async (source: Session, force: boolean): Promise<boolean> => {
+      const a = source.analysis;
+      if (!hasAnalysis(a)) return true;
+      if (inlierGeo.length === 0) {
+        notify.error("Load this session's GPS data before importing.");
+        return true;
+      }
+
+      let sourceGeo: GeoPoint[];
+      try {
+        sourceGeo = await fetchSignalData(
+          vehicleId,
+          a.lat_field,
+          a.lon_field,
+          tsToIso(a.crop_start_ts),
+          tsToIso(a.crop_end_ts),
+        );
+      } catch (e) {
+        notify.error(getAxiosErrorMessage(e));
+        return true;
+      }
+      if (sourceGeo.length === 0) {
+        notify.error("Source session has no GPS data to re-project from.");
+        return true;
+      }
+
+      const srcT = buildTransform(sourceGeo, a.norm_mode as NormMode);
+      const tgtT = buildTransform(inlierGeo, normMode);
+
+      const { projected, overlaps } = reprojectImportedSegments(
+        a.segments || {},
+        srcT,
+        tgtT,
+        croppedGeoBounds,
+      );
+
+      if (!overlaps && !force) return false;
+
+      segMgrRef.current.importSegments(projected);
+      bumpSeg();
+      setStatus(`Imported markers from ${source.name || source.id} — press P to process.`);
+      return true;
+    },
+    [vehicleId, inlierGeo, normMode, croppedGeoBounds],
+  );
+
   // -- Keyboard shortcuts ----------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -530,6 +529,8 @@ export function SessionEditorPage() {
   }, [handleProcess]);
 
   // -- Build the analysis blob persisted on the session ----------------------
+  // Geometry only: lap times/summary are derived into the session_lap table
+  // (deriveLapInputs + the transactional save), which is canonical.
   const buildPayload = (): AnalysisPayload => ({
     lat_field: latField,
     lon_field: lonField,
@@ -537,20 +538,11 @@ export function SessionEditorPage() {
     crop_start_ts: cropStartTs,
     crop_end_ts: cropEndTs,
     segments: segMgrRef.current.toPayload(),
-    laps: (lapResult?.lapTimes ?? []).map((total, i) => ({
-      lap: i + 1,
-      total,
-    })),
-    summary: {
-      count: lapResult?.lapCount ?? 0,
-      best: lapResult?.bestTime ?? 0,
-      avg: lapResult?.avgTime ?? 0,
-      worst: lapResult?.worstTime ?? 0,
-    },
   });
 
-  // Persist geometry/analysis + the derived laps, then route to the analysis
-  // page for the session. Works for both edit and freshly-created sessions.
+  // Persist geometry/analysis + the derived laps in one transactional call,
+  // then route to the analysis page. A single endpoint keeps the analysis blob
+  // and the session_lap table from drifting apart on a partial save.
   const persistAndNavigate = async (session: Session) => {
     setSaving(true);
     try {
@@ -700,7 +692,7 @@ export function SessionEditorPage() {
         <div className="flex flex-1 flex-col gap-3">
           {/* Mode toggle */}
           <div className="flex gap-1 self-start rounded-md border border-neutral-800 p-1">
-            {(["lap", "calibration"] as LapacheMode[]).map((m) => (
+            {(["lap", "calibration"] as SessionMode[]).map((m) => (
               <Button
                 key={m}
                 size="sm"
@@ -828,17 +820,24 @@ export function SessionEditorPage() {
                   Click to place points · Shift/right-click to remove · P to
                   process
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => {
-                    segMgrRef.current.clear();
-                    bumpSeg();
-                  }}
-                >
-                  Clear segments
-                </Button>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      segMgrRef.current.clear();
+                      bumpSeg();
+                    }}
+                  >
+                    Clear segments
+                  </Button>
+                  <ImportMarkers
+                    sessions={sessions}
+                    currentSessionId={selectedSession?.id}
+                    disabled={inlierGeo.length === 0}
+                    onImport={handleImportMarkers}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

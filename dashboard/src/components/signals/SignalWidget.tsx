@@ -7,12 +7,21 @@ import {
   compatible,
   dataPath,
 } from "@/components/signals/chartTypes";
-import { PlotChart, type PlotConfig } from "@/components/signals/PlotChart";
-import { fetchPairs, pairsToSeries, type PairsResponse } from "@/lib/pairs";
+import {
+  PlotChart,
+  isGpsLikePlot,
+  type PlotConfig,
+} from "@/components/signals/PlotChart";
+import { pairsToSeries } from "@/lib/pairs";
 import {
   QueryBuilder,
   type RejectStatsEntry,
 } from "@/components/signals/QueryBuilder";
+import {
+  useRunSeries,
+  usePairsData,
+  useDerived,
+} from "@/components/signals/useSignalData";
 import {
   QueryChart,
   seriesColorMap,
@@ -20,10 +29,7 @@ import {
   type AxisSetting,
   type Series,
 } from "@/components/signals/QueryChart";
-import {
-  buildSeriesVariables,
-  computeDerivedSeries,
-} from "@/components/signals/DerivedTraces";
+import { buildSeriesVariables } from "@/lib/derived";
 import {
   MqlEditor,
   textToQueries,
@@ -34,17 +40,16 @@ import {
   TraceAxisControls,
 } from "@/components/signals/TraceAxisControls";
 import {
-  evaluateHighlights,
   Highlights,
   type Highlight,
 } from "@/components/signals/Highlights";
 import { ExportDialog } from "@/components/signals/ExportDialog";
 import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BACKEND_URL } from "@/consts/config";
-import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
-import { notify } from "@/lib/notify";
+import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
+import { formatMetric } from "@/lib/format";
 import {
   DEFAULT_QUERY,
   type FillMode,
@@ -57,27 +62,23 @@ import {
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import axios from "axios";
 import {
   ChevronDown,
   ChevronRight,
   Download,
   Eye,
   EyeOff,
+  Hand,
   Loader2,
+  Map as MapIcon,
+  MousePointer,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type Interval = Rollup;
-
-function authHeader() {
-  return {
-    Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
-  };
-}
 
 // Auto-pick a bucket width targeting ~24–168 bars across the selected range.
 function autoInterval(rangeSeconds: number): Interval {
@@ -108,15 +109,32 @@ function intervalToSeconds(i: Interval): number {
   }
 }
 
-function formatCount(n: number): string {
-  if (n < 1_000) return n.toString();
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
-
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+// Compact span like "2h 15m" / "45s" for the visible (zoomed) chart window.
+function formatWindowDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "—";
+  const d = Math.floor(sec / 86_400);
+  const h = Math.floor((sec % 86_400) / 3_600);
+  const m = Math.floor((sec % 3_600) / 60);
+  const s = Math.floor(sec % 60);
+  const parts: string[] = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  if (s && !d && !h) parts.push(`${s}s`);
+  return parts.slice(0, 2).join(" ") || "0s";
+}
+
+function clockLabel(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 // Stable-id generator for trace statements. Shares the `tr_` prefix with the
@@ -155,19 +173,6 @@ function queryToSignalNames(q: Query, known: string[]): string[] {
   return out;
 }
 
-/** One trace statement as the widget understands it — fetch or expression is
- *  decided at render via `looksLikeFetchQuery`, not stored. */
-type FetchResult = {
-  /** The owning statement id (for inline error placement). */
-  id: string;
-  series: Series[];
-  /** Per-statement parse/run error in the backend's {message, position} shape. */
-  error?: { message: string; position?: number };
-  /** Cut-summary from `.reject(...)`; null when the query has no reject clause. */
-  rejectStats?: RejectStatsEntry[] | null;
-  ms: number | null;
-};
-
 export interface SignalWidgetProps {
   vehicleId: string;
   /** Re-run the query when the vehicle type flips (different fleet/schema). */
@@ -190,6 +195,8 @@ export interface SignalWidgetProps {
   onChartReady?: (instance: ECharts | null) => void;
   /** Left-drag mode: "select" brushes a timeframe, "pan" slides the zoom. */
   interactionMode?: "select" | "pan";
+  /** Set the shared left-drag mode from the chart's own toolbar. */
+  onInteractionModeChange?: (mode: "select" | "pan") => void;
   /** Laps of the currently-selected session, enabling the `lap` highlight
    *  pseudo-variable + the "alternate by lap" shortcut. */
   laps?: Lap[] | null;
@@ -209,6 +216,7 @@ export function SignalWidget({
   onBrushSelect,
   onChartReady,
   interactionMode,
+  onInteractionModeChange,
   laps,
 }: SignalWidgetProps) {
   // Ordered list of MQL trace statements, classified at render via
@@ -227,23 +235,16 @@ export function SignalWidget({
     kind: "fetch" | "expr";
   } | null>(null);
   const [chartType, setChartType] = useState<ChartType>("bar");
-  // Fetched base series, one entry per fetch statement in trace order.
-  const [fetchResults, setFetchResults] = useState<FetchResult[]>([]);
   // Per-trace y-scaling, keyed by series label. Sparse; absent = default.
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
   >({});
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [loadingSeries, setLoadingSeries] = useState(false);
 
   // Render path for the current chart type (see chartTypes.ts): "timeseries" →
   // QueryChart, "categorical" → PlotChart @ 1d, "pairs" → /query/pairs.
   const path = dataPath(chartType);
-  const [pairsData, setPairsData] = useState<PairsResponse>({
-    columns: ["produced_at"],
-    rows: [],
-  });
 
   // Reset the trace list to the target's default MQL when the current MQL can't
   // carry across (crossing into/out of the pairs path).
@@ -288,8 +289,14 @@ export function SignalWidget({
       }));
   }, [classified]);
 
-  // INVARIANT: every fetch in a widget shares ONE interval so they share the
-  // bucket axis (computeDerivedSeries relies on it). Take the first statement's
+  // JOIN INVARIANT: every fetch in a widget shares ONE interval, so every
+  // fetched series lands on the SAME server-zero-filled bucket axis. Cross-series
+  // math — both derived traces (`computeDerivedSeries`) and `-> name` links —
+  // aligns operands purely BY BUCKET INDEX (points[i] ↔ points[i]); there is no
+  // timestamp join. That alignment is only sound because of this one-interval
+  // contract, so it is enforced here for the whole widget. Any future
+  // link-by-name feature (frontend or server-side) builds on exactly this: a
+  // single shared bucket axis is the join key. Take the first statement's
   // `.every`, else the auto interval. Categorical collapses to one 1d bucket.
   const interval = useMemo<Interval>(() => {
     if (path === "categorical") return "1d";
@@ -317,65 +324,17 @@ export function SignalWidget({
   // vehicle/path deps stay un-debounced so those refetch immediately.
   const debouncedFetchKey = useDebouncedValue(fetchKey, 350);
 
-  // Run every runnable fetch in parallel against /query/run with the shared
-  // interval; concatenation order follows `runnableFetches`.
-  const runFetches = async () => {
-    setLoadingSeries(true);
-    try {
-      const results = await Promise.all(
-        runnableFetches.map(async (p): Promise<FetchResult> => {
-          const startedAt = performance.now();
-          try {
-            const res = await axios.post(
-              `${BACKEND_URL}/query/run`,
-              {
-                query: p.mql,
-                vehicle_id: vehicleId,
-                start: startIso,
-                end: endIso,
-                interval,
-              },
-              { headers: authHeader() },
-            );
-            return {
-              id: p.id,
-              series: res.data.data?.series ?? [],
-              rejectStats: res.data.data?.reject_stats ?? null,
-              ms: Math.round(performance.now() - startedAt),
-            };
-          } catch (e) {
-            // Parser errors come back 400 with {message, position} — surface
-            // inline under the offending statement and keep the rest.
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const body: any = (e as any)?.response?.data?.data;
-            const error =
-              body && typeof body.message === "string"
-                ? { message: body.message, position: body.position }
-                : { message: getAxiosErrorMessage(e) };
-            if (!body || typeof body.message !== "string") {
-              notify.error(getAxiosErrorMessage(e));
-            }
-            return { id: p.id, series: [], error, ms: null };
-          }
-        }),
-      );
-      setFetchResults(results);
-    } finally {
-      setLoadingSeries(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!vehicleId) return;
-    // The pairs path has its own /query/pairs effect; categorical runs here.
-    if (path === "pairs") return;
-    if (runnableFetches.length === 0) {
-      setFetchResults([]);
-      return;
-    }
-    runFetches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicleId, vehicleType, rangeSeconds, debouncedFetchKey, startIso, endIso, path]);
+  const { fetchResults, loadingSeries, setLoadingSeries } = useRunSeries({
+    vehicleId,
+    vehicleType,
+    startIso,
+    endIso,
+    rangeSeconds,
+    interval,
+    path,
+    runnableFetches,
+    debouncedFetchKey,
+  });
 
   // Pairs path: each trace resolves to ONE signal (first `.where` name), and
   // trace position assigns the axis (line 1 → X, 2 → Y, 3 → Z).
@@ -402,37 +361,17 @@ export function SignalWidget({
   // Debounce the pairs refetch too — axis signals come from live-edited lines.
   const debouncedPairKey = useDebouncedValue(pairFetchSignals.join(","), 350);
 
-  useEffect(() => {
-    if (path !== "pairs") return;
-    if (!vehicleId || !pairReady) {
-      setPairsData({ columns: ["produced_at"], rows: [] });
-      return;
-    }
-    let cancelled = false;
-    setLoadingSeries(true);
-    fetchPairs({ vehicleId, signals: pairFetchSignals, startIso, endIso })
-      .then((resp) => {
-        if (!cancelled) setPairsData(resp);
-      })
-      .catch((e) => {
-        if (!cancelled) notify.error(getAxiosErrorMessage(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSeries(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    path,
+  const { pairsData } = usePairsData({
     vehicleId,
     vehicleType,
-    pairReady,
-    debouncedPairKey,
     startIso,
     endIso,
-  ]);
+    path,
+    pairReady,
+    pairFetchSignals,
+    debouncedPairKey,
+    setLoadingSeries,
+  });
 
   // PlotConfig assembled from the resolved axis signals (by trace position).
   const plotConfig = useMemo<PlotConfig>(() => {
@@ -521,26 +460,34 @@ export function SignalWidget({
     [classified],
   );
 
-  // Evaluate expressions in order; each named result is appended so a later
-  // expression can reference an earlier one (e.g. `ecu / other -> ratio`).
-  const derivedResults = useMemo(
-    () => computeDerivedSeries(baseSeries, exprTraces),
-    [baseSeries, exprTraces],
+  // Evaluate expressions in order (each named result feeds a later one) and
+  // resolve highlight bands, both over the shared base-series bucket axis.
+  const { derivedResults, highlightRanges, highlightErrors } = useDerived(
+    baseSeries,
+    exprTraces,
+    highlights,
+    laps,
   );
 
-  // Named derived series are referenceable variables — surface them in the hint.
+  // Named derived series are referenceable variables — carry each one's explicit
+  // `-> name` so the hint and validation use it as a first-class alias (matching
+  // the pool `computeDerivedSeries` builds), not the label-derived heuristic.
   const namedDerivedSeries = useMemo(() => {
-    const named = new Set(
-      exprTraces.filter((t) => t.name).map((t) => t.id),
+    const nameById = new Map(
+      exprTraces.filter((t) => t.name).map((t) => [t.id, t.name as string]),
     );
     return derivedResults
-      .filter((r) => named.has(r.id) && r.series)
-      .map((r) => r.series as Series);
+      .filter((r) => nameById.has(r.id) && r.series)
+      .map((r) => ({ series: r.series as Series, name: nameById.get(r.id) }));
   }, [exprTraces, derivedResults]);
 
-  // Variable hint (s0 = current_ac, …) shown near the rows.
+  // Variable hint (s0 = current_ac, s1 = ratio, …) shown near the rows.
   const seriesVariables = useMemo(
-    () => buildSeriesVariables([...baseSeries, ...namedDerivedSeries]),
+    () =>
+      buildSeriesVariables([
+        ...baseSeries.map((s) => ({ series: s })),
+        ...namedDerivedSeries,
+      ]),
     [baseSeries, namedDerivedSeries],
   );
 
@@ -571,11 +518,6 @@ export function SignalWidget({
         (s) => !axisSettingFor(axisSettings, seriesLabel(s.tags)).hidden,
       ),
     [plottedSeries, axisSettings],
-  );
-
-  const { ranges: highlightRanges, errors: highlightErrors } = useMemo(
-    () => evaluateHighlights(baseSeries, highlights, laps),
-    [baseSeries, highlights, laps],
   );
 
   // Narrow the (possibly stale) settings map to just the plotted labels.
@@ -643,10 +585,29 @@ export function SignalWidget({
   const lastGoodQuery = useRef<Map<string, Query>>(new Map());
 
   const chartInstance = useRef<ECharts | null>(null);
+  // Visible-window zoom as [start, end] percentages of the fetched range,
+  // tracked off the chart's inside-dataZoom so the header can show the span.
+  const [zoomPct, setZoomPct] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: 100,
+  });
   const handleChartReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
     // Only the time-series chart joins the shared connect group.
     onChartReady?.(instance);
+    if (instance) {
+      const readZoom = () => {
+        const opt = instance.getOption() as
+          | { dataZoom?: { start?: number; end?: number }[] }
+          | undefined;
+        const dz = opt?.dataZoom?.[0];
+        setZoomPct({ start: dz?.start ?? 0, end: dz?.end ?? 100 });
+      };
+      instance.on("datazoom", readZoom);
+      readZoom();
+    } else {
+      setZoomPct({ start: 0, end: 100 });
+    }
   };
   const handlePlotReady = (instance: ECharts | null) => {
     chartInstance.current = instance;
@@ -677,6 +638,11 @@ export function SignalWidget({
         : plottedSeries;
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [mapEnabled, setMapEnabled] = useState(false);
+
+  // A GPS-like scatter/path can show an opt-in Mapbox basemap; the toggle is
+  // hidden otherwise and when no token is configured.
+  const canShowMap = !!MAPBOX_ACCESS_TOKEN && isGpsLikePlot(plotConfig);
 
   const totalSeriesValue = useMemo(() => {
     let acc = 0;
@@ -779,11 +745,14 @@ export function SignalWidget({
                   {seriesVariables.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/70">
                       <span className="uppercase tracking-wider">vars</span>
-                      {seriesVariables.map((v) => (
-                        <code key={v.index} className="font-mono">
-                          {v.friendly ? `${v.index} = ${v.friendly}` : v.index}
-                        </code>
-                      ))}
+                      {seriesVariables.map((v) => {
+                        const alias = v.name ?? v.friendly;
+                        return (
+                          <code key={v.index} className="font-mono">
+                            {alias ? `${v.index} = ${alias}` : v.index}
+                          </code>
+                        );
+                      })}
                     </div>
                   ) : null}
 
@@ -851,6 +820,21 @@ export function SignalWidget({
           </div>
           <div className="flex items-center gap-2">
             <ChartTypeSelect value={chartType} onChange={changeChartType} />
+            {canShowMap && (
+              <button
+                type="button"
+                onClick={() => setMapEnabled((v) => !v)}
+                title={mapEnabled ? "Hide map" : "Show map"}
+                aria-pressed={mapEnabled}
+                className={`rounded-md p-2 hover:bg-accent hover:text-foreground ${
+                  mapEnabled
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <MapIcon className="h-4 w-4" />
+              </button>
+            )}
             {hasData && (
               <button
                 type="button"
@@ -899,7 +883,7 @@ export function SignalWidget({
                 {loadingSeries
                   ? "Loading…"
                   : [
-                      `${formatCount(totalSeriesValue)} total`,
+                      `${formatMetric(totalSeriesValue)} total`,
                       `${interval} buckets`,
                       seriesMs !== null && formatLatency(seriesMs),
                     ]
@@ -912,6 +896,52 @@ export function SignalWidget({
       </CardHeader>
       {!hidden && (
         <CardContent>
+          {path === "timeseries" && onInteractionModeChange && (
+            // Left-drag mode sits just above the chart so it's a short hop to
+            // the gesture; "select" brushes a timeframe, "pan" slides the zoom.
+            // The left side surfaces the visible (zoomed) window span.
+            <div className="mb-3 flex items-center justify-between gap-2">
+              {(() => {
+                const startMs = new Date(startIso).getTime();
+                const endMs = new Date(endIso).getTime();
+                const span = endMs - startMs;
+                const fromMs = startMs + (zoomPct.start / 100) * span;
+                const toMs = startMs + (zoomPct.end / 100) * span;
+                return (
+                  <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {formatWindowDuration((toMs - fromMs) / 1000)}
+                    </span>
+                    <span className="font-mono">
+                      {clockLabel(fromMs)} – {clockLabel(toMs)}
+                    </span>
+                  </div>
+                );
+              })()}
+              <div className="flex items-center rounded-md border">
+                <Button
+                  variant={interactionMode === "pan" ? "ghost" : "secondary"}
+                  size="sm"
+                  className="rounded-r-none border-0"
+                  onClick={() => onInteractionModeChange("select")}
+                  title="Select: drag to set the timeframe"
+                >
+                  <MousePointer className="mr-2 h-4 w-4" />
+                  Select
+                </Button>
+                <Button
+                  variant={interactionMode === "pan" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="rounded-l-none border-0"
+                  onClick={() => onInteractionModeChange("pan")}
+                  title="Pan: drag to slide the zoom window"
+                >
+                  <Hand className="mr-2 h-4 w-4" />
+                  Pan
+                </Button>
+              </div>
+            </div>
+          )}
           {loadingSeries ? (
             <div className="flex h-[260px] items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -928,6 +958,7 @@ export function SignalWidget({
                 config={plotConfig}
                 pairs={pairsData}
                 categorical={categoricalSeries}
+                mapEnabled={mapEnabled && canShowMap}
                 onReady={handlePlotReady}
               />
             )

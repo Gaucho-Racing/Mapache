@@ -30,33 +30,40 @@ func GetLapsForSession(sessionID string) []mapache.Lap {
 
 func ReplaceLapsForSession(sessionID string, laps []mapache.Lap) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("session_id = ?", sessionID).Delete(&mapache.Sector{}).Error; err != nil {
+		return replaceLapsTx(tx, sessionID, laps)
+	})
+}
+
+// replaceLapsTx deletes a session's existing sectors+laps and writes the given
+// laps (assigning fresh ids), all on the provided transaction. Callers that
+// need analysis + laps written atomically share this within one transaction.
+func replaceLapsTx(tx *gorm.DB, sessionID string, laps []mapache.Lap) error {
+	if err := tx.Where("session_id = ?", sessionID).Delete(&mapache.Sector{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("session_id = ?", sessionID).Delete(&mapache.Lap{}).Error; err != nil {
+		return err
+	}
+	for i := range laps {
+		lap := laps[i]
+		lap.ID = ulid.Make().Prefixed("lap")
+		lap.SessionID = sessionID
+		sectors := lap.Sectors
+		lap.Sectors = nil
+		if err := tx.Create(&lap).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("session_id = ?", sessionID).Delete(&mapache.Lap{}).Error; err != nil {
-			return err
-		}
-		for i := range laps {
-			lap := laps[i]
-			lap.ID = ulid.Make().Prefixed("lap")
-			lap.SessionID = sessionID
-			sectors := lap.Sectors
-			lap.Sectors = nil
-			if err := tx.Create(&lap).Error; err != nil {
+		for j := range sectors {
+			sector := sectors[j]
+			sector.ID = ulid.Make().Prefixed("sec")
+			sector.LapID = lap.ID
+			sector.SessionID = sessionID
+			if err := tx.Create(&sector).Error; err != nil {
 				return err
 			}
-			for j := range sectors {
-				sector := sectors[j]
-				sector.ID = ulid.Make().Prefixed("sec")
-				sector.LapID = lap.ID
-				sector.SessionID = sessionID
-				if err := tx.Create(&sector).Error; err != nil {
-					return err
-				}
-			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func DeleteLapsForSession(sessionID string) error {
@@ -83,7 +90,7 @@ func GetLapSummariesByVehicle(vehicleID string) map[string]mapache.LapSummary {
 		Select("session_lap.session_id AS session_id, "+
 			"COUNT(*) AS count, "+
 			"MIN(session_lap.duration_ms) AS best_ms, "+
-			"COALESCE(AVG(session_lap.duration_ms), 0) AS avg_ms, "+
+			"COALESCE(ROUND(AVG(session_lap.duration_ms)), 0) AS avg_ms, "+
 			"MAX(session_lap.duration_ms) AS worst_ms").
 		Joins("JOIN session ON session.id = session_lap.session_id").
 		Where("session.vehicle_id = ?", vehicleID).

@@ -5,10 +5,11 @@ import {
 } from "@/components/ui/popover";
 import {
   CHART_TYPES,
+  CHART_TYPE_MAP,
   type ChartType,
 } from "@/components/signals/chartTypes";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Shapes } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 export type { ChartType };
@@ -27,6 +28,7 @@ export function ChartTypeSelect({
   className,
 }: ChartTypeSelectProps) {
   const [open, setOpen] = useState(false);
+  const { icon: ActiveIcon, label: activeLabel } = CHART_TYPE_MAP[value];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -39,8 +41,8 @@ export function ChartTypeSelect({
             className,
           )}
         >
-          <Shapes className="h-4 w-4" />
-          <span>Traces</span>
+          <ActiveIcon className="h-4 w-4" />
+          <span>{activeLabel}</span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </button>
       </PopoverTrigger>
