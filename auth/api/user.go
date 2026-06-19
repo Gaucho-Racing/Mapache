@@ -26,7 +26,7 @@ func GetUser(c *gin.Context) {
 }
 
 func GetCurrentUser(c *gin.Context) {
-	user, err := service.GetCurrentUser(c.GetString("Auth-Token"))
+	user, err := service.GetCurrentUser(c.GetString("Auth-Token"), c.GetString("Auth-UserID"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return

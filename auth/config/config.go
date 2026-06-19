@@ -39,21 +39,34 @@ var KerbecsEndpoint = os.Getenv("KERBECS_ENDPOINT")
 var KerbecsUser = os.Getenv("KERBECS_USER")
 var KerbecsPassword = os.Getenv("KERBECS_PASSWORD")
 
+// Sentinel v5 configuration. All endpoints live under SENTINEL_URL with the
+// /api/ prefix the kerbecs gateway strips before reaching core/oauth.
+//
+//   - ClientID / ClientSecret: this app's OAuth client registration in
+//     Sentinel. Used for the authorization-code exchange.
+//   - SAToken: a pre-issued service-account JWT for backend-only calls
+//     (GetAllUsers, GetUserByID) that don't have a logged-in user's
+//     bearer. Replaces the v4 SENTINEL_TOKEN static API key.
+//   - RedirectURI: must byte-match a registered redirect_uri on the
+//     client; the dashboard sends users to this exact URL.
 var Sentinel = struct {
 	Url          string
-	JwksUrl      string
 	ClientID     string
 	ClientSecret string
-	Token        string
+	SAToken      string
 	RedirectURI  string
 }{
 	Url:          os.Getenv("SENTINEL_URL"),
-	JwksUrl:      os.Getenv("SENTINEL_JWKS_URL"),
 	ClientID:     os.Getenv("SENTINEL_CLIENT_ID"),
 	ClientSecret: os.Getenv("SENTINEL_CLIENT_SECRET"),
-	Token:        os.Getenv("SENTINEL_TOKEN"),
+	SAToken:      os.Getenv("SENTINEL_SA_TOKEN"),
 	RedirectURI:  os.Getenv("SENTINEL_REDIRECT_URI"),
 }
+
+// SentinelIssuer is the iss claim Sentinel v5 stamps into every signed
+// token. Must byte-match SENTINEL_URL — the issuer is fixed in v5 to
+// the public base URL.
+const SentinelIssuer = "https://sentinel-v5.gauchoracing.com"
 
 func IsProduction() bool {
 	return Env == "PROD"

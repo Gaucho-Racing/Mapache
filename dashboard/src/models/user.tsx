@@ -15,15 +15,8 @@ export interface User {
   sae_registration_number: string;
   avatar_url: string;
   verified: boolean;
-  subteams: Subteam[];
-  roles: string[];
+  groups: string[];
   updated_at: string;
-  created_at: string;
-}
-
-export interface Subteam {
-  id: string;
-  name: string;
   created_at: string;
 }
 
@@ -44,8 +37,7 @@ export const initUser: User = {
   sae_registration_number: "",
   avatar_url: "",
   verified: false,
-  subteams: [],
-  roles: [],
+  groups: [],
   updated_at: "",
   created_at: "",
 };
@@ -67,8 +59,7 @@ export const mockUser: User = {
   sae_registration_number: "",
   avatar_url: "",
   verified: true,
-  subteams: [],
-  roles: ["admin"],
+  groups: ["Admins"],
   updated_at: "",
   created_at: "",
 };

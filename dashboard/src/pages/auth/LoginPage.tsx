@@ -42,7 +42,12 @@ function LoginPage() {
 
   const loginSentinel = async () => {
     const redirect_url = window.location.origin + "/auth/login";
-    const scope = "user:read";
+    // Sentinel v5: openid for the canonical OIDC ID-token contract,
+    // profile/email so userinfo can echo standard claims (we still
+    // pull the full profile from /api/users/:id), and user:read so
+    // /api/users/:id self-lookups pass when the user later navigates
+    // to other admin-gated views.
+    const scope = "openid profile email user:read";
     let oauthUrl = `${SENTINEL_OAUTH_BASE_URL}?client_id=${SENTINEL_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect_url)}&scope=${encodeURIComponent(scope)}&prompt=none`;
     const route = queryParameters.get("route");
     if (route) {
