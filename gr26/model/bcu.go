@@ -14,7 +14,7 @@ var BCUStatus1 = mp.Message{
 	}),
 	mp.NewField("ts_voltage", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "ts_voltage", Value: float64(f.Value) * 0.01, RawValue: f.Value},
+			{Name: "ts_voltage", Value: float64(f.Value) * 0.1, RawValue: f.Value},
 		}
 	}),
 	mp.NewField("accumulator_current", 2, mp.Signed, mp.LittleEndian, func(f mp.Field) []mp.Signal {
