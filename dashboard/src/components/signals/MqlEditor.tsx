@@ -30,7 +30,7 @@ export function textToQueries(text: string, prev: QueryStmt[]): QueryStmt[] {
     .filter((l) => l !== "");
   if (lines.length === 0) {
     // Never leave a widget with zero queries.
-    return [{ id: prev[0]?.id ?? newStmtId(), mql: "count(signal)" }];
+    return [{ id: prev[0]?.id ?? newStmtId(), mql: "count(signal.name)" }];
   }
   return lines.map((mql, i) => ({ id: prev[i]?.id ?? newStmtId(), mql }));
 }
@@ -86,7 +86,7 @@ export function MqlEditor({ queries, onChange }: MqlEditorProps) {
         className={cn(
           "w-full resize-y rounded-md border bg-muted/30 px-2.5 py-2 font-mono text-xs leading-6 text-foreground/90 outline-none focus:border-primary/40",
         )}
-        placeholder={"count(signal).where(name = \"ecu*\") -> ecu\ncount(signal).where(name != \"ecu*\") -> other\necu / other -> ratio"}
+        placeholder={"count(signal.name).where(name = \"ecu*\") -> ecu\ncount(signal.name).where(name != \"ecu*\") -> other\necu / other -> ratio"}
       />
       {lineErrors.length > 0 ? (
         <div className="flex flex-col gap-0.5">

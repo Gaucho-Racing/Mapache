@@ -46,8 +46,13 @@ FUNCTIONS: dict[str, bool] = {
     "stddev": True,
 }
 
-NUMERIC_FIELDS = {"value", "raw_value"}
-COUNT_FIELD = "signal"
+# Aggregator fields are dotted references onto a signal row.
+# `signal.name` is the count target (one entry per signal occurrence);
+# `signal.value` / `signal.raw_value` are the numeric columns. Filter
+# columns stay bare (FILTERABLE_COLUMNS below) — once inside a where
+# clause, the `signal.` namespace is redundant.
+NUMERIC_FIELDS = {"signal.value", "signal.raw_value"}
+COUNT_FIELD = "signal.name"
 ALL_FIELDS = NUMERIC_FIELDS | {COUNT_FIELD}
 
 # Narrow on purpose: vehicle_id is page-level and produced_at is
@@ -74,7 +79,7 @@ ALLOWED_FILL_MODES = frozenset(FILL_MODES)
 # avg/stddevPop run OVER (PARTITION BY <group-by>) across the entire queried
 # window, not per time bucket. Rejection drops matching raw samples before
 # aggregation so a spike can't skew a bucket.
-REJECT_METRICS = {"value", "raw_value", "sigma"}
+REJECT_METRICS = {"signal.value", "signal.raw_value", "sigma"}
 _COMPARISON_OPS = {">", ">=", "<", "<=", "=", "!="}
 
 
@@ -106,7 +111,7 @@ class RejectCmp:
 
 @dataclass(frozen=True)
 class RejectRange:
-    metric: str  # "value" | "raw_value" (sigma ranges aren't meaningful)
+    metric: str  # "signal.value" | "signal.raw_value" (sigma ranges aren't meaningful)
     lo: float
     hi: float
     inside: bool  # True = `between` (reject inside); False = `outside`
@@ -357,8 +362,24 @@ def parse(s: str) -> Query:
     )
 
 
+def _parse_dotted_field(c: _Cursor) -> tuple[str, int]:
+    """Consume a dotted field reference like `signal.value`. Always two idents
+    joined by a `.`; bare idents are rejected so the grammar surfaces a clear
+    error rather than silently falling back to the legacy behavior."""
+    head = c.expect_ident()
+    nxt = c.peek()
+    if not nxt or nxt.kind != "punct" or nxt.value != ".":
+        raise QueryParseError(
+            "expected a dotted field like 'signal.value'",
+            head.pos,
+        )
+    c.advance()
+    tail = c.expect_ident()
+    return f"{head.value.lower()}.{tail.value.lower()}", head.pos
+
+
 def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
-    """Consume `<fn>(<field>)` from the head of the token stream."""
+    """Consume `<fn>(<signal.field>)` from the head of the token stream."""
     fn_tok = c.expect_ident()
     fn = fn_tok.value.lower()
     if fn not in FUNCTIONS:
@@ -369,15 +390,14 @@ def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
         )
 
     c.expect_punct("(")
-    field_tok = c.expect_ident()
-    field_name = field_tok.value.lower()
+    field_name, field_pos = _parse_dotted_field(c)
     c.expect_punct(")")
 
     if field_name not in ALL_FIELDS:
         raise QueryParseError(
-            f"unknown field '{field_tok.value}'; expected one of "
+            f"unknown field '{field_name}'; expected one of "
             + ", ".join(sorted(ALL_FIELDS)),
-            field_tok.pos,
+            field_pos,
         )
 
     needs_numeric = FUNCTIONS[fn]
@@ -385,13 +405,13 @@ def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
         raise QueryParseError(
             f"function '{fn}' needs a numeric field "
             f"({', '.join(sorted(NUMERIC_FIELDS))}), not '{field_name}'",
-            field_tok.pos,
+            field_pos,
         )
     if not needs_numeric and field_name != COUNT_FIELD:
         raise QueryParseError(
             f"function '{fn}' operates on rows; use '{COUNT_FIELD}' instead "
             f"of '{field_name}'",
-            field_tok.pos,
+            field_pos,
         )
 
     return fn, field_name
@@ -576,6 +596,18 @@ def _parse_reject_and(c: _Cursor) -> RejectNode:
             return left
 
 
+def _parse_reject_metric(c: _Cursor) -> tuple[str, int]:
+    """Reject metric is either a dotted field (`signal.value` /
+    `signal.raw_value`) or the bare `sigma` keyword."""
+    head = c.expect_ident()
+    nxt = c.peek()
+    if nxt and nxt.kind == "punct" and nxt.value == ".":
+        c.advance()
+        tail = c.expect_ident()
+        return f"{head.value.lower()}.{tail.value.lower()}", head.pos
+    return head.value.lower(), head.pos
+
+
 def _parse_reject_cmp(c: _Cursor) -> RejectNode:
     t = c.peek()
     if t and t.kind == "punct" and t.value == "(":
@@ -584,13 +616,12 @@ def _parse_reject_cmp(c: _Cursor) -> RejectNode:
         c.expect_punct(")")
         return inner
 
-    metric_tok = c.expect_ident()
-    metric = metric_tok.value.lower()
+    metric, metric_pos = _parse_reject_metric(c)
     if metric not in REJECT_METRICS:
         raise QueryParseError(
-            f"can't reject on '{metric_tok.value}'; valid metrics: "
+            f"can't reject on '{metric}'; valid metrics: "
             + ", ".join(sorted(REJECT_METRICS)),
-            metric_tok.pos,
+            metric_pos,
         )
 
     nxt = c.peek()
@@ -614,7 +645,7 @@ def _parse_reject_cmp(c: _Cursor) -> RejectNode:
     # Comparison form: metric <op> number
     if nxt is None or nxt.kind != "op":
         raise QueryParseError(
-            "expected a comparison (e.g. value > 100) or 'between'/'outside'",
+            "expected a comparison (e.g. signal.value > 100) or 'between'/'outside'",
             nxt.pos if nxt else c._tail_pos(),
         )
     op = nxt.value

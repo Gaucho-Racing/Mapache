@@ -224,7 +224,7 @@ export function SignalWidget({
   // statements evaluate in-browser over the fetched base series. The chip rows
   // and the raw MQL editor are two views of this one list.
   const [queries, setQueries] = useState<QueryStmt[]>([
-    { id: newQueryId(), mql: "count(signal)" },
+    { id: newQueryId(), mql: "count(signal.name)" },
   ]);
   const [editAsMql, setEditAsMql] = useState(false);
   // While a row's field is focused, freeze its kind: `looksLikeFetchQuery`
@@ -572,7 +572,7 @@ export function SignalWidget({
     setQueries((prev) => prev.map((t) => (t.id === id ? { ...t, mql } : t)));
 
   const addQuery = () =>
-    setQueries((prev) => [...prev, { id: newQueryId(), mql: "avg(value)" }]);
+    setQueries((prev) => [...prev, { id: newQueryId(), mql: "avg(signal.value)" }]);
 
   const removeQuery = (id: string) =>
     setQueries((prev) =>

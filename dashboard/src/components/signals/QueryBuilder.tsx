@@ -152,6 +152,28 @@ export function QueryBuilder({
     (next) => onMqlChange?.(next),
   );
 
+  // Optional modifier state — used to decide whether each chip renders
+  // inline or shows up as an "add me" entry in the Modify menu.
+  const activeModifiers = {
+    breakout,
+    rollup: value.rollup !== undefined,
+    reject: value.reject !== undefined,
+    fill: value.fill !== undefined,
+    label: value.label !== undefined,
+  };
+
+  // Sensible starting values when a modifier is freshly added from the
+  // Modify menu — chosen so the chip renders something useful immediately
+  // instead of an empty/placeholder state the user has to click into.
+  function addModifier(kind: ModifierKind) {
+    if (kind === "breakout") setBreakout(true);
+    else if (kind === "rollup") setRollup("1m");
+    else if (kind === "reject")
+      setReject({ kind: "cmp", metric: "sigma", op: ">", threshold: 3 });
+    else if (kind === "fill") setFill("gap");
+    else if (kind === "label") setLabel("series");
+  }
+
   return (
     <div className="flex flex-col gap-2.5">
       {/* Reads as a sentence: Show <agg> of <field> where <filters> … */}
@@ -200,31 +222,43 @@ export function QueryBuilder({
           <AddChip label="filter" onClick={addFilter} />
         </Clause>
 
-        <BreakoutToggle value={breakout} onChange={setBreakout} />
+        {activeModifiers.breakout ? (
+          <RemovableClause keyword="grouped" onRemove={() => setBreakout(false)}>
+            <span className="select-none text-xs text-muted-foreground">by name</span>
+          </RemovableClause>
+        ) : null}
 
-        <Clause keyword="every">
-          <RollupChip value={value.rollup} onChange={setRollup} />
-        </Clause>
+        {activeModifiers.rollup ? (
+          <RemovableClause keyword="every" onRemove={() => setRollup(undefined)}>
+            <RollupChip value={value.rollup} onChange={setRollup} />
+          </RemovableClause>
+        ) : null}
 
-        <Clause keyword="reject">
-          <RejectChip
-            value={value.reject}
-            onChange={setReject}
-            stats={rejectStats ?? null}
-          />
-        </Clause>
+        {activeModifiers.reject ? (
+          <RemovableClause keyword="reject" onRemove={() => setReject(undefined)}>
+            <RejectChip
+              value={value.reject}
+              onChange={setReject}
+              stats={rejectStats ?? null}
+            />
+          </RemovableClause>
+        ) : null}
 
-        <Clause keyword="fill">
-          <FillChip value={value.fill} onChange={setFill} />
-        </Clause>
+        {activeModifiers.fill ? (
+          <RemovableClause keyword="fill" onRemove={() => setFill(undefined)}>
+            <FillChip value={value.fill} onChange={setFill} />
+          </RemovableClause>
+        ) : null}
 
         {/* `-> name` labels the single result series; hidden while breaking
             out (a breakdown is already labeled by its group values). */}
-        {!breakout ? (
-          <Clause keyword="→">
+        {activeModifiers.label && !activeModifiers.breakout ? (
+          <RemovableClause keyword="→" onRemove={() => setLabel(undefined)}>
             <LabelChip value={value.label} onChange={setLabel} />
-          </Clause>
+          </RemovableClause>
         ) : null}
+
+        <ModifyMenu active={activeModifiers} onAdd={addModifier} />
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
@@ -284,6 +318,119 @@ function Clause({
       <Keyword>{keyword}</Keyword>
       {children}
     </span>
+  );
+}
+
+/** Clause + an X to remove the whole modifier. The X returns the
+ *  corresponding entry to the Modify menu. */
+function RemovableClause({
+  keyword,
+  children,
+  onRemove,
+}: {
+  keyword: string;
+  children: ReactNode;
+  onRemove: () => void;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Keyword>{keyword}</Keyword>
+      {children}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+        aria-label={`remove ${keyword}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
+type ModifierKind = "breakout" | "rollup" | "reject" | "fill" | "label";
+
+/** The set of optional modifiers a query can carry, with the copy that
+ *  surfaces in the Modify menu. Order here drives the menu order. */
+const MODIFIER_ITEMS: {
+  kind: ModifierKind;
+  label: string;
+  description: string;
+}[] = [
+  {
+    kind: "breakout",
+    label: "Group by name",
+    description: "Split results into one series per signal name.",
+  },
+  {
+    kind: "rollup",
+    label: "Rollup interval",
+    description: "Override the automatic bucket width.",
+  },
+  {
+    kind: "reject",
+    label: "Reject outliers",
+    description: "Drop raw samples by value or sigma before aggregating.",
+  },
+  {
+    kind: "fill",
+    label: "Fill empty buckets",
+    description: "Choose what to show when a bucket has no data.",
+  },
+  {
+    kind: "label",
+    label: "Name series",
+    description: "Label the result so axis controls / expressions can refer to it.",
+  },
+];
+
+/** "+ Modify" — a popover menu listing every optional modifier not
+ *  already on the query, with a one-line description per entry so the
+ *  reader can see what it does before clicking. */
+function ModifyMenu({
+  active,
+  onAdd,
+}: {
+  active: Record<ModifierKind, boolean>;
+  onAdd: (kind: ModifierKind) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const available = MODIFIER_ITEMS.filter((m) => !active[m.kind]);
+  if (available.length === 0) return null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          Modify
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-1">
+        <div className="flex flex-col">
+          {available.map((m) => (
+            <button
+              key={m.kind}
+              type="button"
+              onClick={() => {
+                onAdd(m.kind);
+                setOpen(false);
+              }}
+              className="flex flex-col gap-0.5 rounded-sm px-2 py-2 text-left hover:bg-muted/60"
+            >
+              <span className="text-xs font-medium text-foreground">
+                {m.label}
+              </span>
+              <span className="text-[11px] leading-snug text-muted-foreground">
+                {m.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -511,27 +658,6 @@ function FillChip({
   );
 }
 
-// The single grouping choice (`.by(name)`): on = one series per matching
-// signal, off = one combined series.
-function BreakoutToggle({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <label className="inline-flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
-      <input
-        type="checkbox"
-        checked={value}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 rounded border-input accent-primary"
-      />
-      by name
-    </label>
-  );
-}
 
 // `-> name` chip: names the result series and exposes it as a variable. Unset
 // reads "name". Input is restricted to identifier chars by `setLabel`.
@@ -610,7 +736,7 @@ function rejectToUi(node: RejectNode | undefined): RejectUiState {
     } else if (n.kind === "cmp" && n.metric === "sigma") {
       ui.sigmaOn = true;
       ui.sigmaN = n.threshold;
-    } else if (n.kind === "cmp" && (n.metric === "value" || n.metric === "raw_value")) {
+    } else if (n.kind === "cmp" && (n.metric === "signal.value" || n.metric === "signal.raw_value")) {
       if (n.op === "<" || n.op === "<=") ui.min = String(n.threshold);
       else if (n.op === ">" || n.op === ">=") ui.max = String(n.threshold);
     } else if (n.kind === "range" && !n.inside) {
@@ -634,15 +760,15 @@ function uiToReject(ui: RejectUiState): RejectNode | undefined {
   if (hasMin && hasMax) {
     leaves.push({
       kind: "range",
-      metric: "value",
+      metric: "signal.value",
       lo: Number(ui.min),
       hi: Number(ui.max),
       inside: false,
     });
   } else if (hasMin) {
-    leaves.push({ kind: "cmp", metric: "value", op: "<", threshold: Number(ui.min) });
+    leaves.push({ kind: "cmp", metric: "signal.value", op: "<", threshold: Number(ui.min) });
   } else if (hasMax) {
-    leaves.push({ kind: "cmp", metric: "value", op: ">", threshold: Number(ui.max) });
+    leaves.push({ kind: "cmp", metric: "signal.value", op: ">", threshold: Number(ui.max) });
   }
   if (leaves.length === 0) return undefined;
   return leaves.reduce((left, right) => ({ kind: "bool", op: "or", left, right }));

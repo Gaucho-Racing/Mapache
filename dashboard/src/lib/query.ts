@@ -28,10 +28,14 @@ export const AGGREGATORS: { value: Aggregator; label: string }[] = [
 /** Aggregators that operate on row-counts (only `count`, on `signal`). */
 export const ROW_COUNT_AGGS: ReadonlySet<Aggregator> = new Set(["count"]);
 
-export type FieldName = "signal" | "value" | "raw_value";
+// Aggregator fields are dotted references onto a signal row: `signal.name`
+// counts rows (one per signal occurrence), `signal.value` / `signal.raw_value`
+// are the numeric columns. Filter columns stay bare (`name`) — once inside a
+// where clause, the `signal.` namespace is redundant.
+export type FieldName = "signal.name" | "signal.value" | "signal.raw_value";
 
-export const NUMERIC_FIELDS: FieldName[] = ["value", "raw_value"];
-export const COUNT_FIELD: FieldName = "signal";
+export const NUMERIC_FIELDS: FieldName[] = ["signal.value", "signal.raw_value"];
+export const COUNT_FIELD: FieldName = "signal.name";
 
 export const FILTERABLE_COLUMNS = ["name"] as const;
 export const GROUPABLE_COLUMNS = ["name"] as const;
@@ -52,9 +56,11 @@ export type Rollup = (typeof ROLLUP_INTERVALS)[number];
 export const FILL_MODES = ["gap", "last", "linear"] as const;
 export type FillMode = (typeof FILL_MODES)[number];
 
-/** Metrics a `.reject(...)` leaf can compare. `sigma` = distance from the
- *  group mean in standard deviations (computed server-side). */
-export const REJECT_METRICS = ["value", "raw_value", "sigma"] as const;
+/** Metrics a `.reject(...)` leaf can compare. `signal.value` /
+ *  `signal.raw_value` are dotted to match the aggregator-field grammar.
+ *  `sigma` stays bare — it's a computed distance from the group mean in
+ *  standard deviations (server-side), not a column on the signal row. */
+export const REJECT_METRICS = ["signal.value", "signal.raw_value", "sigma"] as const;
 export type RejectMetric = (typeof REJECT_METRICS)[number];
 
 export type ComparisonOp = ">" | ">=" | "<" | "<=" | "=" | "!=";
@@ -62,7 +68,7 @@ export type ComparisonOp = ">" | ">=" | "<" | "<=" | "=" | "!=";
 /** Reject-condition tree, mirroring query_lang.py's RejectNode. */
 export type RejectNode =
   | { kind: "cmp"; metric: RejectMetric; op: ComparisonOp; threshold: number }
-  | { kind: "range"; metric: "value" | "raw_value"; lo: number; hi: number; inside: boolean }
+  | { kind: "range"; metric: "signal.value" | "signal.raw_value"; lo: number; hi: number; inside: boolean }
   | { kind: "bool"; op: "and" | "or"; left: RejectNode; right: RejectNode };
 
 export interface Predicate {
@@ -87,14 +93,14 @@ export interface Query {
 
 export const DEFAULT_QUERY: Query = {
   fn: "count",
-  field: "signal",
+  field: "signal.name",
   filters: [],
   groupBy: [],
 };
 
-/** Default field for an aggregator: count → `signal`, else `value`. */
+/** Default field for an aggregator: count → `signal.name`, else `signal.value`. */
 export function defaultFieldFor(fn: Aggregator): FieldName {
-  return ROW_COUNT_AGGS.has(fn) ? COUNT_FIELD : "value";
+  return ROW_COUNT_AGGS.has(fn) ? COUNT_FIELD : "signal.value";
 }
 
 /** Render the AST to canonical MQL; round-trips losslessly through parseQuery. */
@@ -354,6 +360,26 @@ export function parseQuery(input: string): ParseResult {
   }
 }
 
+// Consume a dotted field reference like `signal.value`. Always two idents
+// joined by a `.` punct; bare idents are rejected so the grammar surfaces
+// a clear error instead of silently falling back to legacy behavior.
+function parseDottedField(c: MqlCursor): { value: string; pos: number } {
+  const head = c.expectIdent();
+  const next = c.peek();
+  if (!next || next.kind !== "punct" || next.value !== ".") {
+    throw new MqlParseError(
+      `expected a dotted field like 'signal.value'`,
+      head.pos,
+    );
+  }
+  c.advance(); // consume '.'
+  const tail = c.expectIdent();
+  return {
+    value: `${head.value.toLowerCase()}.${tail.value.toLowerCase()}`,
+    pos: head.pos,
+  };
+}
+
 function parseAggCall(c: MqlCursor): { fn: Aggregator; field: FieldName } {
   const fnTok = c.expectIdent();
   const fn = fnTok.value.toLowerCase();
@@ -364,21 +390,21 @@ function parseAggCall(c: MqlCursor): { fn: Aggregator; field: FieldName } {
       fnTok.pos,
     );
   c.expectPunct("(");
-  const fieldTok = c.expectIdent();
-  const field = fieldTok.value.toLowerCase();
+  const fieldRef = parseDottedField(c);
   c.expectPunct(")");
 
+  const field = fieldRef.value;
   const allFields = new Set<string>([COUNT_FIELD, ...NUMERIC_FIELDS]);
   if (!allFields.has(field))
-    throw new MqlParseError(`unknown field '${fieldTok.value}'`, fieldTok.pos);
+    throw new MqlParseError(`unknown field '${field}'`, fieldRef.pos);
   const needsNumeric = !ROW_COUNT_AGGS.has(fn as Aggregator);
   if (needsNumeric && !NUMERIC_FIELDS.includes(field as FieldName))
     throw new MqlParseError(
       `function '${fn}' needs a numeric field (${NUMERIC_FIELDS.join(", ")}), not '${field}'`,
-      fieldTok.pos,
+      fieldRef.pos,
     );
   if (!needsNumeric && field !== COUNT_FIELD)
-    throw new MqlParseError(`function '${fn}' operates on rows; use '${COUNT_FIELD}'`, fieldTok.pos);
+    throw new MqlParseError(`function '${fn}' operates on rows; use '${COUNT_FIELD}'`, fieldRef.pos);
   return { fn: fn as Aggregator, field: field as FieldName };
 }
 
@@ -492,6 +518,23 @@ function parseRejectAnd(c: MqlCursor): RejectNode {
   }
 }
 
+// Reject metrics are either a dotted field reference (signal.value /
+// signal.raw_value) or the bare `sigma` keyword. Consume whichever shape
+// the next tokens produce.
+function parseRejectMetric(c: MqlCursor): { value: string; pos: number } {
+  const head = c.expectIdent();
+  const next = c.peek();
+  if (next && next.kind === "punct" && next.value === ".") {
+    c.advance();
+    const tail = c.expectIdent();
+    return {
+      value: `${head.value.toLowerCase()}.${tail.value.toLowerCase()}`,
+      pos: head.pos,
+    };
+  }
+  return { value: head.value.toLowerCase(), pos: head.pos };
+}
+
 function parseRejectCmp(c: MqlCursor): RejectNode {
   const t = c.peek();
   if (t && t.kind === "punct" && t.value === "(") {
@@ -500,10 +543,10 @@ function parseRejectCmp(c: MqlCursor): RejectNode {
     c.expectPunct(")");
     return inner;
   }
-  const metricTok = c.expectIdent();
-  const metric = metricTok.value.toLowerCase();
+  const metricRef = parseRejectMetric(c);
+  const metric = metricRef.value;
   if (!REJECT_METRIC_SET.has(metric))
-    throw new MqlParseError(`can't reject on '${metricTok.value}'`, metricTok.pos);
+    throw new MqlParseError(`can't reject on '${metric}'`, metricRef.pos);
   const nxt = c.peek();
   if (nxt && nxt.kind === "ident" && (nxt.value.toLowerCase() === "between" || nxt.value.toLowerCase() === "outside")) {
     const kw = c.advance();
@@ -514,10 +557,10 @@ function parseRejectCmp(c: MqlCursor): RejectNode {
     c.expectPunct(",");
     const hi = parseRejectNumber(c);
     c.expectPunct(")");
-    return { kind: "range", metric: metric as "value" | "raw_value", lo, hi, inside: kw.value.toLowerCase() === "between" };
+    return { kind: "range", metric: metric as "signal.value" | "signal.raw_value", lo, hi, inside: kw.value.toLowerCase() === "between" };
   }
   if (!nxt || nxt.kind !== "op")
-    throw new MqlParseError("expected a comparison (e.g. value > 100) or 'between'/'outside'", nxt ? nxt.pos : c.tailPos());
+    throw new MqlParseError("expected a comparison (e.g. signal.value > 100) or 'between'/'outside'", nxt ? nxt.pos : c.tailPos());
   if (!COMPARISON_OPS.has(nxt.value as ComparisonOp))
     throw new MqlParseError(`invalid comparison operator '${nxt.value}'`, nxt.pos);
   c.advance();
@@ -540,12 +583,13 @@ const ALL_FIELD_SET = new Set<string>([COUNT_FIELD, ...NUMERIC_FIELDS]);
  *  `min`/`max` are BOTH aggregators (fetch) and expr.ts functions, so an
  *  aggregator name alone can't discriminate: `min(s0, s1) -> lo` is a derived
  *  expression, not a fetch. A line is a fetch only when it's a known aggregator
- *  whose first call argument is a known fetch field (signal/value/raw_value) —
- *  anything else (extra args, an unknown first arg) routes to the expression
- *  evaluator. A field-valid but otherwise-broken fetch still classifies as a
- *  fetch so its parse error surfaces inline rather than misrouting to expr. */
+ *  whose first call argument is a known dotted fetch field (signal.name /
+ *  signal.value / signal.raw_value) — anything else (extra args, an unknown
+ *  first arg) routes to the expression evaluator. A field-valid but
+ *  otherwise-broken fetch still classifies as a fetch so its parse error
+ *  surfaces inline rather than misrouting to expr. */
 export function looksLikeFetchQuery(input: string): boolean {
-  const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/.exec(
+  const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*)\s*\)/.exec(
     input,
   );
   if (!m) return false;
