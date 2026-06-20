@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTextMirror } from "@/lib/useTextMirror";
 import Fuse from "fuse.js";
-import { ChevronDown, Plus, Sigma, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 
 /** Per-series summary of the raw samples a `.reject(...)` clause cut before
@@ -392,12 +392,12 @@ function ModifyMenu({
       <PopoverTrigger asChild>
         <button
           type="button"
-          title="Apply a function"
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+            "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
           )}
         >
-          <Sigma className="h-3.5 w-3.5" />
+          <Plus className="h-3 w-3" />
+          Modifier
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-1">
