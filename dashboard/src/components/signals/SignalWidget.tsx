@@ -83,7 +83,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Interval = Rollup;
 
@@ -207,6 +207,24 @@ export interface SignalWidgetProps {
   /** Laps of the currently-selected session, enabling the `lap` highlight
    *  pseudo-variable + the "alternate by lap" shortcut. */
   laps?: Lap[] | null;
+  /** Seed the initial query list — used when the widget is embedded in a
+   *  saved dashboard so its persisted queries replace the default
+   *  `count(signal.name)`. The local chip state still owns subsequent
+   *  edits; the parent receives them via onQueriesChange. */
+  seedQueries?: string[];
+  /** Notify the parent every time the chip rows commit a change, so a
+   *  dashboard widget can persist its config without polling. */
+  onQueriesChange?: (queries: string[]) => void;
+  /** Seed the initial chart type. Same write-once-then-controlled-locally
+   *  contract as seedQueries — the toolbar inside still owns subsequent
+   *  changes, the parent observes via onChartTypeChange. */
+  seedChartType?: ChartType;
+  onChartTypeChange?: (next: ChartType) => void;
+  /** Rolling-window refresh interval in seconds. When set, the widget
+   *  re-runs its query every N seconds so the chart's right edge keeps
+   *  tracking `now`. Dashboards use this to blend live + historical
+   *  data without (yet) holding a streaming subscription open. */
+  refreshIntervalSec?: number;
 }
 
 export function SignalWidget({
@@ -225,14 +243,26 @@ export function SignalWidget({
   interactionMode,
   onInteractionModeChange,
   laps,
+  seedQueries,
+  onQueriesChange,
+  seedChartType,
+  onChartTypeChange,
+  refreshIntervalSec,
 }: SignalWidgetProps) {
   // Ordered list of MQL trace statements, classified at render via
   // `looksLikeFetchQuery`: fetch statements hit /query/run; expression
   // statements evaluate in-browser over the fetched base series. The chip rows
   // and the raw MQL editor are two views of this one list.
-  const [queries, setQueries] = useState<QueryStmt[]>([
-    { id: newQueryId(), mql: "count(signal.name)" },
-  ]);
+  //
+  // `seedQueries` lets a parent prefill the list at mount (dashboard
+  // widget restoring saved MQL); subsequent edits stay local and the
+  // parent observes via onQueriesChange. The seed is read-once on first
+  // render — later parent changes won't yank the user's caret mid-edit.
+  const [queries, setQueries] = useState<QueryStmt[]>(() =>
+    seedQueries && seedQueries.length > 0
+      ? seedQueries.map((mql) => ({ id: newQueryId(), mql }))
+      : [{ id: newQueryId(), mql: "count(signal.name)" }],
+  );
   // While a row's field is focused, freeze its kind: `looksLikeFetchQuery`
   // flips at the `(`, and re-classifying mid-type would swap the input element
   // and yank the caret. Re-classified on blur.
@@ -240,7 +270,22 @@ export function SignalWidget({
     id: string;
     kind: "fetch" | "expr";
   } | null>(null);
-  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [chartType, setChartType] = useState<ChartType>(seedChartType ?? "bar");
+
+  // Bubble query/chart changes up to the parent (dashboard widget) so it
+  // can persist them. Guarded against firing on the initial render.
+  const initialQueriesRef = useRef(queries);
+  useEffect(() => {
+    if (!onQueriesChange) return;
+    if (queries === initialQueriesRef.current) return;
+    onQueriesChange(queries.map((q) => q.mql));
+  }, [queries, onQueriesChange]);
+  const initialChartTypeRef = useRef(chartType);
+  useEffect(() => {
+    if (!onChartTypeChange) return;
+    if (chartType === initialChartTypeRef.current) return;
+    onChartTypeChange(chartType);
+  }, [chartType, onChartTypeChange]);
   // Per-trace y-scaling, keyed by series label. Sparse; absent = default.
   const [axisSettings, setAxisSettings] = useState<
     Record<string, AxisSetting>
@@ -316,14 +361,33 @@ export function SignalWidget({
     () => fetchPlan.filter((p) => p.runnable),
     [fetchPlan],
   );
+  // Rolling-window refresh: when `refreshIntervalSec` is set, bump a
+  // tick every N seconds. The tick gets folded into `fetchKey`, which
+  // is what the historical query effect watches — so the chart re-runs
+  // the query, picking up rows added since the last fetch. This is the
+  // poor-person's live blend; PR-N will swap in an SSE-driven hook for
+  // sub-second updates.
+  const [refreshTick, setRefreshTick] = useState(0);
+  useEffect(() => {
+    if (!refreshIntervalSec || refreshIntervalSec <= 0) return;
+    const t = setInterval(
+      () => setRefreshTick((n) => n + 1),
+      refreshIntervalSec * 1000,
+    );
+    return () => clearInterval(t);
+  }, [refreshIntervalSec]);
+
   // Stable key over the wire form, so the fetch effect fires only on real change.
   const fetchKey = useMemo(
     () =>
       JSON.stringify({
         ids: runnableFetches.map((p) => `${p.id}:${p.mql}`),
         interval,
+        // Rolling-window tick: only contributes to the key when the
+        // parent opted in to refresh, otherwise stays a constant 0.
+        tick: refreshIntervalSec ? refreshTick : 0,
       }),
-    [runnableFetches, interval],
+    [runnableFetches, interval, refreshIntervalSec, refreshTick],
   );
   // Debounce so editing the MQL line doesn't fire /query/run per keystroke
   // (each response forces a synchronous re-render that drops typing). Timeframe/

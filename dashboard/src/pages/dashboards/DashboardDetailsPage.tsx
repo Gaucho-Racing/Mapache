@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { OutlineButton } from "@/components/ui/outline-button";
 import { getAxiosErrorMessage } from "@/lib/axios-error-handler";
+import { BACKEND_URL } from "@/consts/config";
 import {
   createWidget,
   deleteWidget,
@@ -12,12 +13,14 @@ import {
 } from "@/lib/dashboards";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { useVehicle } from "@/lib/store";
 import {
   DEFAULT_WIDGET_SIZE,
   type Dashboard,
   type DashboardWidget,
   type SignalWidgetConfig,
 } from "@/models/dashboard";
+import axios from "axios";
 import { ArrowLeft, Loader2, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import GridLayout, { type Layout as RGLLayout } from "react-grid-layout";
@@ -25,17 +28,73 @@ import { useNavigate, useParams } from "react-router-dom";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { DashboardWidgetCard } from "@/components/dashboards/DashboardWidgetCard";
+import {
+  defaultTimeframe,
+  type Timeframe,
+  TimeframePicker,
+} from "@/components/signals/TimeframePicker";
 
 const GRID_COLS = 12;
 const ROW_HEIGHT = 30;
 const MARGIN: [number, number] = [12, 12];
 
+const SYNC_GROUP_ID = "dashboard-widgets";
+
 function DashboardDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const vehicle = useVehicle();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [gridWidth, setGridWidth] = useState(1200);
+  // Page-level timeframe — every widget plots the same window. Will
+  // eventually allow per-widget override; for now the dashboard reads
+  // as one cohesive view.
+  const [timeframe, setTimeframe] = useState<Timeframe>(defaultTimeframe);
+  // Cached signal-name list for the active vehicle, used by the chip
+  // builder's autocomplete inside each widget.
+  const [signalNames, setSignalNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vehicle?.id) return;
+    let cancelled = false;
+    axios
+      .get(`${BACKEND_URL}/query/signals`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("sentinel_access_token")}`,
+        },
+        params: { vehicle_id: vehicle.id },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = res.data?.data?.data ?? res.data?.data ?? [];
+        setSignalNames(rows.map((r: { name: string }) => r.name));
+      })
+      .catch(() => {
+        // Autocomplete is non-blocking — failure just means the
+        // dropdown shows nothing. The chart still runs.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicle?.id]);
+
+  // Resolve the timeframe to the iso strings + range every widget needs.
+  // "Rolling" mode = the window's right edge tracks `now`; that's true
+  // for every Past-N preset and for any custom range whose end is within
+  // a few seconds of now. Live-blending widgets watch this flag.
+  const { startIso, endIso, rangeSeconds, isRolling } = useMemo(() => {
+    const start = timeframe.start.toISOString();
+    const end = timeframe.end.toISOString();
+    const range = Math.max(
+      1,
+      Math.round((timeframe.end.getTime() - timeframe.start.getTime()) / 1000),
+    );
+    const rolling =
+      timeframe.label.startsWith("Past ") ||
+      Math.abs(timeframe.end.getTime() - Date.now()) < 5_000;
+    return { startIso: start, endIso: end, rangeSeconds: range, isRolling: rolling };
+  }, [timeframe]);
 
   // Track the rendered area's width so the grid sizes columns to the
   // container, not the viewport — sidebars and padding both eat real estate.
@@ -230,10 +289,17 @@ function DashboardDetailsPage() {
               placeholder="Untitled dashboard"
             />
           </div>
-          <OutlineButton onClick={handleAddSignalWidget}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add widget
-          </OutlineButton>
+          <div className="flex items-center gap-2">
+            <TimeframePicker
+              value={timeframe}
+              onChange={setTimeframe}
+              vehicleId={vehicle?.id ?? ""}
+            />
+            <OutlineButton onClick={handleAddSignalWidget}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add widget
+            </OutlineButton>
+          </div>
         </div>
 
         <div id="dashboard-grid-host" className="w-full">
@@ -262,6 +328,14 @@ function DashboardDetailsPage() {
                 <div key={w.id} className={cn("overflow-hidden")}>
                   <DashboardWidgetCard
                     widget={w}
+                    vehicleId={vehicle?.id ?? ""}
+                    vehicleType={vehicle?.type ?? ""}
+                    signalNames={signalNames}
+                    startIso={startIso}
+                    endIso={endIso}
+                    rangeSeconds={rangeSeconds}
+                    isRolling={isRolling}
+                    groupId={SYNC_GROUP_ID}
                     onRemove={() => handleRemoveWidget(w.id)}
                     onConfigChange={(config) =>
                       handleUpdateWidgetConfig(w.id, config)
