@@ -35,6 +35,14 @@ from query.service.query_lang import (
 from query.service.signals import INTERVALS, utc_iso
 
 
+def _column(field: str) -> str:
+    """Map an MQL field/metric name (`signal.value`) to its underlying
+    ClickHouse column (`value`). Bare names (e.g. the computed `sigma`)
+    pass through unchanged so the rest of the SQL builder doesn't need
+    to special-case them."""
+    return field.split(".", 1)[1] if "." in field else field
+
+
 def _build_filter_sql(
     filters: tuple, params: dict[str, Any]
 ) -> list[str]:
@@ -118,7 +126,7 @@ def _build_reject_sql(
     if isinstance(node, RejectCmp):
         key = f"rj_{len(params)}"
         params[key] = node.threshold
-        metric_sql = _sigma_expr(sigma_col) if node.metric == "sigma" else node.metric
+        metric_sql = _sigma_expr(sigma_col) if node.metric == "sigma" else _column(node.metric)
         return f"{metric_sql} {node.op} {{{key}:Float64}}"
 
     if isinstance(node, RejectRange):
@@ -126,7 +134,7 @@ def _build_reject_sql(
         params[lo_key] = node.lo
         hi_key = f"rj_{len(params)}"
         params[hi_key] = node.hi
-        m = node.metric
+        m = _column(node.metric)
         if node.inside:  # `between`: reject inside [lo, hi]
             return f"({m} >= {{{lo_key}:Float64}} AND {m} <= {{{hi_key}:Float64}})"
         return f"({m} < {{{lo_key}:Float64}} OR {m} > {{{hi_key}:Float64}})"
@@ -171,7 +179,7 @@ def run_query(
 
     interval_expr, step_ms = INTERVALS[effective_interval]
 
-    agg_sql = _FN_SQL[q.fn].format(field=q.field)
+    agg_sql = _FN_SQL[q.fn].format(field=_column(q.field))
 
     select_parts = [f"toStartOfInterval(produced_at, {interval_expr}) AS bucket"]
     for col in q.group_by:
@@ -206,8 +214,8 @@ def run_query(
     # group's mean/std, so it takes a window-stats subquery; value/raw_value
     # rejects just add a NOT(...) to the main WHERE.
     if q.reject is not None and _reject_uses_sigma(q.reject):
-        # count(signal) has no numeric field, so fall back to `value`.
-        sigma_col = q.field if q.field in ("value", "raw_value") else "value"
+        # count(signal.name) has no numeric field, so fall back to `value`.
+        sigma_col = _column(q.field) if q.field in ("signal.value", "signal.raw_value") else "value"
         # Score each series against its own population.
         if q.group_by:
             partition = "PARTITION BY " + ", ".join(q.group_by)
@@ -282,9 +290,9 @@ def _run_reject_stats(
     with the param keys already bound by the main query.
     """
     assert q.reject is not None
-    # Field the reject targets numerically; `count(signal)` has no numeric field
-    # so fall back to `value`, mirroring the executor's sigma_col logic.
-    field = q.field if q.field in ("value", "raw_value") else "value"
+    # Field the reject targets numerically; `count(signal.name)` has no numeric
+    # field so fall back to `value`, mirroring the executor's sigma_col logic.
+    field = _column(q.field) if q.field in ("signal.value", "signal.raw_value") else "value"
 
     params = dict(base_params)
     where = list(base_where)

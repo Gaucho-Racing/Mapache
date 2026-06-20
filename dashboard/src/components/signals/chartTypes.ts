@@ -45,7 +45,7 @@ export interface ChartTypeDef {
 
 /** Default a fresh widget / a compatible run-path switch lands on. */
 function defaultRunQueries(): QueryStmt[] {
-  return [{ id: newStmtId(), mql: "count(signal)" }];
+  return [{ id: newStmtId(), mql: "count(signal.name)" }];
 }
 
 /** `n` empty-name trace lines for the pairs path (2 for scatter/path, 3 for 3D),
@@ -54,7 +54,7 @@ function defaultPairQueries(n: number): () => QueryStmt[] {
   return () =>
     Array.from({ length: n }, () => ({
       id: newStmtId(),
-      mql: 'avg(value).where(name = "")',
+      mql: 'avg(signal.value).where(name = "")',
     }));
 }
 

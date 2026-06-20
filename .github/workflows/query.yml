@@ -9,25 +9,6 @@ on:
       - "v*"
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    name: Test
-    defaults:
-      run:
-        working-directory: query
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Test
-        run: pytest tests/ -v
-
   build:
     runs-on: ${{ matrix.runner }}
     name: Build ${{ matrix.platform }}

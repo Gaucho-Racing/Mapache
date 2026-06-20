@@ -1,21 +1,21 @@
 """Tiny query language for the signals chart.
 
-Grammar (v0.3 — method-chain):
-    <fn>(<field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
-    methods: .where(<pred>) .by(<col>,...) .every(<interval>)
-             .reject(<bool>) .fill(<mode>)
+Grammar (v0.4 — method-chain, dotted fields):
+    <fn>(<signal.field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
+    methods: .where(<pred>) .by(<col>,...) .rollup(<interval>)
+             .filter(<bool>) .fill(<mode>)
     A trailing `-> name` names the result series (and, on the frontend,
     exposes it as a referenceable variable).
 
 Examples:
-    count(signal)
-    count(signal).by(name)
-    avg(value).where(name = "ecu_acc_pedal")
-    count(signal).where(name = "ecu*") -> ecu
-    count(signal).where(name != "ecu*") -> other
-    avg(value).where(name not in ("a", "b"))
-    last(value).where(name in ("a", "b")).reject(sigma > 3).every(100ms)
-    avg(value).reject(value outside (0, 100)).fill(last)
+    count(signal.name)
+    count(signal.name).by(name)
+    avg(signal.value).where(name = "ecu_acc_pedal")
+    count(signal.name).where(name = "ecu*") -> ecu
+    count(signal.name).where(name != "ecu*") -> other
+    avg(signal.value).where(name not in ("a", "b"))
+    last(signal.value).where(name in ("a", "b")).filter(sigma > 3).rollup(100ms)
+    avg(signal.value).filter(signal.value outside (0, 100)).fill(last)
 
 This is intentionally small. We want it to feel like Datadog's metric
 query syntax (one aggregator + filters + group-by + automatic time
@@ -46,8 +46,13 @@ FUNCTIONS: dict[str, bool] = {
     "stddev": True,
 }
 
-NUMERIC_FIELDS = {"value", "raw_value"}
-COUNT_FIELD = "signal"
+# Aggregator fields are dotted references onto a signal row.
+# `signal.name` is the count target (one entry per signal occurrence);
+# `signal.value` / `signal.raw_value` are the numeric columns. Filter
+# columns stay bare (FILTERABLE_COLUMNS below) — once inside a where
+# clause, the `signal.` namespace is redundant.
+NUMERIC_FIELDS = {"signal.value", "signal.raw_value"}
+COUNT_FIELD = "signal.name"
 ALL_FIELDS = NUMERIC_FIELDS | {COUNT_FIELD}
 
 # Narrow on purpose: vehicle_id is page-level and produced_at is
@@ -74,7 +79,7 @@ ALLOWED_FILL_MODES = frozenset(FILL_MODES)
 # avg/stddevPop run OVER (PARTITION BY <group-by>) across the entire queried
 # window, not per time bucket. Rejection drops matching raw samples before
 # aggregation so a spike can't skew a bucket.
-REJECT_METRICS = {"value", "raw_value", "sigma"}
+REJECT_METRICS = {"signal.value", "signal.raw_value", "sigma"}
 _COMPARISON_OPS = {">", ">=", "<", "<=", "=", "!="}
 
 
@@ -106,7 +111,7 @@ class RejectCmp:
 
 @dataclass(frozen=True)
 class RejectRange:
-    metric: str  # "value" | "raw_value" (sigma ranges aren't meaningful)
+    metric: str  # "signal.value" | "signal.raw_value" (sigma ranges aren't meaningful)
     lo: float
     hi: float
     inside: bool  # True = `between` (reject inside); False = `outside`
@@ -189,10 +194,7 @@ def _tokenize(s: str) -> list[Token]:
 # Parser (recursive descent over a token cursor)
 # ---------------------------------------------------------------------------
 
-_METHODS = {"where", "by", "every", "reject", "fill"}
-
-# Renamed methods, flagged with a migration error instead of "unknown method".
-_RENAMED_METHODS = {"rollup": "every"}
+_METHODS = {"where", "by", "rollup", "filter", "fill"}
 
 
 class _Cursor:
@@ -253,7 +255,7 @@ def parse(s: str) -> Query:
     filters: list[Predicate] = []
     group_by: list[str] = []
     rollup: str | None = None
-    every_seen_pos: int | None = None
+    rollup_seen_pos: int | None = None
     reject: RejectNode | None = None
     reject_seen_pos: int | None = None
     fill: str | None = None
@@ -276,11 +278,6 @@ def parse(s: str) -> Query:
         method_tok = c.expect_ident()
         method = method_tok.value.lower()
 
-        if method in _RENAMED_METHODS:
-            raise QueryParseError(
-                f"'.{method}' was renamed to '.{_RENAMED_METHODS[method]}'",
-                method_tok.pos,
-            )
         if method not in _METHODS:
             raise QueryParseError(
                 f"unknown method '.{method_tok.value}'; expected one of "
@@ -293,19 +290,19 @@ def parse(s: str) -> Query:
             filters.extend(_parse_where_args(c))
         elif method == "by":
             group_by.extend(_parse_by_args(c))
-        elif method == "every":
-            if every_seen_pos is not None:
+        elif method == "rollup":
+            if rollup_seen_pos is not None:
                 raise QueryParseError(
-                    "'.every' specified more than once",
+                    "'.rollup' specified more than once",
                     method_tok.pos,
                 )
-            rollup = _parse_every_args(c)
-            every_seen_pos = method_tok.pos
-        elif method == "reject":
+            rollup = _parse_rollup_args(c)
+            rollup_seen_pos = method_tok.pos
+        elif method == "filter":
             if reject_seen_pos is not None:
                 raise QueryParseError(
-                    "'.reject' specified more than once; combine conditions "
-                    "with 'and'/'or' inside one .reject(...)",
+                    "'.filter' specified more than once; combine conditions "
+                    "with 'and'/'or' inside one .filter(...)",
                     method_tok.pos,
                 )
             reject = _parse_reject_args(c)
@@ -357,8 +354,24 @@ def parse(s: str) -> Query:
     )
 
 
+def _parse_dotted_field(c: _Cursor) -> tuple[str, int]:
+    """Consume a dotted field reference like `signal.value`. Always two idents
+    joined by a `.`; bare idents are rejected so the grammar surfaces a clear
+    error rather than silently falling back to the legacy behavior."""
+    head = c.expect_ident()
+    nxt = c.peek()
+    if not nxt or nxt.kind != "punct" or nxt.value != ".":
+        raise QueryParseError(
+            "expected a dotted field like 'signal.value'",
+            head.pos,
+        )
+    c.advance()
+    tail = c.expect_ident()
+    return f"{head.value.lower()}.{tail.value.lower()}", head.pos
+
+
 def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
-    """Consume `<fn>(<field>)` from the head of the token stream."""
+    """Consume `<fn>(<signal.field>)` from the head of the token stream."""
     fn_tok = c.expect_ident()
     fn = fn_tok.value.lower()
     if fn not in FUNCTIONS:
@@ -369,15 +382,14 @@ def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
         )
 
     c.expect_punct("(")
-    field_tok = c.expect_ident()
-    field_name = field_tok.value.lower()
+    field_name, field_pos = _parse_dotted_field(c)
     c.expect_punct(")")
 
     if field_name not in ALL_FIELDS:
         raise QueryParseError(
-            f"unknown field '{field_tok.value}'; expected one of "
+            f"unknown field '{field_name}'; expected one of "
             + ", ".join(sorted(ALL_FIELDS)),
-            field_tok.pos,
+            field_pos,
         )
 
     needs_numeric = FUNCTIONS[fn]
@@ -385,13 +397,13 @@ def _parse_aggregator_call(c: _Cursor) -> tuple[str, str]:
         raise QueryParseError(
             f"function '{fn}' needs a numeric field "
             f"({', '.join(sorted(NUMERIC_FIELDS))}), not '{field_name}'",
-            field_tok.pos,
+            field_pos,
         )
     if not needs_numeric and field_name != COUNT_FIELD:
         raise QueryParseError(
             f"function '{fn}' operates on rows; use '{COUNT_FIELD}' instead "
             f"of '{field_name}'",
-            field_tok.pos,
+            field_pos,
         )
 
     return fn, field_name
@@ -507,7 +519,7 @@ def _parse_by_args(c: _Cursor) -> list[str]:
     return cols
 
 
-def _parse_every_args(c: _Cursor) -> str:
+def _parse_rollup_args(c: _Cursor) -> str:
     """Parse a single interval literal (e.g. `10s`, `1m`, `1h`)."""
     iv_tok = c.peek()
     if iv_tok is None or iv_tok.kind != "interval":
@@ -576,6 +588,18 @@ def _parse_reject_and(c: _Cursor) -> RejectNode:
             return left
 
 
+def _parse_reject_metric(c: _Cursor) -> tuple[str, int]:
+    """Reject metric is either a dotted field (`signal.value` /
+    `signal.raw_value`) or the bare `sigma` keyword."""
+    head = c.expect_ident()
+    nxt = c.peek()
+    if nxt and nxt.kind == "punct" and nxt.value == ".":
+        c.advance()
+        tail = c.expect_ident()
+        return f"{head.value.lower()}.{tail.value.lower()}", head.pos
+    return head.value.lower(), head.pos
+
+
 def _parse_reject_cmp(c: _Cursor) -> RejectNode:
     t = c.peek()
     if t and t.kind == "punct" and t.value == "(":
@@ -584,13 +608,12 @@ def _parse_reject_cmp(c: _Cursor) -> RejectNode:
         c.expect_punct(")")
         return inner
 
-    metric_tok = c.expect_ident()
-    metric = metric_tok.value.lower()
+    metric, metric_pos = _parse_reject_metric(c)
     if metric not in REJECT_METRICS:
         raise QueryParseError(
-            f"can't reject on '{metric_tok.value}'; valid metrics: "
+            f"can't reject on '{metric}'; valid metrics: "
             + ", ".join(sorted(REJECT_METRICS)),
-            metric_tok.pos,
+            metric_pos,
         )
 
     nxt = c.peek()
@@ -614,7 +637,7 @@ def _parse_reject_cmp(c: _Cursor) -> RejectNode:
     # Comparison form: metric <op> number
     if nxt is None or nxt.kind != "op":
         raise QueryParseError(
-            "expected a comparison (e.g. value > 100) or 'between'/'outside'",
+            "expected a comparison (e.g. signal.value > 100) or 'between'/'outside'",
             nxt.pos if nxt else c._tail_pos(),
         )
     op = nxt.value

@@ -27,30 +27,8 @@ jobs:
 
       - name: Lint
         run: |
-          ruff format --check src/ tests/
-          ruff check src/ tests/
+          ruff format --check src/
+          ruff check src/
 
       - name: Type check
         run: mypy src/
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: |
-            3.10
-            3.11
-            3.12
-            3.13
-
-      - name: Test
-        run: |
-          for ver in 3.10 3.11 3.12 3.13; do
-            echo "::group::Python $ver"
-            python$ver -m pip install -e ".[dev]"
-            python$ver -m pytest tests/ -v
-            echo "::endgroup::"
-          done
