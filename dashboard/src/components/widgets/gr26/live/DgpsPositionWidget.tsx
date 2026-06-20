@@ -1,43 +1,46 @@
 import { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import LiveWidget from "@/components/widgets/LiveWidget";
-import { GR_COLORS } from "@/consts/config";
+import { GR_COLORS, MAPBOX_ACCESS_TOKEN } from "@/consts/config";
+
+mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
 
 interface DgpsPositionWidgetProps {
   vehicle_id: string;
   showDeltaBanner?: boolean;
 }
 
-function createMarkerIcon() {
-  return L.divIcon({
-    className: "",
-    html: `<div style="
-      width:14px;height:14px;border-radius:50%;
-      background:${GR_COLORS.PINK};border:2px solid #fff;
-      box-shadow:0 0 8px rgba(225,5,163,0.5);
-    "></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
+// Build the marker DOM once per mount. Mapbox doesn't have Leaflet's
+// divIcon factory; the marker is just a plain element you hand it.
+function createMarkerElement() {
+  const el = document.createElement("div");
+  el.style.width = "14px";
+  el.style.height = "14px";
+  el.style.borderRadius = "50%";
+  el.style.background = GR_COLORS.PINK;
+  el.style.border = "2px solid #fff";
+  el.style.boxShadow = "0 0 8px rgba(225,5,163,0.5)";
+  return el;
 }
 
 function DgpsMap({ lat, lon }: { lat: number; lon: number }) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const marker = useRef<L.Marker | null>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const marker = useRef<mapboxgl.Marker | null>(null);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    map.current = L.map(mapContainer.current, {
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/dark-v10",
+      // Mapbox uses [lng, lat] — the inverse of Leaflet's [lat, lng].
+      // Get this wrong and the map starts off the coast of Africa.
+      center: [lon || 0, lat || 0],
+      zoom: 17,
       attributionControl: false,
-      zoomControl: false,
-    }).setView([lat || 0, lon || 0], 17);
-
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-    }).addTo(map.current);
+    });
 
     return () => {
       map.current?.remove();
@@ -48,17 +51,20 @@ function DgpsMap({ lat, lon }: { lat: number; lon: number }) {
   useEffect(() => {
     if (!map.current || !lat || !lon) return;
 
-    map.current.setView([lat, lon], map.current.getZoom(), {
-      animate: true,
-      duration: 0.5,
+    // Easing match for the prior Leaflet `setView({ animate, duration })` —
+    // mapbox's flyTo wraps both panning and zoom in a single cubic ease,
+    // so the marker glides instead of teleporting on every sample.
+    map.current.easeTo({
+      center: [lon, lat],
+      duration: 500,
     });
 
     if (!marker.current) {
-      marker.current = L.marker([lat, lon], {
-        icon: createMarkerIcon(),
-      }).addTo(map.current);
+      marker.current = new mapboxgl.Marker({ element: createMarkerElement() })
+        .setLngLat([lon, lat])
+        .addTo(map.current);
     } else {
-      marker.current.setLatLng([lat, lon]);
+      marker.current.setLngLat([lon, lat]);
     }
   }, [lat, lon]);
 
