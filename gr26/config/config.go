@@ -21,7 +21,7 @@ func (s ServiceInfo) PathPrefix() string {
 
 var Service = ServiceInfo{
 	Name:    "GR26",
-	Version:     "3.9.2",
+	Version:     "3.9.3",
 }
 
 var SkipAuthCheck = os.Getenv("SKIP_AUTH_CHECK") == "true"
