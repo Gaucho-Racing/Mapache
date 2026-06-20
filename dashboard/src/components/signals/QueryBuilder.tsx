@@ -402,7 +402,9 @@ function ModifyMenu({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-md border border-dashed px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          className={cn(
+            "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+          )}
         >
           <Plus className="h-3 w-3" />
           Modify
