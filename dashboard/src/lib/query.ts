@@ -139,7 +139,7 @@ export function serializeQuery(q: Query): string {
   }
 
   if (q.rollup) {
-    out += `.every(${q.rollup})`;
+    out += `.rollup(${q.rollup})`;
   }
 
   if (q.fill) {
@@ -276,8 +276,7 @@ const ROLLUP_SET = new Set<string>(ROLLUP_INTERVALS);
 const FILL_SET = new Set<string>(FILL_MODES);
 const REJECT_METRIC_SET = new Set<string>(REJECT_METRICS);
 const COMPARISON_OPS = new Set<ComparisonOp>([">", ">=", "<", "<=", "=", "!="]);
-const RENAMED_METHODS: Record<string, string> = { rollup: "every" };
-const METHODS = new Set(["where", "by", "every", "reject", "fill"]);
+const METHODS = new Set(["where", "by", "rollup", "reject", "fill"]);
 
 /** Parse an MQL string into a validated Query AST. Never throws — returns a
  *  result object with a {message, position} error on failure. */
@@ -308,8 +307,6 @@ export function parseQuery(input: string): ParseResult {
       c.advance();
       const methodTok = c.expectIdent();
       const method = methodTok.value.toLowerCase();
-      if (RENAMED_METHODS[method])
-        throw new MqlParseError(`'.${method}' was renamed to '.${RENAMED_METHODS[method]}'`, methodTok.pos);
       if (!METHODS.has(method))
         throw new MqlParseError(
           `unknown method '.${methodTok.value}'; expected one of ` +
@@ -319,8 +316,8 @@ export function parseQuery(input: string): ParseResult {
       c.expectPunct("(");
       if (method === "where") filters.push(...parseWhereArgs(c));
       else if (method === "by") groupBy.push(...parseByArgs(c));
-      else if (method === "every") {
-        if (rollup) throw new MqlParseError("'.every' specified more than once", methodTok.pos);
+      else if (method === "rollup") {
+        if (rollup) throw new MqlParseError("'.rollup' specified more than once", methodTok.pos);
         rollup = parseEveryArgs(c);
       } else if (method === "reject") {
         if (reject) throw new MqlParseError("'.reject' specified more than once", methodTok.pos);

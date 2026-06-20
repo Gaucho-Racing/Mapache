@@ -1,21 +1,21 @@
 """Tiny query language for the signals chart.
 
-Grammar (v0.3 — method-chain):
-    <fn>(<field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
-    methods: .where(<pred>) .by(<col>,...) .every(<interval>)
+Grammar (v0.4 — method-chain, dotted fields):
+    <fn>(<signal.field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
+    methods: .where(<pred>) .by(<col>,...) .rollup(<interval>)
              .reject(<bool>) .fill(<mode>)
     A trailing `-> name` names the result series (and, on the frontend,
     exposes it as a referenceable variable).
 
 Examples:
-    count(signal)
-    count(signal).by(name)
-    avg(value).where(name = "ecu_acc_pedal")
-    count(signal).where(name = "ecu*") -> ecu
-    count(signal).where(name != "ecu*") -> other
-    avg(value).where(name not in ("a", "b"))
-    last(value).where(name in ("a", "b")).reject(sigma > 3).every(100ms)
-    avg(value).reject(value outside (0, 100)).fill(last)
+    count(signal.name)
+    count(signal.name).by(name)
+    avg(signal.value).where(name = "ecu_acc_pedal")
+    count(signal.name).where(name = "ecu*") -> ecu
+    count(signal.name).where(name != "ecu*") -> other
+    avg(signal.value).where(name not in ("a", "b"))
+    last(signal.value).where(name in ("a", "b")).reject(sigma > 3).rollup(100ms)
+    avg(signal.value).reject(signal.value outside (0, 100)).fill(last)
 
 This is intentionally small. We want it to feel like Datadog's metric
 query syntax (one aggregator + filters + group-by + automatic time
@@ -194,10 +194,7 @@ def _tokenize(s: str) -> list[Token]:
 # Parser (recursive descent over a token cursor)
 # ---------------------------------------------------------------------------
 
-_METHODS = {"where", "by", "every", "reject", "fill"}
-
-# Renamed methods, flagged with a migration error instead of "unknown method".
-_RENAMED_METHODS = {"rollup": "every"}
+_METHODS = {"where", "by", "rollup", "reject", "fill"}
 
 
 class _Cursor:
@@ -258,7 +255,7 @@ def parse(s: str) -> Query:
     filters: list[Predicate] = []
     group_by: list[str] = []
     rollup: str | None = None
-    every_seen_pos: int | None = None
+    rollup_seen_pos: int | None = None
     reject: RejectNode | None = None
     reject_seen_pos: int | None = None
     fill: str | None = None
@@ -281,11 +278,6 @@ def parse(s: str) -> Query:
         method_tok = c.expect_ident()
         method = method_tok.value.lower()
 
-        if method in _RENAMED_METHODS:
-            raise QueryParseError(
-                f"'.{method}' was renamed to '.{_RENAMED_METHODS[method]}'",
-                method_tok.pos,
-            )
         if method not in _METHODS:
             raise QueryParseError(
                 f"unknown method '.{method_tok.value}'; expected one of "
@@ -298,14 +290,14 @@ def parse(s: str) -> Query:
             filters.extend(_parse_where_args(c))
         elif method == "by":
             group_by.extend(_parse_by_args(c))
-        elif method == "every":
-            if every_seen_pos is not None:
+        elif method == "rollup":
+            if rollup_seen_pos is not None:
                 raise QueryParseError(
-                    "'.every' specified more than once",
+                    "'.rollup' specified more than once",
                     method_tok.pos,
                 )
-            rollup = _parse_every_args(c)
-            every_seen_pos = method_tok.pos
+            rollup = _parse_rollup_args(c)
+            rollup_seen_pos = method_tok.pos
         elif method == "reject":
             if reject_seen_pos is not None:
                 raise QueryParseError(
@@ -527,7 +519,7 @@ def _parse_by_args(c: _Cursor) -> list[str]:
     return cols
 
 
-def _parse_every_args(c: _Cursor) -> str:
+def _parse_rollup_args(c: _Cursor) -> str:
     """Parse a single interval literal (e.g. `10s`, `1m`, `1h`)."""
     iv_tok = c.peek()
     if iv_tok is None or iv_tok.kind != "interval":

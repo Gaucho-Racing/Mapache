@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { useTextMirror } from "@/lib/useTextMirror";
 import Fuse from "fuse.js";
 import { ChevronDown, Plus, X } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 /** Per-series summary of the raw samples a `.reject(...)` clause cut before
  *  aggregation. One entry per series (single entry with empty `tags` when the
@@ -159,7 +159,6 @@ export function QueryBuilder({
     rollup: value.rollup !== undefined,
     reject: value.reject !== undefined,
     fill: value.fill !== undefined,
-    label: value.label !== undefined,
   };
 
   // Sensible starting values when a modifier is freshly added from the
@@ -171,11 +170,28 @@ export function QueryBuilder({
     else if (kind === "reject")
       setReject({ kind: "cmp", metric: "sigma", op: ">", threshold: 3 });
     else if (kind === "fill") setFill("gap");
-    else if (kind === "label") setLabel("series");
   }
 
   return (
     <div className="flex flex-col gap-2.5">
+      {/* Series name (serializes to `-> ident`). Always visible so a query
+          author can label the result without hunting through a menu. Hidden
+          when breaking out by name — a per-group breakdown is already
+          labeled by its group values, so `-> name` would be ambiguous. */}
+      {!breakout ? (
+        <div className="flex items-center gap-2">
+          <label className="select-none text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Name series
+          </label>
+          <Input
+            value={value.label ?? ""}
+            onChange={(e) => setLabel(e.target.value || undefined)}
+            placeholder="unnamed"
+            className="h-7 max-w-[220px] font-mono text-xs"
+          />
+        </div>
+      ) : null}
+
       {/* Reads as a sentence: Show <agg> of <field> where <filters> … */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 leading-7">
         <Clause keyword="Show">
@@ -229,7 +245,7 @@ export function QueryBuilder({
         ) : null}
 
         {activeModifiers.rollup ? (
-          <RemovableClause keyword="every" onRemove={() => setRollup(undefined)}>
+          <RemovableClause keyword="rollup" onRemove={() => setRollup(undefined)}>
             <RollupChip value={value.rollup} onChange={setRollup} />
           </RemovableClause>
         ) : null}
@@ -247,14 +263,6 @@ export function QueryBuilder({
         {activeModifiers.fill ? (
           <RemovableClause keyword="fill" onRemove={() => setFill(undefined)}>
             <FillChip value={value.fill} onChange={setFill} />
-          </RemovableClause>
-        ) : null}
-
-        {/* `-> name` labels the single result series; hidden while breaking
-            out (a breakdown is already labeled by its group values). */}
-        {activeModifiers.label && !activeModifiers.breakout ? (
-          <RemovableClause keyword="→" onRemove={() => setLabel(undefined)}>
-            <LabelChip value={value.label} onChange={setLabel} />
           </RemovableClause>
         ) : null}
 
@@ -348,7 +356,7 @@ function RemovableClause({
   );
 }
 
-type ModifierKind = "breakout" | "rollup" | "reject" | "fill" | "label";
+type ModifierKind = "breakout" | "rollup" | "reject" | "fill";
 
 /** The set of optional modifiers a query can carry, with the copy that
  *  surfaces in the Modify menu. Order here drives the menu order. */
@@ -364,7 +372,7 @@ const MODIFIER_ITEMS: {
   },
   {
     kind: "rollup",
-    label: "every",
+    label: "rollup",
     description: "Override the automatic bucket width.",
   },
   {
@@ -376,11 +384,6 @@ const MODIFIER_ITEMS: {
     kind: "fill",
     label: "fill",
     description: "Choose what to show when a bucket has no data.",
-  },
-  {
-    kind: "label",
-    label: "→",
-    description: "Name the result so axis controls / expressions can refer to it.",
   },
 ];
 
@@ -660,61 +663,6 @@ function FillChip({
   );
 }
 
-
-// `-> name` chip: names the result series and exposes it as a variable. Unset
-// reads "name". Input is restricted to identifier chars by `setLabel`.
-function LabelChip({
-  value,
-  onChange,
-}: {
-  value: string | undefined;
-  onChange: (next: string | undefined) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
-  // Re-seed from the AST when it changes (e.g. the MQL line edits `-> name`).
-  useEffect(() => setDraft(value ?? ""), [value]);
-  const isDefault = !value;
-  const commit = () => {
-    onChange(draft);
-    setOpen(false);
-  };
-  return (
-    <Popover open={open} onOpenChange={(o) => { if (!o) commit(); setOpen(o); }}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            CHIP_BASE,
-            "font-medium hover:border-primary/40 hover:bg-accent/50",
-            isDefault && "text-muted-foreground",
-          )}
-        >
-          {value ?? "name"}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[220px] p-2">
-        <Input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            } else if (e.key === "Escape") {
-              setDraft(value ?? "");
-              setOpen(false);
-            }
-          }}
-          placeholder="variable name (e.g. ecu)"
-          className="h-8 font-mono text-xs"
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 // Outlier rejection. Two toggles combine into a RejectNode (OR'd): statistical
 // outliers (`sigma > N`) and hard limits (`value outside (min, max)`, or a
