@@ -556,11 +556,15 @@ export function SessionEditorPage() {
               end_time: tsToIso(cropEndTs),
             }
           : session;
-      const updated = await saveSessionAnalysis(windowed, buildPayload());
-      if (lapResult && lapResult.lapCount > 0) {
-        const laps = deriveLapInputs(lapResult, croppedPoints);
-        await saveSessionLaps(updated.id, laps);
-      }
+      const laps =
+        lapResult && lapResult.lapCount > 0
+          ? deriveLapInputs(lapResult, croppedPoints)
+          : [];
+      const updated = await saveSessionAnalysisWithLaps(
+        windowed,
+        buildPayload(),
+        laps,
+      );
       notify.success(`Saved analysis for ${updated.name}`);
       navigate(`/sessions/${updated.id}`);
     } catch (e) {
