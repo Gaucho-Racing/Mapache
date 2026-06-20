@@ -26,7 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTextMirror } from "@/lib/useTextMirror";
 import Fuse from "fuse.js";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus, Sigma, X } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 
 /** Per-series summary of the raw samples a `.reject(...)` clause cut before
@@ -192,51 +192,55 @@ export function QueryBuilder({
         </div>
       ) : null}
 
-      {/* Reads as a sentence: Show <agg> of <field> where <filters> … */}
+      {/* Datadog-style query row: source pill on the left, filters in the
+          middle, aggregator/field/breakout in the middle-right, function
+          menu (Σ) on the far right. Reads left-to-right as a single line
+          rather than the prior "Show <agg> of <field> where …" sentence. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 leading-7">
-        <Clause keyword="Show">
-          <SelectChip
-            label={value.fn}
-            options={AGGREGATORS.map((a) => ({
-              value: a.value,
-              label: a.label,
-            }))}
-            onSelect={(v) => setFn(v as Aggregator)}
-          />
-          <Connector>of</Connector>
-          <SelectChip
-            label={value.field}
-            options={fieldOptions.map((f) => ({ value: f, label: f }))}
-            onSelect={(v) => setField(v as FieldName)}
-            disabled={fieldFixed}
-          />
-        </Clause>
+        <SourcePill>Signal</SourcePill>
 
-        <Clause keyword="where">
-          {value.filters.length === 0 ? (
-            <Hint>all signals</Hint>
-          ) : (
-            value.filters.map((pred, i) => {
-              // Same-column filters combine: matches union ("or"), negations
-              // intersect ("and"). Show the connector so it doesn't read ambiguously.
-              const prev = i > 0 ? value.filters[i - 1] : null;
-              const sameColAsPrev = prev !== null && prev.column === pred.column;
-              const connector = pred.op === "!=" ? "and" : "or";
-              return (
-                <span key={i} className="inline-flex items-center gap-2">
-                  {sameColAsPrev ? <Connector>{connector}</Connector> : null}
-                  <FilterChip
-                    value={pred}
-                    onChange={(next) => updateFilter(i, next)}
-                    onRemove={() => removeFilter(i)}
-                    signalNames={signalNames}
-                  />
-                </span>
-              );
-            })
-          )}
-          <AddChip label="filter" onClick={addFilter} />
-        </Clause>
+        <Connector>from</Connector>
+        {value.filters.length === 0 ? (
+          <Hint>all signals</Hint>
+        ) : (
+          value.filters.map((pred, i) => {
+            // Same-column filters combine: matches union ("or"), negations
+            // intersect ("and"). Show the connector so it doesn't read ambiguously.
+            const prev = i > 0 ? value.filters[i - 1] : null;
+            const sameColAsPrev = prev !== null && prev.column === pred.column;
+            const connector = pred.op === "!=" ? "and" : "or";
+            return (
+              <span key={i} className="inline-flex items-center gap-2">
+                {sameColAsPrev ? <Connector>{connector}</Connector> : null}
+                <FilterChip
+                  value={pred}
+                  onChange={(next) => updateFilter(i, next)}
+                  onRemove={() => removeFilter(i)}
+                  signalNames={signalNames}
+                />
+              </span>
+            );
+          })
+        )}
+        <AddChip label="filter" onClick={addFilter} />
+
+        <Divider />
+
+        <SelectChip
+          label={value.fn}
+          options={AGGREGATORS.map((a) => ({
+            value: a.value,
+            label: a.label,
+          }))}
+          onSelect={(v) => setFn(v as Aggregator)}
+        />
+        <Connector>of</Connector>
+        <SelectChip
+          label={value.field}
+          options={fieldOptions.map((f) => ({ value: f, label: f }))}
+          onSelect={(v) => setField(v as FieldName)}
+          disabled={fieldFixed}
+        />
 
         {activeModifiers.breakout ? (
           <RemovableClause keyword="by" onRemove={() => setBreakout(false)}>
@@ -266,7 +270,9 @@ export function QueryBuilder({
           </RemovableClause>
         ) : null}
 
-        <ModifyMenu active={activeModifiers} onAdd={addModifier} />
+        <div className="ml-auto">
+          <ModifyMenu active={activeModifiers} onAdd={addModifier} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
@@ -311,23 +317,6 @@ export function QueryBuilder({
 // ---------------------------------------------------------------------------
 // Sentence scaffolding
 // ---------------------------------------------------------------------------
-
-/** A clause is a keyword lead-in ("where", "grouped by", ...) followed by its
- *  chips, kept together so they wrap as a unit and read as one phrase. */
-function Clause({
-  keyword,
-  children,
-}: {
-  keyword: string;
-  children: ReactNode;
-}) {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-2">
-      <Keyword>{keyword}</Keyword>
-      {children}
-    </span>
-  );
-}
 
 /** Clause + an X to remove the whole modifier. The X returns the
  *  corresponding entry to the Modify menu. */
@@ -405,12 +394,12 @@ function ModifyMenu({
       <PopoverTrigger asChild>
         <button
           type="button"
+          title="Apply a function"
           className={cn(
-            "inline-flex h-7 items-center gap-1 rounded-md border border-dashed bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
+            "inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground",
           )}
         >
-          <Plus className="h-3 w-3" />
-          Modify
+          <Sigma className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-1">
@@ -454,6 +443,23 @@ function Connector({ children }: { children: ReactNode }) {
       {children}
     </span>
   );
+}
+
+/** Static "data source" pill on the left edge of a query row. The Mapache
+ *  signals page only has one source (signal rows from ClickHouse), so
+ *  this is decorative — it gives the row a Datadog-style anchor point. */
+function SourcePill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex h-7 select-none items-center rounded-md bg-primary/15 px-2 text-xs font-medium text-primary">
+      {children}
+    </span>
+  );
+}
+
+/** Subtle vertical hairline separating logical sections of the row
+ *  (filters vs aggregator vs functions). */
+function Divider() {
+  return <span aria-hidden className="mx-1 h-5 w-px bg-border" />;
 }
 
 /** Muted placeholder shown when a clause has no chips yet. */
