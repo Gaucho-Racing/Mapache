@@ -1,12 +1,17 @@
 package service
 
 import (
-	"strings"
-
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 	"github.com/gaucho-racing/mapache/vehicle/database"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+// sessionUpsertColumns are the non-id columns refreshed when upserting an
+// existing session row.
+var sessionUpsertColumns = []string{
+	"vehicle_id", "name", "description", "start_time", "end_time", "analysis",
+}
 
 func GetAllSessionsPaged(limit, offset int) []mapache.Session {
 	var sessions []mapache.Session
@@ -70,19 +75,15 @@ func GetSessionByID(id string) mapache.Session {
 	return session
 }
 
+// CreateSession upserts on the primary key. Using ON CONFLICT (rather than
+// catching a duplicate-key error and retrying with an UPDATE) keeps the write
+// to a single statement, which also makes it safe to reuse inside the analysis
+// save transaction, where a failed INSERT would otherwise abort the whole tx.
 func CreateSession(session mapache.Session) error {
-	result := database.DB.Create(&session)
-	if result.Error != nil {
-		if strings.Contains(result.Error.Error(), "duplicate key") {
-			result = database.DB.Where("id = ?", session.ID).Updates(&session)
-			if result.Error != nil {
-				return result.Error
-			}
-		} else {
-			return result.Error
-		}
-	}
-	return nil
+	return database.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns(sessionUpsertColumns),
+	}).Create(&session).Error
 }
 
 // SaveSessionAnalysisAndLaps upserts the session (geometry/analysis blob) and
@@ -91,15 +92,11 @@ func CreateSession(session mapache.Session) error {
 // insert-or-update behavior for the session row.
 func SaveSessionAnalysisAndLaps(session mapache.Session, laps []mapache.Lap) error {
 	return database.DB.Transaction(func(tx *gorm.DB) error {
-		result := tx.Create(&session)
-		if result.Error != nil {
-			if strings.Contains(result.Error.Error(), "duplicate key") {
-				if err := tx.Where("id = ?", session.ID).Updates(&session).Error; err != nil {
-					return err
-				}
-			} else {
-				return result.Error
-			}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns(sessionUpsertColumns),
+		}).Create(&session).Error; err != nil {
+			return err
 		}
 		return replaceLapsTx(tx, session.ID, laps)
 	})
