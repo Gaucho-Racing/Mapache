@@ -54,7 +54,7 @@ function DgpsMap({ lat, lon }: { lat: number; lon: number }) {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/dark-v10",
+      style: "mapbox://styles/mapbox/light-v11",
       // Mapbox uses [lng, lat] — the inverse of Leaflet's [lat, lng].
       // Get this wrong and the map starts off the coast of Africa.
       center: [lon || 0, lat || 0],

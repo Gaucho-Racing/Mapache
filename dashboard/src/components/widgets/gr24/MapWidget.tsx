@@ -47,7 +47,7 @@ function MapComponent({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/dark-v10",
+      style: "mapbox://styles/mapbox/light-v11",
       zoom: 13,
       attributionControl: false,
     });
