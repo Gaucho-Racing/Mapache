@@ -906,12 +906,11 @@ function FilterChip({
             type="button"
             className="inline-flex items-center gap-1.5 rounded-sm hover:text-primary"
           >
-            <span className="font-medium">{value.column}</span>
-            <span className="text-muted-foreground">
-              {value.op === "!=" ? "is not" : "is"}
-            </span>
+            {value.op === "!=" ? (
+              <span className="text-muted-foreground">not</span>
+            ) : null}
             {filled ? (
-              <span>{value.value}</span>
+              <span className="font-medium">{value.value}</span>
             ) : (
               <span className="italic text-muted-foreground">choose…</span>
             )}
