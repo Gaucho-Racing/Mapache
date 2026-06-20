@@ -223,8 +223,8 @@ export function QueryBuilder({
         </Clause>
 
         {activeModifiers.breakout ? (
-          <RemovableClause keyword="grouped" onRemove={() => setBreakout(false)}>
-            <span className="select-none text-xs text-muted-foreground">by name</span>
+          <RemovableClause keyword="by" onRemove={() => setBreakout(false)}>
+            <span className="select-none text-xs text-muted-foreground">name</span>
           </RemovableClause>
         ) : null}
 
@@ -359,28 +359,28 @@ const MODIFIER_ITEMS: {
 }[] = [
   {
     kind: "breakout",
-    label: "Group by name",
+    label: "by",
     description: "Split results into one series per signal name.",
   },
   {
     kind: "rollup",
-    label: "Rollup interval",
+    label: "every",
     description: "Override the automatic bucket width.",
   },
   {
     kind: "reject",
-    label: "Reject outliers",
+    label: "reject",
     description: "Drop raw samples by value or sigma before aggregating.",
   },
   {
     kind: "fill",
-    label: "Fill empty buckets",
+    label: "fill",
     description: "Choose what to show when a bucket has no data.",
   },
   {
     kind: "label",
-    label: "Name series",
-    description: "Label the result so axis controls / expressions can refer to it.",
+    label: "→",
+    description: "Name the result so axis controls / expressions can refer to it.",
   },
 ];
 
