@@ -20,6 +20,15 @@ def require_user(authorization: str | None = Header(None)) -> str:
             detail="you are not authorized to access this resource",
         )
     token = authorization.split("Bearer ")[1]
-    user_id = AuthService.get_user_id_from_token(token)
+    try:
+        user_id = AuthService.get_user_id_from_token(token)
+    except Exception as e:
+        # AuthService raises bare Exception for expired / malformed /
+        # bad-issuer tokens. Surface those as 401 so the dashboard's
+        # checkCredentials() can catch them and bounce to login —
+        # bare Exception otherwise becomes a 500 via FastAPI's default
+        # handler, which looks like a server bug.
+        logger.warning(f"Token verification failed: {e}")
+        raise HTTPException(status_code=401, detail=str(e))
     logger.info(f"Successfully authenticated user: {user_id}")
     return user_id
