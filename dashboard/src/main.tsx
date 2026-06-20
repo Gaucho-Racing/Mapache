@@ -21,6 +21,8 @@ import DebugPage from "@/pages/debug/DebugPage.tsx";
 import SessionsPage from "@/pages/sessions/SessionsPage.tsx";
 import SessionDetailPage from "@/pages/sessions/SessionDetailPage.tsx";
 import SessionEditorPage from "@/pages/sessions/SessionEditorPage.tsx";
+import DashboardsPage from "@/pages/dashboards/DashboardsPage.tsx";
+import DashboardDetailsPage from "@/pages/dashboards/DashboardDetailsPage.tsx";
 import { useRoseMode } from "@/lib/store";
 import { useEffect } from "react";
 
@@ -80,6 +82,14 @@ const router = createBrowserRouter([
   {
     path: "/sessions/:id/edit",
     element: <SessionEditorPage />,
+  },
+  {
+    path: "/dashboards",
+    element: <DashboardsPage />,
+  },
+  {
+    path: "/dashboards/:id",
+    element: <DashboardDetailsPage />,
   },
 ]);
 

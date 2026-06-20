@@ -2,6 +2,12 @@ module github.com/gaucho-racing/mapache/vehicle
 
 go 1.26
 
+// Pin mapache-go to the in-repo copy so adding model types to that
+// shared package doesn't require a tag-and-release round-trip just to
+// build the consuming services. Drop this and bump the version in
+// `require` once mapache-go has been released with the new types.
+replace github.com/gaucho-racing/mapache/mapache-go/v3 => ../mapache-go
+
 require (
 	github.com/fatih/color v1.18.0
 	github.com/gaucho-racing/mapache/mapache-go/v3 v3.5.0

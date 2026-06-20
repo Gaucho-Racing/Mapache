@@ -15,6 +15,7 @@ import {
   ChevronsUpDown,
   Flag,
   LayoutDashboard,
+  LayoutGrid,
   LucideIcon,
   Settings,
 } from "lucide-react";
@@ -296,6 +297,13 @@ const Sidebar = (props: SidebarProps) => {
             text="Sessions"
             link={`/sessions?vid=${currentVehicle.id}`}
             isSelected={props.selectedPage === "sessions"}
+            isSidebarExpanded={props.isSidebarExpanded}
+          />
+          <SidebarItem
+            icon={LayoutGrid}
+            text="Dashboards"
+            link={`/dashboards`}
+            isSelected={props.selectedPage === "dashboards"}
             isSidebarExpanded={props.isSidebarExpanded}
           />
           <div className="px-4 py-2">

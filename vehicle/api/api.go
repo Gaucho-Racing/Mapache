@@ -67,6 +67,18 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/sessions/:sessionID/laps", GetLapsForSession)
 	router.PUT("/sessions/:sessionID/laps", ReplaceLapsForSession)
 
+	// Dashboards: user-curated grids of widgets driven by the MQL query
+	// language. Widget endpoints are nested under their dashboard so the
+	// react-grid-layout drag/resize PUT can hit a stable path per widget.
+	router.GET("/dashboards", GetAllDashboards)
+	router.POST("/dashboards", CreateDashboard)
+	router.GET("/dashboards/:dashboardID", GetDashboardByID)
+	router.PUT("/dashboards/:dashboardID", UpdateDashboard)
+	router.DELETE("/dashboards/:dashboardID", DeleteDashboard)
+	router.POST("/dashboards/:dashboardID/widgets", CreateWidget)
+	router.PUT("/dashboards/:dashboardID/widgets/:widgetID", UpdateWidget)
+	router.DELETE("/dashboards/:dashboardID/widgets/:widgetID", DeleteWidget)
+
 	router.GET("/vehicle-types", GetVehicleTypes)
 
 	// Config flag definitions (per vehicle type).

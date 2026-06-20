@@ -131,6 +131,22 @@ routes:
       strip_prefix: /api
     envelope: default
 
+  - name: dashboards
+    match:
+      path: /api/dashboards
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: dashboards-id
+    match:
+      path: /api/dashboards/*
+    upstream: vehicle
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
   - name: vehicle-types
     match:
       path: /api/vehicle-types
