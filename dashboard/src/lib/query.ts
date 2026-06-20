@@ -135,7 +135,7 @@ export function serializeQuery(q: Query): string {
   }
 
   if (q.reject) {
-    out += `.reject(${serializeReject(q.reject)})`;
+    out += `.filter(${serializeReject(q.reject)})`;
   }
 
   if (q.rollup) {
@@ -276,7 +276,7 @@ const ROLLUP_SET = new Set<string>(ROLLUP_INTERVALS);
 const FILL_SET = new Set<string>(FILL_MODES);
 const REJECT_METRIC_SET = new Set<string>(REJECT_METRICS);
 const COMPARISON_OPS = new Set<ComparisonOp>([">", ">=", "<", "<=", "=", "!="]);
-const METHODS = new Set(["where", "by", "rollup", "reject", "fill"]);
+const METHODS = new Set(["where", "by", "rollup", "filter", "fill"]);
 
 /** Parse an MQL string into a validated Query AST. Never throws — returns a
  *  result object with a {message, position} error on failure. */
@@ -319,8 +319,8 @@ export function parseQuery(input: string): ParseResult {
       else if (method === "rollup") {
         if (rollup) throw new MqlParseError("'.rollup' specified more than once", methodTok.pos);
         rollup = parseEveryArgs(c);
-      } else if (method === "reject") {
-        if (reject) throw new MqlParseError("'.reject' specified more than once", methodTok.pos);
+      } else if (method === "filter") {
+        if (reject) throw new MqlParseError("'.filter' specified more than once", methodTok.pos);
         reject = parseRejectOr(c);
       } else if (method === "fill") {
         if (fill) throw new MqlParseError("'.fill' specified more than once", methodTok.pos);

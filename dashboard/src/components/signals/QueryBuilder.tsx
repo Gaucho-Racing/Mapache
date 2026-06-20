@@ -222,7 +222,7 @@ export function QueryBuilder({
             );
           })
         )}
-        <AddChip label="filter" onClick={addFilter} />
+        <AddChip label="signal" onClick={addFilter} />
 
         <Divider />
 
@@ -255,7 +255,7 @@ export function QueryBuilder({
         ) : null}
 
         {activeModifiers.reject ? (
-          <RemovableClause keyword="reject" onRemove={() => setReject(undefined)}>
+          <RemovableClause keyword="filter" onRemove={() => setReject(undefined)}>
             <RejectChip
               value={value.reject}
               onChange={setReject}
@@ -364,7 +364,7 @@ const MODIFIER_ITEMS: {
   },
   {
     kind: "reject",
-    label: "reject",
+    label: "filter",
     description: "Drop raw samples by value or sigma before aggregating.",
   },
   {

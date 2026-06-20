@@ -3,7 +3,7 @@
 Grammar (v0.4 — method-chain, dotted fields):
     <fn>(<signal.field>) ( '.' <method> '(' <args> ')' )* ( '->' <ident> )?
     methods: .where(<pred>) .by(<col>,...) .rollup(<interval>)
-             .reject(<bool>) .fill(<mode>)
+             .filter(<bool>) .fill(<mode>)
     A trailing `-> name` names the result series (and, on the frontend,
     exposes it as a referenceable variable).
 
@@ -14,8 +14,8 @@ Examples:
     count(signal.name).where(name = "ecu*") -> ecu
     count(signal.name).where(name != "ecu*") -> other
     avg(signal.value).where(name not in ("a", "b"))
-    last(signal.value).where(name in ("a", "b")).reject(sigma > 3).rollup(100ms)
-    avg(signal.value).reject(signal.value outside (0, 100)).fill(last)
+    last(signal.value).where(name in ("a", "b")).filter(sigma > 3).rollup(100ms)
+    avg(signal.value).filter(signal.value outside (0, 100)).fill(last)
 
 This is intentionally small. We want it to feel like Datadog's metric
 query syntax (one aggregator + filters + group-by + automatic time
@@ -194,7 +194,7 @@ def _tokenize(s: str) -> list[Token]:
 # Parser (recursive descent over a token cursor)
 # ---------------------------------------------------------------------------
 
-_METHODS = {"where", "by", "rollup", "reject", "fill"}
+_METHODS = {"where", "by", "rollup", "filter", "fill"}
 
 
 class _Cursor:
@@ -298,11 +298,11 @@ def parse(s: str) -> Query:
                 )
             rollup = _parse_rollup_args(c)
             rollup_seen_pos = method_tok.pos
-        elif method == "reject":
+        elif method == "filter":
             if reject_seen_pos is not None:
                 raise QueryParseError(
-                    "'.reject' specified more than once; combine conditions "
-                    "with 'and'/'or' inside one .reject(...)",
+                    "'.filter' specified more than once; combine conditions "
+                    "with 'and'/'or' inside one .filter(...)",
                     method_tok.pos,
                 )
             reject = _parse_reject_args(c)
