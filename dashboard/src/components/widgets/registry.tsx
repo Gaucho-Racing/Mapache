@@ -3,6 +3,7 @@ import AccelerometerWidget from "@/components/widgets/gr24/AccelerometerWidget";
 import {
   Activity,
   BatteryFull,
+  BatteryWarning,
   Bug,
   CirclePlus,
   Cpu,
@@ -18,6 +19,7 @@ import Gr26PedalsWidget from "@/components/widgets/gr26/live/PedalsWidget";
 import Gr26PedalBarWidget from "@/components/widgets/gr26/live/PedalBarWidget";
 import Gr26EcuDebugWidget from "@/components/widgets/gr26/live/EcuDebugWidget";
 import Gr26BcuDebugWidget from "@/components/widgets/gr26/live/BcuDebugWidget";
+import BatteryEnduranceWidget from "@/components/widgets/gr26/live/BatteryEnduranceWidget";
 import Gr26DtiDebugWidget from "@/components/widgets/gr26/live/DtiDebugWidget";
 import Gr26InverterDebugWidget from "@/components/widgets/gr26/live/InverterDebugWidget";
 import DgpsDebugWidget from "@/components/widgets/gr26/live/DgpsDebugWidget";
@@ -153,6 +155,16 @@ export const gr26_registry = {
     },
   ],
   BCU: [
+    {
+      id: "battery-endurance",
+      name: "Battery Endurance Tracker",
+      description:
+        "Lap-by-lap SOC, min cell voltage & max cell temp with boundary projections and a 0–35 min voltage/temperature graph. Persists across refresh and token expiry.",
+      component: BatteryEnduranceWidget,
+      icon: BatteryWarning,
+      span: 12,
+      preview: "/widgets/gr26/battery-endurance.png",
+    },
     {
       id: "bms-cells",
       name: "BMS Cells",
