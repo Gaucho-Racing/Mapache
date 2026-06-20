@@ -31,7 +31,6 @@ import {
 } from "@/components/signals/QueryChart";
 import { buildSeriesVariables } from "@/lib/derived";
 import {
-  MqlEditor,
   textToQueries,
   type QueryStmt,
 } from "@/components/signals/MqlEditor";
@@ -234,7 +233,6 @@ export function SignalWidget({
   const [queries, setQueries] = useState<QueryStmt[]>([
     { id: newQueryId(), mql: "count(signal.name)" },
   ]);
-  const [editAsMql, setEditAsMql] = useState(false);
   // While a row's field is focused, freeze its kind: `looksLikeFetchQuery`
   // flips at the `(`, and re-classifying mid-type would swap the input element
   // and yank the caret. Re-classified on blur.
@@ -685,12 +683,10 @@ export function SignalWidget({
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-3">
-            {/* Trace list — one row per statement; the "Edit as MQL" toggle
-                swaps it for a single textarea. Both write the same `queries`. */}
+            {/* Trace list — one row per statement. Each chip row carries
+                its own inline-editable MQL line, so power users can drop
+                to text without a global mode toggle. */}
             <div className="flex flex-col gap-2">
-              {editAsMql ? (
-                <MqlEditor queries={queries} onChange={setQueries} />
-              ) : (
                 <div className="flex flex-col gap-3">
                   {classified.map((c) => {
                     const id = c.stmt.id;
@@ -773,16 +769,6 @@ export function SignalWidget({
                     Add query
                   </button>
                 </div>
-              )}
-
-              {/* Edit-as-MQL toggle — swaps chip rows ↔ one textarea. */}
-              <button
-                type="button"
-                onClick={() => setEditAsMql((m) => !m)}
-                className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {editAsMql ? "Edit with chips" : "Edit as MQL"}
-              </button>
             </div>
 
             {/* Advanced options: per-trace y-axis scaling + visibility,
