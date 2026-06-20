@@ -9,8 +9,12 @@ export const SENTINEL_OAUTH_BASE_URL =
 export const SENTINEL_CLIENT_ID =
   import.meta.env.VITE_SENTINEL_CLIENT_ID ?? "TIvD6jCH3mGV";
 
+// Public Mapbox token for the gaucho-racing org. Public tokens (pk.*) are
+// designed to be embedded in client-side bundles — they're scoped to read
+// styles/tiles, no admin capability. Hardcoded so every dev gets working
+// maps out of the box without populating their .env.
 export const MAPBOX_ACCESS_TOKEN =
-  import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? "";
+  "pk.eyJ1IjoiZ2F1Y2hvcmFjaW5nIiwiYSI6ImNtcWhzczIyMjAwbjQycHBzbnhjeXRkcGEifQ.Uoy_aQ1KHZk5b_3LiLXyMA";
 
 export const SKIP_AUTH_CHECK =
   import.meta.env.VITE_SKIP_AUTH_CHECK === "true";
