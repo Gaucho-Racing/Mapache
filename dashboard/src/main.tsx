@@ -23,6 +23,7 @@ import SessionDetailPage from "@/pages/sessions/SessionDetailPage.tsx";
 import SessionEditorPage from "@/pages/sessions/SessionEditorPage.tsx";
 import { useRoseMode } from "@/lib/store";
 import { useEffect } from "react";
+import { ThemeProvider } from "next-themes";
 
 const router = createBrowserRouter([
   {
@@ -85,9 +86,20 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RoseModeBodyClass />
-    <RouterProvider router={router} />
-    <Toaster />
+    {/* `attribute="class"` matches Tailwind's `darkMode: ["class"]` and
+        the no-flash script in index.html — both add/remove the `dark`
+        class on <html>. Storage key kept off the next-themes default
+        so any future migration can rename without breaking sessions. */}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem={false}
+      storageKey="mapache-theme"
+    >
+      <RoseModeBodyClass />
+      <RouterProvider router={router} />
+      <Toaster />
+    </ThemeProvider>
   </React.StrictMode>,
 );
 

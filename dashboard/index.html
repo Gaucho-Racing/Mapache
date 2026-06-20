@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GR Mapache</title>
+    <!-- Read the persisted theme (if any) before React renders so the
+         first paint matches the user's choice. Without this we'd flash
+         light-mode for a frame while next-themes catches up. Mirrors
+         next-themes' own no-flash script. Default to dark to match
+         the long-standing app baseline. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("mapache-theme");
+          if (t === "light") return;
+          document.documentElement.classList.add("dark");
+        } catch (_) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
