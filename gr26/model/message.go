@@ -24,6 +24,8 @@ var messageMap = map[int]mp.Message{
 	0x00F: BCUCellData3,
 	0x010: BCUCellData4,
 	0x011: BCUCellData5,
+	// DCDC (GRCAN node 0x2A, frame 0x2A01202 → msgID 0x012)
+	0x012: DCDCStatus,
 	// GR Inverter
 	0x013: InverterStatus1,
 	0x014: InverterStatus2,
