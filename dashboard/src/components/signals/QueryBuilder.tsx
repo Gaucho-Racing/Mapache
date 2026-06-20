@@ -270,9 +270,7 @@ export function QueryBuilder({
           </RemovableClause>
         ) : null}
 
-        <div className="ml-auto">
-          <ModifyMenu active={activeModifiers} onAdd={addModifier} />
-        </div>
+        <ModifyMenu active={activeModifiers} onAdd={addModifier} />
       </div>
 
       <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-2.5 py-1.5">
