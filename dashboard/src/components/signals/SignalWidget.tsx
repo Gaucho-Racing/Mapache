@@ -48,6 +48,13 @@ import type { Lap } from "@/models/session";
 import type { ECharts } from "echarts/core";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MAPBOX_ACCESS_TOKEN } from "@/consts/config";
 import { formatMetric } from "@/lib/format";
 import {
@@ -71,6 +78,7 @@ import {
   Hand,
   Loader2,
   Map as MapIcon,
+  MoreVertical,
   MousePointer,
   Plus,
   Trash2,
@@ -818,54 +826,51 @@ export function SignalWidget({
             </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <ChartTypeSelect value={chartType} onChange={changeChartType} />
-            {canShowMap && (
+          {/* Widget-level operations collapse into a single kebab so the
+              header reads as "title, menu" rather than an icon parade.
+              Chart-type lives next to the chart canvas now (it's a
+              chart-content choice, not a widget operation). */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={() => setMapEnabled((v) => !v)}
-                title={mapEnabled ? "Hide map" : "Show map"}
-                aria-pressed={mapEnabled}
-                className={`rounded-md p-2 hover:bg-accent hover:text-foreground ${
-                  mapEnabled
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground"
-                }`}
-              >
-                <MapIcon className="h-4 w-4" />
-              </button>
-            )}
-            {hasData && (
-              <button
-                type="button"
-                onClick={() => setExportOpen(true)}
-                title="Export"
+                title="Widget actions"
                 className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
-                <Download className="h-4 w-4" />
+                <MoreVertical className="h-4 w-4" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onToggleHide}
-              title={hidden ? "Show chart" : "Hide chart"}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              {hidden ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {hasData && (
+                <DropdownMenuItem onClick={() => setExportOpen(true)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                </DropdownMenuItem>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              title="Delete widget"
-              className="rounded-md p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
+              {canShowMap && (
+                <DropdownMenuItem onClick={() => setMapEnabled((v) => !v)}>
+                  <MapIcon className="mr-2 h-4 w-4" />
+                  {mapEnabled ? "Hide map" : "Show map"}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={onToggleHide}>
+                {hidden ? (
+                  <EyeOff className="mr-2 h-4 w-4" />
+                ) : (
+                  <Eye className="mr-2 h-4 w-4" />
+                )}
+                {hidden ? "Show chart" : "Hide chart"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete widget
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {!hidden && (
           <div className="flex items-center justify-between">
@@ -896,6 +901,12 @@ export function SignalWidget({
       </CardHeader>
       {!hidden && (
         <CardContent>
+          {/* Chart-type lives here (not in the widget header) — it picks
+              what the chart canvas renders, so it belongs with the
+              chart-content controls. */}
+          <div className="mb-3 flex items-center">
+            <ChartTypeSelect value={chartType} onChange={changeChartType} />
+          </div>
           {path === "timeseries" && onInteractionModeChange && (
             // Left-drag mode sits just above the chart so it's a short hop to
             // the gesture; "select" brushes a timeframe, "pan" slides the zoom.
