@@ -26,6 +26,21 @@ function MapComponent({
   const marker = useRef<mapboxgl.Marker | null>(null);
   const polylineSource = useRef<mapboxgl.GeoJSONSource | null>(null);
 
+  // Mapbox's constructor throws synchronously on an empty access token —
+  // catch it here so the whole dashboard route doesn't crash into the
+  // router error screen when the token isn't wired.
+  if (!MAPBOX_ACCESS_TOKEN) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/30 p-4 text-center">
+        <p className="text-sm font-medium">Mapbox token not configured</p>
+        <p className="max-w-xs text-xs text-muted-foreground">
+          Set <code className="font-mono">VITE_MAPBOX_ACCESS_TOKEN</code> in
+          your dashboard env and rebuild to enable the map.
+        </p>
+      </div>
+    );
+  }
+
   // Initialize map when component mounts
   useEffect(() => {
     if (!mapContainer.current) return;
