@@ -35,12 +35,21 @@ import axios from "axios";
 import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "@/lib/store";
 
 const PAGE_SIZE = 50;
 const POLL_INTERVAL_MS = 5000;
 
+// Sentinel group whose members can enqueue jobs from the dashboard.
+// This is a frontend-only gate — anyone with a valid bearer can still
+// POST /api/foreman/jobs directly. Real backend enforcement is a
+// separate piece of work.
+const JOB_RUNNERS_GROUP = "MapacheJobRunners";
+
 function JobsPage() {
   const navigate = useNavigate();
+  const currentUser = useUser();
+  const canEnqueue = currentUser.groups.includes(JOB_RUNNERS_GROUP);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [runningJobs, setRunningJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
@@ -154,17 +163,19 @@ function JobsPage() {
             setPaginated(false);
             fetchJobs();
           }}
-          onNew={() => setDialogOpen(true)}
+          onNew={canEnqueue ? () => setDialogOpen(true) : undefined}
         />
 
-        <EnqueueJobDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onEnqueued={() => {
-            setPaginated(false);
-            fetchJobs();
-          }}
-        />
+        {canEnqueue && (
+          <EnqueueJobDialog
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onEnqueued={() => {
+              setPaginated(false);
+              fetchJobs();
+            }}
+          />
+        )}
 
         {runningJobs.length > 0 &&
           (status === "" || status === "active") && (
@@ -240,7 +251,9 @@ interface FilterBarProps {
   setServiceName: (s: string) => void;
   loading: boolean;
   onRefresh: () => void;
-  onNew: () => void;
+  // Undefined when the viewer doesn't have permission to enqueue —
+  // the New Job button is hidden entirely in that case.
+  onNew?: () => void;
 }
 
 function FilterBar(props: FilterBarProps) {
@@ -294,10 +307,12 @@ function FilterBar(props: FilterBarProps) {
           />
         </Button>
       </div>
-      <Button onClick={props.onNew}>
-        <Plus className="mr-2 h-4 w-4" />
-        New Job
-      </Button>
+      {props.onNew && (
+        <Button onClick={props.onNew}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Job
+        </Button>
+      )}
     </div>
   );
 }
