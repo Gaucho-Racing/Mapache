@@ -28,11 +28,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { DashboardWidgetCard } from "@/components/dashboards/DashboardWidgetCard";
+import { AddWidgetDrawer } from "@/components/dashboards/AddWidgetDrawer";
 import {
   defaultTimeframe,
   type Timeframe,
   TimeframePicker,
 } from "@/components/signals/TimeframePicker";
+import type { ChartType } from "@/components/signals/ChartTypeToggle";
 
 const GRID_COLS = 12;
 const ROW_HEIGHT = 30;
@@ -54,6 +56,7 @@ function DashboardDetailsPage() {
   // Cached signal-name list for the active vehicle, used by the chip
   // builder's autocomplete inside each widget.
   const [signalNames, setSignalNames] = useState<string[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     if (!vehicle?.id) return;
@@ -175,12 +178,12 @@ function DashboardDetailsPage() {
     }
   };
 
-  const handleAddSignalWidget = async () => {
+  const handleAddSignalWidget = async (chartType: ChartType = "bar") => {
     if (!dashboard) return;
     const config: SignalWidgetConfig = {
-      title: "New signal widget",
+      title: "New widget",
       queries: ["count(signal.name)"],
-      chart_type: "bar",
+      chart_type: chartType,
     };
     // Place new widgets at the bottom of the current layout so they
     // never overlap. y = max(y + h) across existing widgets.
@@ -295,12 +298,21 @@ function DashboardDetailsPage() {
               onChange={setTimeframe}
               vehicleId={vehicle?.id ?? ""}
             />
-            <OutlineButton onClick={handleAddSignalWidget}>
+            <OutlineButton onClick={() => setAddOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add widget
             </OutlineButton>
           </div>
         </div>
+
+        <AddWidgetDrawer
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          onPick={(chartType) => {
+            setAddOpen(false);
+            handleAddSignalWidget(chartType);
+          }}
+        />
 
         <div id="dashboard-grid-host" className="w-full">
           {dashboard.widgets.length === 0 ? (

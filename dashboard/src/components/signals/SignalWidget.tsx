@@ -68,6 +68,7 @@ import {
 } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { useLiveTrigger } from "@/lib/useLiveTrigger";
 import {
   ChevronDown,
   ChevronRight,
@@ -222,9 +223,18 @@ export interface SignalWidgetProps {
   onChartTypeChange?: (next: ChartType) => void;
   /** Rolling-window refresh interval in seconds. When set, the widget
    *  re-runs its query every N seconds so the chart's right edge keeps
-   *  tracking `now`. Dashboards use this to blend live + historical
-   *  data without (yet) holding a streaming subscription open. */
+   *  tracking `now`. */
   refreshIntervalSec?: number;
+  /** Signal-name patterns to subscribe to via /live/sse. On each
+   *  arrival the chart triggers a fresh /query/run, giving sub-second
+   *  perceived latency without re-implementing aggregation client-side.
+   *  Empty/undefined → no live subscription. */
+  streamSignalPatterns?: string[];
+  /** Suppress the query-builder header + chart-type picker, leaving
+   *  only the chart canvas. Dashboards use this so the rendered widget
+   *  is just the visualization; query edits happen in a dialog opened
+   *  from the parent. */
+  chartOnly?: boolean;
 }
 
 export function SignalWidget({
@@ -248,6 +258,8 @@ export function SignalWidget({
   seedChartType,
   onChartTypeChange,
   refreshIntervalSec,
+  streamSignalPatterns,
+  chartOnly,
 }: SignalWidgetProps) {
   // Ordered list of MQL trace statements, classified at render via
   // `looksLikeFetchQuery`: fetch statements hit /query/run; expression
@@ -361,12 +373,14 @@ export function SignalWidget({
     () => fetchPlan.filter((p) => p.runnable),
     [fetchPlan],
   );
-  // Rolling-window refresh: when `refreshIntervalSec` is set, bump a
-  // tick every N seconds. The tick gets folded into `fetchKey`, which
-  // is what the historical query effect watches — so the chart re-runs
-  // the query, picking up rows added since the last fetch. This is the
-  // poor-person's live blend; PR-N will swap in an SSE-driven hook for
-  // sub-second updates.
+  // Rolling-window refresh has two drivers, OR'd into a single tick:
+  //   1. setInterval at refreshIntervalSec — guarantees the chart still
+  //      moves forward during signal lulls.
+  //   2. useLiveTrigger SSE — bumps the moment fresh samples land,
+  //      giving sub-second perceived latency under normal traffic.
+  // Both bumps fold into the same `refreshTick` so the historical fetch
+  // effect re-fires through its existing fetchKey path — the backend
+  // stays the source of truth for bucket math.
   const [refreshTick, setRefreshTick] = useState(0);
   useEffect(() => {
     if (!refreshIntervalSec || refreshIntervalSec <= 0) return;
@@ -376,6 +390,15 @@ export function SignalWidget({
     );
     return () => clearInterval(t);
   }, [refreshIntervalSec]);
+  const liveTrigger = useLiveTrigger({
+    vehicleId,
+    signalPatterns: streamSignalPatterns ?? [],
+    enabled: Boolean(streamSignalPatterns && streamSignalPatterns.length > 0),
+  });
+  useEffect(() => {
+    if (liveTrigger.tick === 0) return;
+    setRefreshTick((n) => n + 1);
+  }, [liveTrigger.tick]);
 
   // Stable key over the wire form, so the fetch effect fires only on real change.
   const fetchKey = useMemo(
@@ -385,9 +408,9 @@ export function SignalWidget({
         interval,
         // Rolling-window tick: only contributes to the key when the
         // parent opted in to refresh, otherwise stays a constant 0.
-        tick: refreshIntervalSec ? refreshTick : 0,
+        tick: refreshIntervalSec || streamSignalPatterns?.length ? refreshTick : 0,
       }),
-    [runnableFetches, interval, refreshIntervalSec, refreshTick],
+    [runnableFetches, interval, refreshIntervalSec, streamSignalPatterns, refreshTick],
   );
   // Debounce so editing the MQL line doesn't fire /query/run per keystroke
   // (each response forces a synchronous re-render that drops typing). Timeframe/
@@ -743,7 +766,8 @@ export function SignalWidget({
   }, [path, classified, chartType]);
 
   return (
-    <Card>
+    <Card className={chartOnly ? "border-0 bg-transparent shadow-none" : undefined}>
+      {!chartOnly && (
       <CardHeader className="gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-3">
@@ -949,14 +973,18 @@ export function SignalWidget({
           </div>
         )}
       </CardHeader>
+      )}
       {!hidden && (
-        <CardContent>
+        <CardContent className={chartOnly ? "p-0" : undefined}>
           {/* Chart-type lives here (not in the widget header) — it picks
               what the chart canvas renders, so it belongs with the
-              chart-content controls. */}
+              chart-content controls. Suppressed in chartOnly mode
+              (dashboards manage chart type via the edit dialog). */}
+          {!chartOnly && (
           <div className="mb-3 flex items-center">
             <ChartTypeSelect value={chartType} onChange={changeChartType} />
           </div>
+          )}
           {path === "timeseries" && onInteractionModeChange && (
             // Left-drag mode sits just above the chart so it's a short hop to
             // the gesture; "select" brushes a timeframe, "pan" slides the zoom.

@@ -1,12 +1,20 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SignalWidget } from "@/components/signals/SignalWidget";
 import { cn } from "@/lib/utils";
+import { parseQuery } from "@/lib/query";
 import type {
   DashboardWidget,
   SignalWidgetConfig,
 } from "@/models/dashboard";
 import type { Lap } from "@/models/session";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ChartType } from "@/components/signals/ChartTypeToggle";
 
 interface Props {
@@ -17,21 +25,18 @@ interface Props {
   startIso: string;
   endIso: string;
   rangeSeconds: number;
-  /** True when the window's right edge tracks `now` (any "Past N"
-   *  preset, or a custom range ending within seconds of now). Live-
-   *  blending widgets watch this to know when to open a stream. */
   isRolling: boolean;
-  /** ECharts connect group shared across all widgets on this dashboard
-   *  so hover/tooltip/dataZoom syncs between panels. */
   groupId: string;
   laps?: Lap[] | null;
   onRemove: () => void;
   onConfigChange: (next: SignalWidgetConfig) => void;
 }
 
-/** Widget shell + embedded renderer. The shell carries the drag handle,
- *  title input, and remove button; the renderer plugs in by widget type
- *  ("signal" reuses SignalWidget; future types fan out from here). */
+/** Widget shell — drag handle, title, edit, remove. Body renders the
+ *  chart-only SignalWidget; clicking edit opens a dialog with the full
+ *  builder. Card and dialog are mutually-exclusive (the card's
+ *  SignalWidget unmounts while editing) so their internal query/chart
+ *  state can never drift apart. */
 export function DashboardWidgetCard({
   widget,
   vehicleId,
@@ -46,9 +51,14 @@ export function DashboardWidgetCard({
   onRemove,
   onConfigChange,
 }: Props) {
+  const [editing, setEditing] = useState(false);
+
   if (widget.type !== "signal") {
     return (
-      <WidgetShell title={`Unknown widget: ${widget.type}`} onRemove={onRemove}>
+      <WidgetShell
+        title={`Unknown widget: ${widget.type}`}
+        onRemove={onRemove}
+      >
         <div className="flex flex-1 items-center justify-center p-4 text-xs text-muted-foreground">
           Unsupported widget type — update the dashboard to render it.
         </div>
@@ -64,48 +74,92 @@ export function DashboardWidgetCard({
   const handleChartTypeChange = (chart_type: ChartType) =>
     onConfigChange({ ...config, chart_type });
 
+  // Pull every `where(name = "...")` literal out of each query so the
+  // streaming subscription only sees signals the chart actually plots.
+  // Queries with no name filter get skipped here (subscribing to "*"
+  // would flood the wire).
+  const streamSignalPatterns = useMemo(() => {
+    const set = new Set<string>();
+    for (const mql of config.queries) {
+      const res = parseQuery(mql);
+      if (!res.ok) continue;
+      for (const p of res.query.filters) {
+        if (p.column !== "name" || p.op !== "=" || !p.value) continue;
+        set.add(p.value);
+      }
+    }
+    return Array.from(set);
+  }, [config.queries]);
+
+  // Shared props every SignalWidget instance receives. Used twice —
+  // once for the card-chart, once for the edit-dialog editor.
+  const sharedSignalWidgetProps = {
+    vehicleId,
+    vehicleType,
+    signalNames,
+    startIso,
+    endIso,
+    rangeSeconds,
+    groupId,
+    hidden: false,
+    onToggleHide: () => undefined,
+    onDelete: onRemove,
+    onBrushSelect: () => undefined,
+    laps: laps ?? null,
+    seedQueries: config.queries,
+    onQueriesChange: handleQueriesChange,
+    seedChartType: (config.chart_type as ChartType | undefined) ?? "bar",
+    onChartTypeChange: handleChartTypeChange,
+    refreshIntervalSec: isRolling ? 5 : undefined,
+    streamSignalPatterns: isRolling ? streamSignalPatterns : undefined,
+  };
+
   return (
-    <WidgetShell
-      title={config.title ?? ""}
-      onTitleChange={handleTitleChange}
-      onRemove={onRemove}
-    >
-      <div className="min-h-0 flex-1 overflow-auto p-2">
-        <SignalWidget
-          vehicleId={vehicleId}
-          vehicleType={vehicleType}
-          signalNames={signalNames}
-          startIso={startIso}
-          endIso={endIso}
-          rangeSeconds={rangeSeconds}
-          groupId={groupId}
-          hidden={false}
-          // The dashboard owns hide/delete at the shell level — pipe
-          // SignalWidget's internal kebab actions into no-ops so they
-          // don't fight with the wrapping card's controls.
-          onToggleHide={() => undefined}
-          onDelete={onRemove}
-          onBrushSelect={() => undefined}
-          laps={laps ?? null}
-          seedQueries={config.queries}
-          onQueriesChange={handleQueriesChange}
-          seedChartType={(config.chart_type as ChartType | undefined) ?? "bar"}
-          onChartTypeChange={handleChartTypeChange}
-          refreshIntervalSec={isRolling ? 5 : undefined}
-        />
-      </div>
-    </WidgetShell>
+    <>
+      <WidgetShell
+        title={config.title ?? ""}
+        onTitleChange={handleTitleChange}
+        onEdit={() => setEditing(true)}
+        onRemove={onRemove}
+      >
+        <div className="min-h-0 flex-1 overflow-hidden p-2">
+          {/* Keying on the queries+chart_type causes a remount when the
+              dialog persists a change, so the card picks up the new
+              seed instead of being stuck on stale internal state. */}
+          {!editing && (
+            <SignalWidget
+              key={`${config.queries.join("|")}::${config.chart_type ?? "bar"}`}
+              {...sharedSignalWidgetProps}
+              chartOnly
+            />
+          )}
+        </div>
+      </WidgetShell>
+
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Edit widget</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <SignalWidget {...sharedSignalWidgetProps} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
 function WidgetShell({
   title,
   onTitleChange,
+  onEdit,
   onRemove,
   children,
 }: {
   title: string;
   onTitleChange?: (next: string) => void;
+  onEdit?: () => void;
   onRemove: () => void;
   children: React.ReactNode;
 }) {
@@ -126,6 +180,17 @@ function WidgetShell({
           />
         ) : (
           <span className="flex-1 truncate text-sm font-medium">{title}</span>
+        )}
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            onMouseDown={(e) => e.stopPropagation()}
+            aria-label="Edit widget"
+            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
         )}
         <button
           type="button"
