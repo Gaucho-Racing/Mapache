@@ -5,9 +5,9 @@ export const BACKEND_WS_URL =
   import.meta.env.VITE_BACKEND_WS_URL ?? "wss://mapache.gauchoracing.com/api";
 
 export const SENTINEL_OAUTH_BASE_URL =
-  "https://sso.gauchoracing.com/oauth/authorize";
+  "https://sentinel-v5.gauchoracing.com/oauth/authorize";
 export const SENTINEL_CLIENT_ID =
-  import.meta.env.VITE_SENTINEL_CLIENT_ID ?? "z6V9NREjMFhf";
+  import.meta.env.VITE_SENTINEL_CLIENT_ID ?? "";
 
 export const MAPBOX_ACCESS_TOKEN =
   import.meta.env.VITE_MAPBOX_ACCESS_TOKEN ?? "";

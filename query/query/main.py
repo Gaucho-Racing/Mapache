@@ -30,8 +30,8 @@ async def lifespan(app: FastAPI):
         logger.warning("SKIP_AUTH_CHECK is enabled, skipping Sentinel initialization")
     else:
         AuthService.configure(
-            jwks_url=Config.SENTINEL_JWKS_URL,
-            issuer="https://sso.gauchoracing.com",
+            jwks_url=f"{Config.SENTINEL_URL}/api/core/keys",
+            issuer=Config.SENTINEL_ISSUER,
             audience=Config.SENTINEL_CLIENT_ID,
         )
     yield

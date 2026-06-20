@@ -51,31 +51,35 @@ func AuthChecker() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if config.SkipAuthCheck {
 			c.Set("Auth-Token", "mock-token")
+			c.Set("Auth-EntityID", "mock-entity")
 			c.Set("Auth-UserID", "mock-user")
 			c.Set("Auth-Audience", "mock-audience")
-			c.Set("Auth-Scope", "openid profile email")
+			c.Set("Auth-Scope", "openid profile email user:read groups:read")
 			c.Next()
 			return
 		}
-		if c.GetHeader("Authorization") != "" {
-			authHeader := c.GetHeader("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				claims, err := service.ValidateJWT(strings.Split(c.GetHeader("Authorization"), "Bearer ")[1])
-				if err != nil {
-					logger.SugarLogger.Errorln("Failed to validate token: " + err.Error())
-					c.AbortWithStatusJSON(401, gin.H{"message": err.Error()})
-				} else {
-					logger.SugarLogger.Infof("Decoded token: %s", claims.Subject)
-					logger.SugarLogger.Infof("↳ Client ID: %s", claims.Audience[0])
-					logger.SugarLogger.Infof("↳ Scope: %s", claims.Scope)
-					logger.SugarLogger.Infof("↳ Issued at: %s", claims.IssuedAt.String())
-					logger.SugarLogger.Infof("↳ Expires at: %s", claims.ExpiresAt.String())
-					c.Set("Auth-Token", strings.Split(c.GetHeader("Authorization"), "Bearer ")[1])
-					c.Set("Auth-UserID", claims.Subject)
-					c.Set("Auth-Audience", claims.Audience[0])
-					c.Set("Auth-Scope", claims.Scope)
-				}
+		authHeader := c.GetHeader("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := service.ValidateJWT(token)
+			if err != nil {
+				logger.SugarLogger.Errorln("Failed to validate token: " + err.Error())
+				c.AbortWithStatusJSON(401, gin.H{"message": err.Error()})
+				return
 			}
+			// Sentinel v5: `sub` is the entity_id (users and service
+			// accounts are both entities); `user_id` is a custom claim
+			// stamped only when the token represents a logged-in user.
+			// Downstream user lookups key off Auth-UserID.
+			logger.SugarLogger.Infof("Decoded token: entity=%s user=%s", claims.Subject, claims.UserID)
+			logger.SugarLogger.Infof("↳ Client ID: %s", claims.Audience[0])
+			logger.SugarLogger.Infof("↳ Scope: %s", claims.Scope)
+			logger.SugarLogger.Infof("↳ Expires at: %s", claims.ExpiresAt.String())
+			c.Set("Auth-Token", token)
+			c.Set("Auth-EntityID", claims.Subject)
+			c.Set("Auth-UserID", claims.UserID)
+			c.Set("Auth-Audience", claims.Audience[0])
+			c.Set("Auth-Scope", claims.Scope)
 		}
 		c.Next()
 	}
@@ -129,12 +133,15 @@ func RequestUserHasEmail(c *gin.Context, email string) bool {
 	return GetRequestUserEmail(c) == email
 }
 
-func RequestUserHasRole(c *gin.Context, role string) bool {
+// RequestUserInGroup reports whether the bearer's user is a member of
+// the named Sentinel group. Looked up against Sentinel each call —
+// there's no in-process cache, so don't call this in a tight loop.
+func RequestUserInGroup(c *gin.Context, name string) bool {
 	user, err := service.GetUser(GetRequestUserID(c))
 	if err != nil {
 		return false
 	}
-	return user.HasRole(role)
+	return user.HasGroup(name)
 }
 
 func GetRequestUserID(c *gin.Context) string {

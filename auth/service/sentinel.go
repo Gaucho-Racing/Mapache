@@ -12,9 +12,12 @@ import (
 	"github.com/gaucho-racing/mapache/auth/pkg/logger"
 )
 
+// SentinelError captures the {"error": "..."} envelope Sentinel v5
+// services return on non-2xx responses. The struct's Message field is
+// populated from the wire's `error` key (v5 doesn't use `message`).
 type SentinelError struct {
 	Code    int
-	Message string `json:"message"`
+	Message string `json:"error"`
 }
 
 type SentinelTokenResponse struct {
@@ -33,12 +36,12 @@ func mockUser(id string) model.User {
 		LastName:  "User",
 		Email:     "mock@gauchoracing.com",
 		Verified:  true,
-		Roles:     []string{"d_admin"},
+		Groups:    []string{"Admins"},
 	}
 }
 
 func PingSentinel() bool {
-	resp, err := http.Get(config.Sentinel.Url + "/ping")
+	resp, err := http.Get(config.Sentinel.Url + "/api/core/ping")
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to ping sentinel:", err)
 		return false
@@ -60,7 +63,7 @@ func ExchangeCodeForToken(code string) (SentinelTokenResponse, error) {
 			Scope:        "openid profile email",
 		}, nil
 	}
-	resp, err := http.PostForm(config.Sentinel.Url+"/oauth/token", url.Values{
+	resp, err := http.PostForm(config.Sentinel.Url+"/api/oauth/token", url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {config.Sentinel.ClientID},
 		"client_secret": {config.Sentinel.ClientSecret},
@@ -102,12 +105,12 @@ func GetAllUsers() ([]model.User, error) {
 	if config.SkipAuthCheck {
 		return []model.User{mockUser("mock-user")}, nil
 	}
-	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users", nil)
+	req, err := http.NewRequest("GET", config.Sentinel.Url+"/api/users", nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for users:", err)
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+config.Sentinel.Token)
+	req.Header.Set("Authorization", "Bearer "+config.Sentinel.SAToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -147,12 +150,12 @@ func GetUser(id string) (model.User, error) {
 	if config.SkipAuthCheck {
 		return mockUser(id), nil
 	}
-	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users/"+id, nil)
+	req, err := http.NewRequest("GET", config.Sentinel.Url+"/api/users/"+id, nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for user:", err)
 		return model.User{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+config.Sentinel.Token)
+	req.Header.Set("Authorization", "Bearer "+config.Sentinel.SAToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -188,11 +191,16 @@ func GetUser(id string) (model.User, error) {
 	return user, nil
 }
 
-func GetCurrentUser(accessToken string) (model.User, error) {
+// GetCurrentUser fetches the logged-in user's profile using their own
+// access token. Sentinel v5 has no /users/@me — instead we look up
+// /api/users/:userID, which the user's bearer satisfies via the
+// "user_id matches the token's user_id claim" branch of the gate.
+// userID is the user_id claim already extracted by AuthChecker.
+func GetCurrentUser(accessToken string, userID string) (model.User, error) {
 	if config.SkipAuthCheck {
 		return mockUser("mock-user"), nil
 	}
-	req, err := http.NewRequest("GET", config.Sentinel.Url+"/users/@me", nil)
+	req, err := http.NewRequest("GET", config.Sentinel.Url+"/api/users/"+userID, nil)
 	if err != nil {
 		logger.SugarLogger.Errorln("Failed to create request for user:", err)
 		return model.User{}, err

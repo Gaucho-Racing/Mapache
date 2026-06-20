@@ -53,7 +53,7 @@ const Header = (props: HeaderProps) => {
               <DropdownMenuItem
                 onClick={() =>
                   window.open(
-                    `https://sso.gauchoracing.com/users/${currentUser.id}/edit`,
+                    "https://sentinel-v5.gauchoracing.com/settings",
                     "_blank",
                   )
                 }

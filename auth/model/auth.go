@@ -7,8 +7,12 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+// AuthClaims is the Sentinel v5 JWT payload we care about. sub is the
+// signer's entity id; user_id is a custom claim Sentinel stamps when the
+// token represents a logged-in user (absent for service-account tokens).
 type AuthClaims struct {
-	Scope string `json:"scope"`
+	Scope  string `json:"scope"`
+	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
@@ -27,7 +31,7 @@ func (c AuthClaims) Valid() error {
 		vErr.Errors |= jwt.ValidationErrorIssuedAt
 	}
 
-	if !c.VerifyIssuer("https://sso.gauchoracing.com", true) {
+	if !c.VerifyIssuer(config.SentinelIssuer, true) {
 		vErr.Inner = jwt.ErrTokenInvalidIssuer
 		vErr.Errors |= jwt.ValidationErrorIssuer
 	}

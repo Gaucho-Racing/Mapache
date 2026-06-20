@@ -42,7 +42,12 @@ function LoginPage() {
 
   const loginSentinel = async () => {
     const redirect_url = window.location.origin + "/auth/login";
-    const scope = "user:read";
+    // Sentinel v5: user:read covers the /api/users/:id self-lookup,
+    // groups:read covers /api/users/:id/groups if a future flow needs
+    // it separately. We don't request openid/profile/email — Mapache
+    // doesn't call /api/oauth/userinfo, it fetches the full profile
+    // (groups inline) straight from /api/users/:id.
+    const scope = "user:read groups:read";
     let oauthUrl = `${SENTINEL_OAUTH_BASE_URL}?client_id=${SENTINEL_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirect_url)}&scope=${encodeURIComponent(scope)}&prompt=none`;
     const route = queryParameters.get("route");
     if (route) {
