@@ -1,0 +1,98 @@
+name: build
+run-name: Check Mapache service builds
+
+# Aggregates the six per-service image builds into one check so branch
+# protection has a single required status to gate on.
+#
+# Only the image builds are waited on. mapache-go / mapache-py run on
+# `push: branches: [main]` with path filters, so they never run for a
+# feature branch push and waiting on them would hang until timeout.
+#
+# Tags are filtered to v* to match the service workflows. The library
+# tags (mapache-py/*, mapache-go/*) don't trigger an image build, so a
+# broader filter here would wait on runs that never start.
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit SHA to check. Defaults to main.
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - name: Check workflow results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          INPUT_SHA: ${{ inputs.sha }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          sha="$INPUT_SHA"
+          if [ -z "$sha" ]; then
+            sha="$CURRENT_SHA"
+          fi
+          if [ -z "$sha" ]; then
+            sha="$(gh api "repos/$REPO/branches/main" --jq '.commit.sha')"
+          fi
+
+          wait_for_workflow() {
+            local label="$1"
+            local workflow="$2"
+            local result=""
+
+            for attempt in $(seq 1 90); do
+              result="$(
+                gh api --method GET "repos/$REPO/actions/workflows/$workflow/runs" \
+                  -f head_sha="$sha" \
+                  -f per_page=1 \
+                  --jq '(.workflow_runs[0] // empty) | [.status, (.conclusion // ""), .html_url] | @tsv'
+              )"
+
+              if [ -n "$result" ]; then
+                local status conclusion url
+                IFS=$'\t' read -r status conclusion url <<< "$result"
+                echo "$label: $status ${conclusion:-pending} $url"
+
+                if [ "$status" = "completed" ]; then
+                  if [ "$conclusion" = "success" ]; then
+                    return 0
+                  fi
+
+                  echo "$label failed with conclusion: $conclusion"
+                  return 1
+                fi
+              else
+                echo "$label: waiting for workflow run for $sha"
+              fi
+
+              if [ "$attempt" -eq 90 ]; then
+                echo "$label did not complete for $sha before timeout"
+                return 1
+              fi
+
+              sleep 10
+            done
+          }
+
+          wait_for_workflow "auth" "auth.yml"
+          wait_for_workflow "vehicle" "vehicle.yml"
+          wait_for_workflow "gr26" "gr26.yml"
+          wait_for_workflow "live" "live.yml"
+          wait_for_workflow "query" "query.yml"
+          wait_for_workflow "dashboard" "dashboard.yml"
