@@ -21,7 +21,7 @@ func (s ServiceInfo) PathPrefix() string {
 
 var Service = ServiceInfo{
 	Name:    "Vehicle",
-	Version:     "3.9.7",
+	Version:     "3.9.8",
 }
 
 var Env = os.Getenv("ENV")
