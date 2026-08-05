@@ -66,7 +66,7 @@ var Sentinel = struct {
 // SentinelIssuer is the iss claim Sentinel v5 stamps into every signed
 // token. Must byte-match SENTINEL_URL — the issuer is fixed in v5 to
 // the public base URL.
-const SentinelIssuer = "https://sentinel-v5.gauchoracing.com"
+const SentinelIssuer = "https://sso.gauchoracing.com"
 
 func IsProduction() bool {
 	return Env == "PROD"

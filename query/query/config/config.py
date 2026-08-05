@@ -35,7 +35,7 @@ class Config:
     SKIP_AUTH_CHECK: bool = os.getenv('SKIP_AUTH_CHECK', 'false').lower() == 'true'
     SENTINEL_URL: str = os.getenv('SENTINEL_URL')
     SENTINEL_CLIENT_ID: str = os.getenv('SENTINEL_CLIENT_ID')
-    SENTINEL_ISSUER: str = 'https://sentinel-v5.gauchoracing.com'
+    SENTINEL_ISSUER: str = 'https://sso.gauchoracing.com'
 
     @staticmethod
     def get_database_url() -> URL:
