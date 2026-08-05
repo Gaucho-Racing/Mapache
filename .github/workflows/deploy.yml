@@ -5,9 +5,12 @@ run-name: Open infrastructure PR for ${{ github.event.release.tag_name }}
 # bumps the mapache service image tags to the new version. Fires on the
 # release event (not tag push) so it only ever runs for real releases.
 #
-# Requires repo secret INFRA_PR_TOKEN: a PAT (or GitHub App token) with
-# contents:write + pull-requests:write on Gaucho-Racing/infrastructure. The
-# default GITHUB_TOKEN can't write to another repo.
+# The infra PR token is stored in Vault (app-secret `infrastructure`,
+# field `pr_token`) and fetched at runtime by vault-pull-secrets using
+# the workflow's GitHub OIDC identity — no long-lived repo secret. The
+# token is a PAT with contents:write + pull-requests:write on
+# Gaucho-Racing/infrastructure. The default GITHUB_TOKEN can't write to
+# another repo.
 on:
   release:
     types: [published]
@@ -27,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write        # for Vault OIDC auth via vault-pull-secrets
     steps:
       - name: Checkout mapache (full history + tags)
         uses: actions/checkout@v4
@@ -34,11 +38,17 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Pull secrets
+        id: vault
+        uses: Gaucho-Racing/vault-pull-secrets@v1
+        with:
+          secrets: infrastructure.pr_token
+
       - name: Checkout infrastructure
         uses: actions/checkout@v4
         with:
           repository: ${{ env.INFRA_REPO }}
-          token: ${{ secrets.INFRA_PR_TOKEN }}
+          token: ${{ fromJSON(steps.vault.outputs.secrets_json).PR_TOKEN }}
           path: infra
 
       - name: Resolve versions
@@ -116,6 +126,8 @@ jobs:
               emit_commits -20 "$NEW_TAG"
             fi
             echo
+            echo "**[Click here to view all changes →](https://github.com/${MAPACHE_REPO}/compare/${OLD_TAG}...${NEW_TAG})**"
+            echo
             echo "---"
             echo "_Opened automatically by the \`deploy\` workflow on release ${NEW_TAG}._"
           } > "$RUNNER_TEMP/pr-body.md"
@@ -125,15 +137,20 @@ jobs:
         if: steps.versions.outputs.skip == 'false'
         working-directory: infra
         env:
-          GH_TOKEN: ${{ secrets.INFRA_PR_TOKEN }}
+          GH_TOKEN: ${{ fromJSON(steps.vault.outputs.secrets_json).PR_TOKEN }}
           NEW: ${{ steps.versions.outputs.new }}
           NEW_TAG: ${{ steps.versions.outputs.new_tag }}
           SHORT_SHA: ${{ steps.versions.outputs.short_sha }}
           RELEASE_AUTHOR: ${{ github.event.release.author.login }}
         run: |
           BRANCH="bot/bump-mapache-${NEW}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Attribute the commit to the gauchoracing service account (matches
+          # the PAT this job uses) so both the commit and the PR opener show
+          # as @gauchoracing in the infra repo, not github-actions[bot].
+          # team@gauchoracing.com is verified on the account, so GitHub
+          # links the commit to @gauchoracing automatically.
+          git config user.name "GR Admin"
+          git config user.email "team@gauchoracing.com"
           git switch -C "$BRANCH"
           git commit -am "Deploy: mapache to ${NEW_TAG} (${SHORT_SHA})"
           git push -f -u origin "$BRANCH"
