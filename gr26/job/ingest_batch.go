@@ -19,9 +19,12 @@ import (
 	ulid "github.com/gaucho-racing/ulid-go"
 
 	gr26config "github.com/gaucho-racing/mapache/gr26/config"
+	"github.com/gaucho-racing/mapache/gr26/model"
 	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
 	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
 	"github.com/gaucho-racing/mapache/gr26/service"
+
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
 // ─── producer side: gr26.ingest_batch ───────────────────────────────────────
@@ -133,11 +136,27 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *f
 	stats := newIngestStats()
 	const chunk = 4096
 	rows := make([]shelterRow, chunk)
+	cans := make([]model.CAN, 0, chunk)
+	signals := make([]mapache.Signal, 0, chunk)
 	total := 0
 	for {
 		n, readErr := pr.Read(rows)
+		cans, signals = cans[:0], signals[:0]
 		for i := 0; i < n; i++ {
-			dispatchRow(rows[i], stats)
+			can, sigs, ok := dispatchRow(rows[i], stats)
+			if !ok {
+				continue
+			}
+			cans = append(cans, can)
+			signals = append(signals, sigs...)
+		}
+		// One flush per chunk; log-and-continue so a failed insert doesn't
+		// drop the rest of the file (retries re-cover it via RMT dedup).
+		if err := service.CreateCANs(cans); err != nil {
+			logger.SugarLogger.Infof("Error creating CAN records: %s", err)
+		}
+		if err := service.CreateSignals(signals); err != nil {
+			logger.SugarLogger.Infof("Error creating signals: %s", err)
 		}
 		total += n
 		progress.Set(int64(total), totalRows, "decoding parquet rows")
@@ -168,36 +187,25 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *f
 	}, nil
 }
 
-func dispatchRow(r shelterRow, stats *ingestStats) {
+// dispatchRow is the cold-storage decode path — persistence happens in
+// per-chunk flushes upstream. UploadKey stays 0 (bucket access is the
+// trust boundary), and no WS/side-channel firing — historical data, and
+// we don't want to re-enqueue shelter batches.
+func dispatchRow(r shelterRow, stats *ingestStats) (model.CAN, []mapache.Signal, bool) {
 	// Topic format: gr26/{vehicle}/{node}/0x{can_id_hex}
 	parts := strings.Split(r.Topic, "/")
 	if len(parts) != 4 {
-		return
+		return model.CAN{}, nil, false
 	}
 	nodeID := parts[2]
 	canIDStr := strings.TrimPrefix(parts[3], "0x")
 	canIDInt, err := strconv.ParseInt(canIDStr, 16, 64)
 	if err != nil {
-		return
+		return model.CAN{}, nil, false
 	}
-	replayFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data, stats)
-}
-
-// replayFrame is the cold-storage decode-and-persist path. UploadKey
-// stays 0 (bucket access is the trust boundary), and no WS/side-channel
-// firing — historical data, and we don't want to re-enqueue shelter batches.
-func replayFrame(vehicleID, nodeID string, canID, ts int, data []byte, stats *ingestStats) {
-	can, signals := service.ProcessFrame(vehicleID, nodeID, canID, ts, data)
-	stats.record(canID, nodeID, ts, can.Metadata)
-
-	if _, err := service.CreateCAN(can); err != nil {
-		logger.SugarLogger.Infof("Error creating CAN record: %s", err)
-	}
-	if len(signals) > 0 {
-		if err := service.CreateSignals(signals); err != nil {
-			logger.SugarLogger.Infof("Error creating signals: %s", err)
-		}
-	}
+	can, signals := service.ProcessFrame(r.VehicleID, nodeID, int(canIDInt), int(r.Timestamp), r.Data)
+	stats.record(int(canIDInt), nodeID, int(r.Timestamp), can.Metadata)
+	return can, signals, true
 }
 
 // ─── result reporting ───────────────────────────────────────────────────────
