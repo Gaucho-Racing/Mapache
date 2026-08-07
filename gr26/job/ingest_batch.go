@@ -100,12 +100,15 @@ func IngestBatchHandler(ctx context.Context, job foreman.Job, progress *foreman.
 		return nil, err
 	}
 
-	res, err := processFile(ctx, client, shelterKey(p.VehicleID, p.FileULID), progress)
-	if err != nil {
-		return nil, err
-	}
+	// Report stats on both paths — foreman records the result on a failed run
+	// too, so a partial-failure attempt still says what landed and what didn't.
+	res, procErr := processFile(ctx, client, shelterKey(p.VehicleID, p.FileULID), progress)
 	res.FileULID = p.FileULID
-	return json.Marshal(res)
+	payload, err := json.Marshal(res)
+	if err != nil {
+		return nil, errors.Join(procErr, fmt.Errorf("encode result: %w", err))
+	}
+	return payload, procErr
 }
 
 func processFile(ctx context.Context, client *s3.Client, key string, progress *foreman.Progress) (ingestResult, error) {
@@ -139,6 +142,8 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *f
 	cans := make([]model.CAN, 0, chunk)
 	signals := make([]mapache.Signal, 0, chunk)
 	total := 0
+	chunkIdx := 0
+	var flushErr error
 	for {
 		n, readErr := pr.Read(rows)
 		cans, signals = cans[:0], signals[:0]
@@ -150,41 +155,53 @@ func processFile(ctx context.Context, client *s3.Client, key string, progress *f
 			cans = append(cans, can)
 			signals = append(signals, sigs...)
 		}
-		// One flush per chunk; log-and-continue so a failed insert doesn't
-		// drop the rest of the file (retries re-cover it via RMT dedup).
+		// One flush per chunk. Keep going past a failed insert so the rest of
+		// the file still lands, but hold onto the first error and fail the job
+		// below — a dropped chunk is up to 4,096 frames, so it has to burn a
+		// foreman attempt rather than report success (RMT dedup makes the
+		// re-processed chunks harmless).
 		if err := service.CreateCANs(cans); err != nil {
-			logger.SugarLogger.Infof("Error creating CAN records: %s", err)
+			logger.SugarLogger.Errorf("[SHELTER] %s: chunk %d: failed to insert %d CAN records: %s", key, chunkIdx, len(cans), err)
+			stats.recordInsertFailure(insertTargetCANs, chunkIdx, len(cans), err)
+			if flushErr == nil {
+				flushErr = fmt.Errorf("insert cans: %w", err)
+			}
 		}
 		if err := service.CreateSignals(signals); err != nil {
-			logger.SugarLogger.Infof("Error creating signals: %s", err)
+			logger.SugarLogger.Errorf("[SHELTER] %s: chunk %d: failed to insert %d signals: %s", key, chunkIdx, len(signals), err)
+			stats.recordInsertFailure(insertTargetSignals, chunkIdx, len(signals), err)
+			if flushErr == nil {
+				flushErr = fmt.Errorf("insert signals: %w", err)
+			}
 		}
 		total += n
+		chunkIdx++
 		progress.Set(int64(total), totalRows, "decoding parquet rows")
 		if errors.Is(readErr, io.EOF) {
 			break
 		}
 		if readErr != nil {
-			return ingestResult{}, fmt.Errorf("parquet read: %w", readErr)
+			return stats.result(total, time.Since(start)), fmt.Errorf("parquet read: %w", readErr)
 		}
 	}
 
 	duration := time.Since(start)
+	if flushErr != nil {
+		// Every row decoded, so the counters legitimately read 100% — don't
+		// claim "complete" though, the inserts didn't all land. Best-effort:
+		// only lands if a heartbeat tick catches it before the handler returns.
+		progress.Set(int64(total), totalRows, fmt.Sprintf("%d chunk insert(s) failed", stats.failedInserts))
+		logger.SugarLogger.Errorf("[SHELTER] %s: %d rows in %s, %d chunk insert(s) failed (cans_dropped=%d signals_dropped=%d)",
+			key, total, duration, stats.failedInserts, stats.cansDropped, stats.signalsDropped)
+		return stats.result(total, duration), flushErr
+	}
+
 	// Pin to (total, total) so the final heartbeat stores a clean 100%.
 	progress.Set(totalRows, totalRows, "complete")
 	logger.SugarLogger.Infof("[SHELTER] %s: %d rows in %s (decoded=%d unknown=%d errors=%d invalid_timestamp=%d)",
 		key, total, duration, stats.decoded, stats.unknown, stats.decodeError, stats.invalidTimestamp)
 
-	return ingestResult{
-		TotalRows:               total,
-		Decoded:                 stats.decoded,
-		UnknownCanID:            stats.unknown,
-		DecodeError:             stats.decodeError,
-		InvalidTimestamp:        stats.invalidTimestamp,
-		DurationMs:              duration.Milliseconds(),
-		UnknownBreakdown:        topUnknown(stats.unknownByCanID, 10),
-		DecodeErrorBreakdown:    topErrors(stats.errorByCanID, 10),
-		InvalidTimestampSamples: stats.invalidTimestampSamples,
-	}, nil
+	return stats.result(total, duration), nil
 }
 
 // dispatchRow is the cold-storage decode path — persistence happens in
@@ -211,16 +228,30 @@ func dispatchRow(r shelterRow, stats *ingestStats) (model.CAN, []mapache.Signal,
 // ─── result reporting ───────────────────────────────────────────────────────
 
 const invalidTimestampSampleLimit = 10
+const insertFailureSampleLimit = 10
 
 type ingestStats struct {
 	decoded                 int
 	unknown                 int
 	decodeError             int
 	invalidTimestamp        int
+	failedInserts           int
+	cansDropped             int
+	signalsDropped          int
 	unknownByCanID          map[int]int
 	errorByCanID            map[int]decodeErrorSample
 	invalidTimestampSamples []invalidTimestampSample
+	insertFailureSamples    []insertFailureSample
 }
+
+// insertTarget names which per-chunk flush failed, and lands verbatim in
+// the job result.
+type insertTarget string
+
+const (
+	insertTargetCANs    insertTarget = "cans"
+	insertTargetSignals insertTarget = "signals"
+)
 
 type decodeErrorSample struct {
 	count  int
@@ -234,10 +265,37 @@ type invalidTimestampSample struct {
 	NodeID    string `json:"node_id"`
 }
 
+type insertFailureSample struct {
+	Target insertTarget `json:"target"`
+	Chunk  int          `json:"chunk"`
+	Rows   int          `json:"rows"`
+	Error  string       `json:"error"`
+}
+
 func newIngestStats() *ingestStats {
 	return &ingestStats{
 		unknownByCanID: make(map[int]int),
 		errorByCanID:   make(map[int]decodeErrorSample),
+	}
+}
+
+// recordInsertFailure notes a chunk that decoded fine but never landed in
+// ClickHouse, so the result can distinguish "decoded" from "persisted".
+func (s *ingestStats) recordInsertFailure(target insertTarget, chunk, rows int, err error) {
+	s.failedInserts++
+	switch target {
+	case insertTargetCANs:
+		s.cansDropped += rows
+	case insertTargetSignals:
+		s.signalsDropped += rows
+	}
+	if len(s.insertFailureSamples) < insertFailureSampleLimit {
+		s.insertFailureSamples = append(s.insertFailureSamples, insertFailureSample{
+			Target: target,
+			Chunk:  chunk,
+			Rows:   rows,
+			Error:  err.Error(),
+		})
 	}
 }
 
@@ -287,7 +345,10 @@ type errorBreakdownEntry struct {
 	SampleError string `json:"sample_error,omitempty"`
 }
 
-// ingestResult lands on foreman.job.result. Top-N caps bound payload size.
+// ingestResult lands on foreman.job.result — on failed attempts too, so a
+// partial-failure run still reports what landed. Top-N caps bound payload
+// size. Decoded counts what decoded, not what persisted: subtract
+// CANsDropped / SignalsDropped for that.
 type ingestResult struct {
 	FileULID                string                   `json:"file_ulid,omitempty"`
 	TotalRows               int                      `json:"total_rows"`
@@ -295,10 +356,34 @@ type ingestResult struct {
 	UnknownCanID            int                      `json:"unknown_can_id"`
 	DecodeError             int                      `json:"decode_error"`
 	InvalidTimestamp        int                      `json:"invalid_timestamp,omitempty"`
+	FailedInserts           int                      `json:"failed_inserts,omitempty"`
+	CANsDropped             int                      `json:"cans_dropped,omitempty"`
+	SignalsDropped          int                      `json:"signals_dropped,omitempty"`
 	DurationMs              int64                    `json:"duration_ms"`
 	UnknownBreakdown        []breakdownEntry         `json:"unknown_breakdown,omitempty"`
 	DecodeErrorBreakdown    []errorBreakdownEntry    `json:"decode_error_breakdown,omitempty"`
 	InvalidTimestampSamples []invalidTimestampSample `json:"invalid_timestamp_samples,omitempty"`
+	InsertFailureSamples    []insertFailureSample    `json:"insert_failure_samples,omitempty"`
+}
+
+// result snapshots the stats into the foreman result payload. Called on the
+// success and failure paths alike so a failed attempt still reports coverage.
+func (s *ingestStats) result(totalRows int, duration time.Duration) ingestResult {
+	return ingestResult{
+		TotalRows:               totalRows,
+		Decoded:                 s.decoded,
+		UnknownCanID:            s.unknown,
+		DecodeError:             s.decodeError,
+		InvalidTimestamp:        s.invalidTimestamp,
+		FailedInserts:           s.failedInserts,
+		CANsDropped:             s.cansDropped,
+		SignalsDropped:          s.signalsDropped,
+		DurationMs:              duration.Milliseconds(),
+		UnknownBreakdown:        topUnknown(s.unknownByCanID, 10),
+		DecodeErrorBreakdown:    topErrors(s.errorByCanID, 10),
+		InvalidTimestampSamples: s.invalidTimestampSamples,
+		InsertFailureSamples:    s.insertFailureSamples,
+	}
 }
 
 func topUnknown(m map[int]int, n int) []breakdownEntry {
