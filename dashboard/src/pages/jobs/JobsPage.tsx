@@ -25,7 +25,7 @@ import {
   formatDurationMs,
   formatCount,
   elapsedMs,
-  PROGRESS_GRADIENT_CLASS,
+  progressBarClass,
 } from "@/lib/job-stream";
 import { Job, JOB_STATUSES, isTerminalStatus } from "@/models/job";
 import { EnqueueJobDialog } from "@/components/jobs/EnqueueJobDialog";
@@ -67,10 +67,11 @@ function JobsPage() {
         const params = new URLSearchParams();
         params.set("limit", String(PAGE_SIZE));
         // Foreman v2: progress/worker/lease moved off Job onto the
-        // per-attempt Run. include=current_run folds the in-flight run
-        // into each row so the table can render progress without a
-        // second fetch per row.
-        params.set("include", "current_run");
+        // per-attempt Run. include=last_run folds each job's newest run
+        // into its row so the table renders progress without a second
+        // fetch per row — and unlike current_run it stays populated after
+        // the attempt finishes, so pending and terminal rows keep theirs.
+        params.set("include", "last_run");
         if (status) params.set("status", status);
         if (kind.trim()) params.set("kind", kind.trim());
         if (serviceName.trim()) params.set("service", serviceName.trim());
@@ -177,8 +178,7 @@ function JobsPage() {
           />
         )}
 
-        {runningJobs.length > 0 &&
-          (status === "" || status === "active") && (
+        {runningJobs.length > 0 && (status === "" || status === "active") && (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-semibold text-muted-foreground">
               Running ({runningJobs.length})
@@ -318,10 +318,12 @@ function FilterBar(props: FilterBarProps) {
 }
 
 function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
-  // Progress lives on the in-flight Run (or the last run's snapshot,
-  // when included). Pending jobs that never claimed have no run yet —
-  // show "—" rather than a stale 0/0 bar.
-  const run = job.current_run;
+  // Progress comes off last_run, not current_run: current_run is non-null
+  // only while an attempt holds the lease, which would leave every pending
+  // and terminal row blank. last_run is the same run for an active job and
+  // the final reading once it stops. Jobs never claimed have no run at all
+  // — show "—" rather than a stale 0/0 bar.
+  const run = job.last_run;
   const total = run?.progress_total ?? 0;
   const current = run?.progress_current ?? 0;
   const pct = total > 0 ? (current / total) * 100 : 0;
@@ -359,17 +361,6 @@ function JobRow({ job, onClick }: { job: Job; onClick: () => void }) {
       </TableCell>
     </TableRow>
   );
-}
-
-// progressBarClass picks the indicator colour from job status:
-//   - running   → GR brand gradient (live)
-//   - pending   → neutral gray (progress carried from a previous attempt
-//                 that got reaped or failed; waiting to be re-claimed)
-//   - terminal  → white (frozen final reading)
-function progressBarClass(status: string): string {
-  if (status === "active") return PROGRESS_GRADIENT_CLASS;
-  if (status === "pending") return "bg-neutral-500";
-  return "bg-white";
 }
 
 export default JobsPage;

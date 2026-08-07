@@ -64,6 +64,12 @@ export interface Job {
   // run has finished). Workers reading these calls in code, not from
   // the dashboard, will see this as `null` and should ignore it.
   current_run?: Run | null;
+  // Populated by ?include=last_run and on every SSE event. The newest
+  // attempt whatever its status, so unlike current_run it survives the
+  // attempt finishing — this is what carries progress, error, and result
+  // for pending-after-retry and terminal jobs. Null only when the job has
+  // never been claimed. For an active job it IS the in-flight run.
+  last_run?: Run | null;
 }
 
 export const initJob: Job = {

@@ -91,6 +91,22 @@ export function formatCount(n: number): string {
 export const PROGRESS_GRADIENT_CLASS =
   "bg-gradient-to-r from-gr-pink to-gr-purple";
 
+// progressBarClass picks the indicator colour from job status:
+//   - active    → GR brand gradient (live)
+//   - pending   → neutral gray (progress carried from a previous attempt
+//                 that got reaped or failed; waiting to be re-claimed)
+//   - terminal  → white (frozen final reading)
+//
+// The non-active branches only render at all when the caller reads
+// last_run rather than current_run: current_run is non-null exclusively
+// while an attempt holds the lease, so a current_run-only view has no
+// progress to colour once the job stops.
+export function progressBarClass(status: string): string {
+  if (status === "active") return PROGRESS_GRADIENT_CLASS;
+  if (status === "pending") return "bg-neutral-500";
+  return "bg-white";
+}
+
 export function formatDurationMs(ms: number): string {
   if (ms < 0) return "—";
   if (ms < 1000) return `${ms}ms`;
