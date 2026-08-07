@@ -89,6 +89,7 @@ func GetSignalsForCAN(canMessageID string) ([]mapache.Signal, error) {
 // Dedup on (vehicle_id, node_id, timestamp) is handled by the
 // ReplacingMergeTree engine — latest created_at wins on merge.
 const insertCANSQL = `INSERT INTO gr26_can (id, vehicle_id, node_id, timestamp, can_id, bytes, upload_key, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+const insertCANBatchSQL = `INSERT INTO gr26_can (id, vehicle_id, node_id, timestamp, can_id, bytes, upload_key, metadata)`
 
 func CreateCAN(can model.CAN) (model.CAN, error) {
 	can.ID = ulid.Make().Prefixed("can")
@@ -103,6 +104,32 @@ func CreateCAN(can model.CAN) (model.CAN, error) {
 		return model.CAN{}, err
 	}
 	return can, nil
+}
+
+// CreateCANs is the bulk-ingest counterpart of CreateCAN: one buffered block
+// insert per call — a single round trip regardless of frame count. async_insert
+// (InsertCtx) doesn't apply to native block inserts, so plain ctx here.
+func CreateCANs(cans []model.CAN) error {
+	for i := range cans {
+		cans[i].ID = ulid.Make().Prefixed("can")
+	}
+	if !config.ClickhouseEnabled() || len(cans) == 0 {
+		return nil
+	}
+	batch, err := database.Conn.PrepareBatch(context.Background(), insertCANBatchSQL)
+	if err != nil {
+		return err
+	}
+	defer batch.Close()
+	for _, c := range cans {
+		if err := batch.Append(
+			c.ID, c.VehicleID, c.NodeID, int64(c.Timestamp), int32(c.CANID),
+			string(c.Bytes), int32(c.UploadKey), string(c.Metadata),
+		); err != nil {
+			return err
+		}
+	}
+	return batch.Send()
 }
 
 func scanCANRow(row driver.Row) (model.CAN, error) {

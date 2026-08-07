@@ -67,6 +67,10 @@ import (
 // Returning an error → Fail. By default it's retryable with the
 // Worker's DefaultBackoffSec; return a *FailError to override, or
 // errors.Is(err, ErrPermanent) for a non-retryable terminalization.
+//
+// Bytes and an error together are valid: the run still fails, but the
+// result is recorded on it. Partial-failure handlers should use this to
+// report what they did land before giving up.
 type Handler func(ctx context.Context, job Job, progress *Progress) (json.RawMessage, error)
 
 // ErrPermanent marks a handler error as non-retryable. The job
@@ -308,6 +312,7 @@ func (w *Worker) handleOne(parent context.Context, claimed Claimed, onErr func(e
 			Error:      msg,
 			Retryable:  retryable,
 			BackoffSec: backoff,
+			Result:     result,
 		}); err != nil {
 			onErr(fmt.Errorf("fail: %w", err))
 		}
