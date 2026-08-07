@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { JobStatusBadge } from "@/components/jobs/JobStatusBadge";
+import { JobRunsCard } from "@/components/jobs/JobRunsCard";
 import { LoadingComponent } from "@/components/Loading";
 import {
   elapsedMs,
   formatDurationMs,
-  PROGRESS_GRADIENT_CLASS,
+  progressBarClass,
   useJobStream,
   useTickingNow,
 } from "@/lib/job-stream";
@@ -57,6 +58,8 @@ function JobDetailsPage() {
           <JsonCard title="Params" data={job.params} />
         )}
 
+        {/* job.result is the winning attempt's payload only. Per-attempt
+            results and errors live on the Runs below. */}
         {job.result && Object.keys(job.result).length > 0 && (
           <JsonCard title="Result" data={job.result} />
         )}
@@ -70,6 +73,12 @@ function JobDetailsPage() {
             </pre>
           </Card>
         )}
+
+        <JobRunsCard
+          jobId={job.id}
+          attemptCount={job.attempt_count}
+          status={job.status}
+        />
       </div>
     </Layout>
   );
@@ -116,9 +125,11 @@ function JobHeader({ job, active }: { job: Job; active: boolean }) {
 
 function OverviewCard({ job, active }: { job: Job; active: boolean }) {
   const now = useTickingNow(500, active);
-  // Worker + lease live on the in-flight Run. Pending jobs (no claim
-  // yet) and terminal jobs (run finished, current_run null) both
-  // display "—".
+  // Worker comes off last_run so a finished job still names who ran the
+  // final attempt. Lease stays on current_run — only an in-flight run
+  // holds one, and it's nulled the moment the attempt closes. Jobs that
+  // were never claimed have neither and display "—".
+  const lastRun = job.last_run ?? job.current_run;
   const run = job.current_run;
   return (
     <Card className="p-4">
@@ -130,7 +141,7 @@ function OverviewCard({ job, active }: { job: Job; active: boolean }) {
           ["Service", job.service || "—"],
           ["Priority", String(job.priority)],
           ["Attempt", `${job.attempt_count} / ${job.max_attempts}`],
-          ["Worker", run?.worker_id || "—"],
+          ["Worker", lastRun?.worker_id || "—"],
           ["Idempotency key", job.idempotency_key || "—"],
           ["Scheduled", fmtTime(job.scheduled_at)],
           ["Enqueued", fmtTime(job.enqueued_at)],
@@ -148,10 +159,10 @@ function OverviewCard({ job, active }: { job: Job; active: boolean }) {
 }
 
 function ProgressCard({ job }: { job: Job }) {
-  // Progress comes off the in-flight Run. Once the job terminalizes,
-  // current_run goes null — fine to show "No progress reported" then,
-  // since the result / error cards below carry the outcome.
-  const run = job.current_run;
+  // Prefer last_run so a finished job keeps its final reading; current_run
+  // is the fallback for a Foreman that predates the last_run include, where
+  // it's the only run on the event and active jobs still work.
+  const run = job.last_run ?? job.current_run;
   const total = run?.progress_total ?? 0;
   const current = run?.progress_current ?? 0;
   const pct = total > 0 ? (current / total) * 100 : 0;
@@ -161,7 +172,10 @@ function ProgressCard({ job }: { job: Job }) {
       <Separator className="mb-3" />
       {total > 0 ? (
         <div className="flex flex-col gap-2">
-          <Progress value={pct} indicatorClassName={PROGRESS_GRADIENT_CLASS} />
+          <Progress
+            value={pct}
+            indicatorClassName={progressBarClass(job.status)}
+          />
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>
               {current.toLocaleString()} / {total.toLocaleString()}
