@@ -20,7 +20,7 @@ env:
   # Path within the infrastructure repo, which is checked out into ./infra —
   # prefix with infra/ for filesystem access, use bare for `git -C infra`.
   KUSTOMIZATION: kubernetes/gr-foundry/manifests/mapache/kustomization.yaml
-  SERVICES: "auth vehicle gr26 live query dashboard"
+  SERVICES: "auth vehicle gr26 p987 live query dashboard"
 
 jobs:
   infra-pr:
