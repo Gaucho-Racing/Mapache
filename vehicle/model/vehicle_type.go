@@ -11,11 +11,15 @@ const (
 	GR24 VehicleType = "gr24"
 	GR25 VehicleType = "gr25"
 	GR26 VehicleType = "gr26"
+	// P987 is the Porsche 987 Cayman, not an FSAE car. It runs the same
+	// TCM/relay stack but its CAN is stock Porsche, decoded by the p987
+	// service rather than gr26.
+	P987 VehicleType = "p987"
 )
 
 // VehicleTypes is the canonical ordered list (newest first), surfaced via the
 // API so the frontend's create-vehicle and flag dialogs don't hardcode it.
-var VehicleTypes = []VehicleType{GR26, GR25, GR24}
+var VehicleTypes = []VehicleType{P987, GR26, GR25, GR24}
 
 // VehicleTypeInfo is the API shape for a selectable type.
 type VehicleTypeInfo struct {
