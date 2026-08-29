@@ -23,6 +23,9 @@ func main() {
 		database.Init()
 	}
 
+	// Started before the subscription so the first frames are counted.
+	service.InitDecodeReporting()
+
 	mqtt.SetMessageHandler(service.HandleInboundMessage)
 	if err := mqtt.Init(context.Background()); err != nil {
 		logger.SugarLogger.Fatalf("Failed to initialize MQTT: %v", err)
