@@ -331,7 +331,7 @@ case "$TARGET" in
         fi
 
         for svc in "${GO_CONFIG_SERVICES[@]}"; do
-            sed -i '' "s/Version:.*\".*\"/Version:     \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/config/config.go"
+            sed -i '' "s/Version:.*\".*\"/Version: \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/config/config.go"
         done
         for svc in "${PY_SERVICES[@]}"; do
             sed -i '' "s/^version = \".*\"/version = \"${SEMVER}\"/" "${REPO_ROOT}/${svc}/pyproject.toml"
