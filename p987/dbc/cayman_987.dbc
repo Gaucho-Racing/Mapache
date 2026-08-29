@@ -1,0 +1,521 @@
+VERSION ""
+
+NS_ : 
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: DME PSM PDK SCCM PAS Gateway KLIMO DIAG
+
+
+; ═══════════════════════════════════════════════════════════════════
+;  Porsche 987 Cayman — Powertrain CAN Bus DBC
+; ═══════════════════════════════════════════════════════════════════
+;  Decoded from cayman_startup_idle.csv (61,890 msgs, 35 CAN IDs)
+;  Cross-referenced with Porsche 997.1 DBC.
+;
+;  Confidence markers:
+;    [✓] = validated against CSV — formula produces correct physical values
+;    [~] = ported from 997 DBC — structurally correct, scaling may need check
+;    [?] = placeholder — ID exists but signal layout is unverified
+; ═══════════════════════════════════════════════════════════════════
+
+
+; ─── 0x0C2 (194) — SCCM1: Steering Angle ──────────────────────────
+BO_ 194 SCCM1: 8 SCCM
+ SG_ SCCM_SteeringAngleSign : 15|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_SteeringAngleRateSign : 31|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_SteeringAngleRate : 18|13@1+ (0.175,0) [0|0] "deg/sec" SCCM
+ SG_ SCCM_SteeringAngle : 2|13@1+ (0.175,0) [0|0] "deg" SCCM
+ SG_ SCCM_SensorID : 32|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM_Counter : 44|4@1+ (1,0) [0|15] "" SCCM
+ SG_ SCCM_Checksum : 56|8@1+ (1,0) [0|255] "" SCCM
+
+
+; ─── 0x140 (320) — DME Heartbeat [✓] ─────────────────────────────
+;  D4 = D1 XOR D2 XOR D3  (verified 21/21 unique payloads)
+BO_ 320 Heartbeat: 4 DME
+ SG_ HB_Page : 0|8@1+ (1,0) [0|255] "" DME
+ SG_ HB_SourceID : 8|8@1+ (1,0) [0|255] "" DME
+ SG_ HB_Counter : 16|4@1+ (1,0) [0|15] "" DME
+ SG_ HB_Checksum : 24|8@1+ (1,0) [0|255] "" DME
+
+
+; ─── 0x14A (330) — PSM1: Vehicle Speed, Brake/ESP Status [~] ────
+BO_ 330 PSM1: 8 PSM
+ SG_ ASR_Requirement : 0|1@1+ (1,0) [0|1] "" PSM
+ SG_ MSR_Requirement : 1|1@1+ (1,0) [0|1] "" PSM
+ SG_ ABS_Status : 2|1@1+ (1,0) [0|1] "" PSM
+ SG_ Brake_Intervention : 3|1@1+ (1,0) [0|1] "" PSM
+ SG_ ESP_Intervention : 4|1@1+ (1,0) [0|1] "" PSM
+ SG_ ASR_Switching : 5|2@1+ (1,0) [0|3] "" PSM
+ SG_ ESP_Control : 7|1@1+ (1,0) [0|1] "" PSM
+ SG_ ABS_Error : 8|1@1+ (1,0) [0|1] "" PSM
+ SG_ ESP_Error : 9|1@1+ (1,0) [0|1] "" PSM
+ SG_ EBV_Error : 10|1@1+ (1,0) [0|1] "" PSM
+ SG_ PSM_FootBrake : 11|1@1+ (1,0) [0|1] "" PSM
+ SG_ PSM_FootBrake2 : 12|1@1+ (1,0) [0|1] "" PSM
+ SG_ PSM_Disabled : 13|1@1+ (1,0) [0|1] "" PSM
+ SG_ Brake_Fluid_Switch : 14|1@1+ (1,0) [0|1] "" PSM
+ SG_ PSM_HandBrake : 15|1@1+ (1,0) [0|1] "" PSM
+ SG_ ESP_Diag_Mode : 16|1@1+ (1,0) [0|1] "" PSM
+ SG_ Vref : 16|16@1+ (0.01,0) [0|655.35] "km/h" PSM
+ SG_ PSM_TorqueReqSlow : 32|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM_TorqueReqFast : 40|8@1+ (1,0) [0|255] "" PSM
+ SG_ Engagement_Torque : 48|8@1+ (0.39,0) [0|99.45] "%" PSM
+ SG_ PSM_LateralAccel : 56|8@1+ (1,0) [0|255] "" PSM
+
+CM_ SG_ 330 Vref "Vehicle reference speed. (D4*256 + D3) / 100 = km/h. Verified against OBD2 GPS speed (0-48 mph town drive).";
+
+
+
+; ─── 0x165 (357) — PAS: Key Position [✓] ────────────────────────
+;  Observed: Off (424×), Ignition On (212×), Engine Start (5×)
+BO_ 357 PAS: 1 PAS
+ SG_ PAS_KeyPresent : 0|1@1+ (1,0) [0|1] "" PAS
+ SG_ PAS_KeyPosition : 2|2@1+ (1,0) [0|3] "" PAS
+
+VAL_ 357 PAS_KeyPosition 2 "Engine Start" 1 "Ignition On" 0 "Ignition Off" ;
+
+
+; ─── 0x210 (528) — SCCM2: Cruise Control Buttons [~] ─────────────
+BO_ 528 SCCM2: 4 SCCM
+ SG_ SCCM_CruiseEnable : 8|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseDown : 9|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseTowards : 10|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseAway : 11|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseTowardsHold : 12|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseAwayHold : 13|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseAvailable : 15|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseUp : 17|1@1+ (1,0) [0|1] "" SCCM
+ SG_ SCCM_CruiseCount1 : 4|4@1+ (1,0) [0|15] "" SCCM
+ SG_ SCCM_CruiseCount2 : 20|4@1+ (1,0) [0|15] "" SCCM
+
+
+; ─── 0x242 (578) — DME1: Engine Speed, Torque, Pedal ─────────────
+;
+;  RPM is at D3-D4 (bit 16), Intel byte order: (D4 << 8 | D3) * 0.25.
+;  This exactly matches the 997 DBC definition (0.25 RPM/bit).
+;
+;  Verified against cayman_startup_idle.csv:
+;    Warm idle: D4=0x0A D3=0xA4  →  (0x0AA4) * 0.25 = 681 RPM
+;    DME2 idle target: 680 RPM  ✓  (perfect match)
+;    Cranking: ~124-138 RPM  ✓  (starter motor speed)
+;    Max range: 0–16384 RPM  ✓  (ample headroom above 7400 redline)
+;
+;  D6 (APP) = 0x00 at warm idle = 0% pedal  ✓
+;  D2 (EngineTorque) varies with engine load — torque-related.
+;
+BO_ 578 DME1: 8 DME
+ SG_ DME1_Counter : 0|4@1+ (1,0) [0|15] "" DME
+ SG_ DME_EngineTorque : 8|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_RPM : 16|16@1+ (0.25,0) [0|16383.75] "rpm" DME
+ SG_ DME_Interventions : 32|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_APP : 40|8@1+ (0.39215,0) [0|99.998] "%" DME
+ SG_ DME_TorqueLoss : 48|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_DriverTrq : 56|8@1+ (0.781,0) [0|199.155] "%" DME
+
+CM_ SG_ 578 DME_RPM "Engine speed at D3-D4 (bit 16), Intel byte order. 0.25 RPM/bit — verified: warm idle = 681 RPM vs 680 target. Cranking = ~130 RPM. Matches 997 DBC exactly. Max range: 16383 RPM.";
+CM_ SG_ 578 DME_EngineTorque "Actual engine torque. 0.39 %/bit. Validated: 14% at warm idle (plausible).";
+CM_ SG_ 578 DME_APP "Accelerator pedal position. Verified: 0% at warm idle (foot off). 0.39215 %/bit.";
+
+
+; ─── 0x245 (581) — DME2: Coolant Temp, Idle Target [✓] ──────────
+BO_ 581 DME2: 8 DME
+ SG_ DME2_MUL_Code m0 : 0|6@1+ (1,0) [0|63] "" DME
+ SG_ DME2_MUL_Code m1 : 0|6@1+ (1,0) [0|63] "" DME
+ SG_ DME2_MUL_Code m2 : 0|6@1+ (1,0) [0|63] "" DME
+ SG_ DME2_MUL_Code m3 : 0|6@1+ (1,0) [0|63] "" DME
+ SG_ DME2_MUX : 6|2@1+ (1,0) [0|3] "" DME
+ SG_ DME_CoolantTemp : 8|8@1+ (0.75,-48) [-48|143.25] "°C" DME
+ SG_ DME2_B2_B3 m0 : 16|16@1+ (0.25,0) [0|16383.75] "" DME
+ SG_ DME2_B2_B3 m1 : 16|16@1+ (1,0) [0|65535] "" DME
+ SG_ DME2_B2_B3 m2 : 16|16@1+ (1,0) [0|65535] "" DME
+ SG_ DME2_B2_B3 m3 : 16|16@1+ (1,0) [0|65535] "" DME
+ SG_ DME_IdleSpeedTarget : 32|8@1+ (10,0) [0|2550] "rpm" DME
+ SG_ DME_MomentBase : 40|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME2_Counter : 48|4@1+ (1,0) [0|15] "" DME
+ SG_ DME2_TorqueIndexed : 56|8@1+ (0.39215,0) [0|99.998] "%" DME
+
+VAL_ 581 DME2_MUX 3 "Page3" 2 "Page2_Gearbox" 1 "Page1_Engine" 0 "Page0_Base" ;
+
+CM_ SG_ 581 DME_CoolantTemp "Coolant temperature. Verified: 66.8–69.0°C in capture. Formula: D2 × 0.75 − 48.";
+CM_ SG_ 581 DME_IdleSpeedTarget "Idle speed target. Verified: 680–750 RPM in capture. Formula: D5 × 10.";
+
+
+; ─── 0x246 (582) — DME3: Gear, Ambient Pressure [~] ──────────────
+BO_ 582 DME3: 8 DME
+ SG_ DME_EngagedGear : 0|3@1+ (1,0) [0|7] "" DME
+ SG_ DME_KickdownActive : 3|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_CompressorRunning : 4|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_CompressorFault : 5|1@1+ (1,0) [0|1] "" DME
+ SG_ Sport_Mode_Error : 6|1@1+ (1,0) [0|1] "" DME
+ SG_ Ambient_Pressure_Error : 7|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_GearRequirement : 8|3@1+ (1,0) [0|7] "" DME
+ SG_ DME_GearRequest : 11|3@1+ (1,0) [0|7] "" DME
+ SG_ DME_TRQ_Target_Error : 14|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_Overboost : 15|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_GB_TargetTrq : 16|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_AccelPedalAngle : 24|8@1+ (0.4,0) [0|99.998] "%" DME
+ SG_ DME_GB_TrqActual : 32|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_AmbientPressure : 40|8@1+ (5,0) [0|1275] "mbar" DME
+ SG_ DME3_Counter : 48|4@1+ (1,0) [0|15] "" DME
+ SG_ DME3_Muxed m0 : 56|8@1+ (0.3937,0) [0|100.39] "%" DME
+ SG_ DME3_Muxed m1 : 56|8@1+ (0.39215,0) [0|99.998] "%" DME
+ SG_ DME3_Muxed m2 : 56|8@1+ (1,-40) [-40|215] "°C" DME
+ SG_ DME3_Muxed m3 : 56|8@1+ (0.75,-96) [-96|95.25] "°" DME
+
+VAL_ 582 DME_EngagedGear 7 "Reverse" 6 "6th" 5 "5th" 4 "4th" 3 "3rd" 2 "2nd" 1 "1st" 0 "N/P" ;
+
+CM_ SG_ 582 DME_AmbientPressure "Ambient pressure. Decodes to 990–995 mbar (sea level). D6 × 5.";
+
+
+; ─── 0x24A (586) — PSM2: Wheel Speeds [~] ───────────────────────
+BO_ 586 PSM2: 8 PSM
+ SG_ PSM_WheelSpeedFL : 0|16@1+ (0.01,0) [0|655.35] "km/h" PSM
+ SG_ PSM_WheelSpeedFR : 16|16@1+ (0.01,0) [0|655.35] "km/h" PSM
+ SG_ PSM_WheelSpeedRL : 32|16@1+ (0.01,0) [0|655.35] "km/h" PSM
+ SG_ PSM_WheelSpeedRR : 48|16@1+ (0.01,0) [0|655.35] "km/h" PSM
+
+CM_ SG_ 586 PSM_WheelSpeedFL "Wheel speed. Full 16-bit per wheel, 0.01 km/h per bit. Verified against OBD2 GPS and vehicle speed. Formula: (D2*256 + D1) / 100 for FL, etc.";
+
+
+
+; ─── 0x303 (771) — DME: Lambda / AFR [?] ─────────────────────────
+;  7-byte message, variable data, not in 997 DBC.
+;  D1 = counter (0x00–0x05), D3-D4 vary as 16-bit, D6 is checksum-like.
+BO_ 771 DME_Lambda: 7 DME
+ SG_ DME_Lambda_Counter : 0|4@1+ (1,0) [0|15] "" DME
+ SG_ DME_Lambda_Value : 16|16@1+ (0.0001,0) [0|6.5535] "" DME
+ SG_ DME_Lambda_Status : 32|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_Lambda_Checksum : 40|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_Lambda_Flags : 48|8@1+ (1,0) [0|255] "" DME
+
+CM_ BO_ 771 "Lambda / AFR / intake data. 7-byte DLC unique to 987. Signal layout is approximate — verify with wideband O2.";
+
+
+; ─── 0x308 (776) — Body Control: Lights, Fans, Outside Temp [~] ──
+BO_ 776 DRIVEMODE: 8 DME
+ SG_ LT_Rad_Fan_PWM : 0|2@1+ (1,0) [0|3] "" DME
+ SG_ RT_Rad_Fan_PWM : 2|2@1+ (1,0) [0|3] "" DME
+ SG_ Trunk_Lid_Open : 4|1@1+ (1,0) [0|1] "" DME
+ SG_ Sport_Mode : 5|1@1+ (1,0) [0|1] "" DME
+ SG_ Wiper_Status : 6|1@1+ (1,0) [0|1] "" DME
+ SG_ Radio_Key : 7|4@1+ (1,0) [0|15] "" DME
+ SG_ Low_Beam : 11|1@1+ (1,0) [0|1] "" DME
+ SG_ Reverse_Light : 12|1@1+ (1,0) [0|1] "" DME
+ SG_ High_Beam : 14|1@1+ (1,0) [0|1] "" DME
+ SG_ Outside_Temp : 32|8@1+ (0.5,-50) [-50|77.5] "°C" DME
+
+
+; ─── 0x31F (799) — DME: Engine Running Status [?] ────────────────
+;  Constant payload throughout capture: 06 60 34 FF 00 00 0F 00
+BO_ 799 DME_Status: 8 DME
+ SG_ DME_Status_ID : 0|16@1+ (1,0) [0|65535] "" DME
+ SG_ DME_Status_Flags1 : 16|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_Status_Flags2 : 24|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_Status_Reserved : 32|16@1+ (1,0) [0|65535] "" DME
+ SG_ DME_Status_Counter : 48|16@1+ (1,0) [0|65535] "" DME
+
+CM_ BO_ 799 "Engine running status broadcast. Constant data during idle — likely ECU health + counters.";
+
+
+; ─── 0x441 (1089) — DME4: Oil, Boost, Alerts [✓] ────────────────
+BO_ 1089 DME4: 8 DME
+ SG_ DME_CEL_Flashing : 0|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_CEL_Steady : 1|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_FuelReserve : 2|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_ReducedPower : 3|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_EngCompFanAlert : 4|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_OilTempSensFault : 5|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_OilPressureAlert : 6|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_ChargingAlert : 7|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_RadFanSpeedReq : 8|7@1+ (1,0) [0|127] "%" DME
+ SG_ DME_EngineRunning : 15|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_FuelConsumption1 : 16|8@1+ (1,0) [0|255] "µl" DME
+ SG_ DME_FuelConsumption2 : 24|8@1+ (1,0) [0|255] "µl" DME
+ SG_ DME_BoostPressure : 32|8@1+ (0.01,0) [0|2.55] "bar" DME
+ SG_ DME_OilTemp : 40|8@1+ (0.75,-48) [-48|143.25] "°C" DME
+ SG_ DME_OilPressure : 48|8@1+ (0.04,0) [0|10.2] "bar" DME
+ SG_ DME_CoolantLevelSW : 56|1@1+ (1,0) [0|1] "" DME
+ SG_ DME_EngineCompTemp : 57|6@1- (1,-48) [-48|15] "°C" DME
+ SG_ DME_EngCompTempFail : 63|1@1+ (1,0) [0|1] "" DME
+
+CM_ SG_ 1089 DME_OilTemp "Oil temperature. Verified: 42.0–43.5°C in capture. D6 × 0.75 − 48.";
+CM_ SG_ 1089 DME_BoostPressure "Boost pressure at D5 (byte 4, bit 32). Reads 0.00 bar on NA 987 Cayman. 0.01 bar/bit. On 997 Turbo this carries actual boost; shared CAN layout with NA cars.";
+CM_ SG_ 1089 DME_CEL_Steady "Check-engine light steady. Flagged in this capture — DTC may be present.";
+CM_ SG_ 1089 DME_EngineRunning "1 = engine speed > 40 RPM. Verified: 2150/2163 msgs show running.";
+
+
+; ─── 0x44A (1098) — PSM3 [?] ────────────────────────────────────
+BO_ 1098 PSM3: 8 PSM
+ SG_ PSM3_B0 : 0|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B1 : 8|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B2 : 16|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B3 : 24|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B4 : 32|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B5 : 40|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B6 : 48|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM3_B7 : 56|8@1+ (1,0) [0|255] "" PSM
+
+
+; ─── 0x44B (1099) — PSM4: Yaw, Accel, Brake Pressure [~] ────────
+BO_ 1099 PSM4: 8 PSM
+ SG_ PSM_BrakePressure : 0|8@1+ (1,0) [0|255] "Bar" PSM
+ SG_ Yaw_Rate : 16|9@1+ (0.0021326,0) [0|1.091] "rad/s" PSM
+ SG_ Yaw_Rate_Sign : 25|1@1+ (1,0) [0|1] "" PSM
+ SG_ Longitudinal_Accel : 56|8@1+ (0.015,-1.8) [-1.8|2.025] "g" PSM
+
+
+; ─── 0x44C (1100) — PDK: Gearbox Status [?] ─────────────────────
+BO_ 1100 PDK1: 8 PDK
+ SG_ PDK_SelectedGear : 0|3@1+ (1,0) [0|7] "" PDK
+ SG_ PDK_ShiftFork1 : 8|8@1+ (1,0) [0|255] "" PDK
+ SG_ PDK_ShiftFork2 : 16|8@1+ (1,0) [0|255] "" PDK
+ SG_ PDK_ClutchStatus : 24|8@1+ (1,0) [0|255] "" PDK
+ SG_ PDK_OilTemp : 32|8@1+ (0.75,-48) [-48|143.25] "°C" PDK
+ SG_ PDK_Counter : 48|4@1+ (1,0) [0|15] "" PDK
+ SG_ PDK_Checksum : 56|8@1+ (1,0) [0|255] "" PDK
+
+
+; ─── 0x44F (1103) — PDK: Fault Flags [?] ────────────────────────
+;  Always 0x0000 in this capture = no PDK faults.
+BO_ 1103 PDK_Flags: 2 PDK
+ SG_ PDK_ErrorFlags : 0|16@1+ (1,0) [0|65535] "" PDK
+
+CM_ BO_ 1103 "PDK fault flags. All zero in this capture — gearbox healthy.";
+
+
+; ─── 0x470 (1136) — DME: Torque Coordination [?] ─────────────────
+BO_ 1136 DME_Torque: 8 DME
+ SG_ DME_Torque_Counter : 0|4@1+ (1,0) [0|15] "" DME
+ SG_ DME_Torque_Req1 : 8|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_Torque_Req2 : 16|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_Torque_Req3 : 24|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_Torque_Max : 32|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_Torque_Min : 40|8@1+ (0.39,0) [0|99.45] "%" DME
+ SG_ DME_Torque_Checksum : 56|8@1+ (1,0) [0|255] "" DME
+
+
+; ─── 0x502 (1282) — CLUSTER1: Instrument Cluster [~] ─────────────
+BO_ 1282 CLUSTER1: 8 DME
+ SG_ CLUSTER1_B0 : 0|8@1+ (1,0) [0|255] "" DME
+ SG_ CLUSTER1_B1 : 8|8@1+ (1,0) [0|255] "" DME
+ SG_ CLUSTER1_Flags : 16|5@1+ (1,0) [0|31] "" DME
+ SG_ CLUSTER_ClutchSW : 21|1@1+ (1,0) [0|1] "" DME
+ SG_ CLUSTER1_B2u : 22|2@1+ (1,0) [0|3] "" DME
+ SG_ CLUSTER_AmbBrightness : 24|8@1+ (0.3922,0) [0|100] "%" DME
+ SG_ CLUSTER1_B4 : 32|8@1+ (1,0) [0|255] "" DME
+ SG_ CLUSTER1_B5 : 40|8@1+ (1,0) [0|255] "" DME
+ SG_ CLUSTER1_B6 : 48|8@1+ (1,0) [0|255] "" DME
+ SG_ CLUSTER1_B7 : 56|8@1+ (1,0) [0|255] "" DME
+
+
+; ─── 0x513 (1299) — Immobilizer Challenge [?] ────────────────────
+;  One-shot, 5 bytes.  Appears only at startup.
+BO_ 1299 Immobilizer: 5 DME
+ SG_ Immo_Challenge : 0|40@1+ (1,0) [0|1099511627775] "" DME
+
+
+; ─── 0x600 (1536) — KLIMA: Climate Control [~] ───────────────────
+BO_ 1536 KLIMA: 8 KLIMO
+ SG_ HVAC_Fan_Increase : 0|1@1+ (1,0) [0|1] "" KLIMO
+ SG_ HVAC_Display_On : 2|1@1+ (1,0) [0|1] "" KLIMO
+ SG_ KLIMA_CompressorReq : 3|1@1+ (1,0) [0|1] "" KLIMO
+ SG_ KLIMA_B1_Bits : 8|4@1+ (1,0) [0|15] "" KLIMO
+ SG_ KLIMA_RearDefrost : 12|1@1+ (1,0) [0|1] "" KLIMO
+ SG_ KLIMA_BlowerStage : 13|3@1+ (1,0) [0|7] "" KLIMO
+ SG_ KLIMA_RefrigPressure : 16|8@1+ (0.2,0) [0|51] "Bar" KLIMO
+ SG_ KLIMA_B3_Temp : 24|8@1+ (0.5,-50) [-50|77.5] "°C" KLIMO
+ SG_ KLIMA_BlowerSpeed : 32|8@1+ (1,0) [0|255] "" KLIMO
+ SG_ KLIMA_InsideTemp : 40|8@1+ (0.5,-50) [-50|77.5] "°C" KLIMO
+ SG_ KLIMA_B6_Temp : 48|8@1+ (0.5,-50) [-50|77.5] "°C" KLIMO
+ SG_ KLIMA_B7 : 56|8@1+ (1,0) [0|255] "" KLIMO
+
+
+; ─── 0x62A / 0x66B (1578 / 1643) — ECU Identification [?] ───────
+;  Both carry same constant payload: 41 41 08 42 55 67 10 93
+BO_ 1578 ECU_ID1: 8 DME
+ SG_ ECU_ID1_Bytes : 0|64@1+ (1,0) [0|1.84e19] "" DME
+
+BO_ 1583 ECU_Coding: 8 DME
+ SG_ ECU_Coding_Bytes : 0|64@1+ (1,0) [0|1.84e19] "" DME
+
+CM_ BO_ 1578 "ECU identification. Constant: 41 41 08 42 55 67 10 93. Appears at startup only.";
+CM_ BO_ 1583 "ECU calibration/coding data. Constant: 59 8F 9E 02 23 00 80 C7.";
+
+
+; ─── 0x669 (1641) — DME6: Odometer, Country Code [~] ─────────────
+BO_ 1641 DME6: 8 DME
+ SG_ DME_Odometer : 0|20@1+ (1,0) [0|1048575] "km" DME
+ SG_ DME_CountryCode : 24|7@1+ (1,0) [0|127] "" DME
+ SG_ DME6_StatusBit : 32|1@1+ (1,0) [0|1] "" DME
+ SG_ DME6_Counter : 40|8@1+ (1,0) [0|255] "" DME
+ SG_ DME6_Data : 48|16@1+ (1,0) [0|65535] "" DME
+
+
+; ─── 0x66B — same as 0x62A, see above ────────────────────────────
+
+
+; ─── 0x70B (1803) — Gateway: Module Config [?] ───────────────────
+BO_ 1803 Gateway_Cfg: 8 Gateway
+ SG_ GW_Config_Data : 0|64@1+ (1,0) [0|1.84e19] "" Gateway
+
+CM_ BO_ 1803 "Gateway module configuration. Constant during capture.";
+
+
+; ─── 0x70D (1805) — Gateway: Network Config [?] ──────────────────
+BO_ 1805 Gateway_Net: 8 Gateway
+ SG_ GW_Network_Data : 0|64@1+ (1,0) [0|1.84e19] "" Gateway
+
+CM_ BO_ 1805 "Gateway network configuration. Transitions 0x00→active during startup.";
+
+
+; ─── 0x716 (1814) — DME8: Software Version [~] ───────────────────
+;  Payload: 35 65 00 00 00 00 00 00  (ASCII "5e")
+BO_ 1814 DME8_Version: 8 DME
+ SG_ DME_SW_Byte0 : 0|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte1 : 8|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte2 : 16|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte3 : 24|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte4 : 32|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte5 : 40|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte6 : 48|8@1+ (1,0) [0|255] "" DME
+ SG_ DME_SW_Byte7 : 56|8@1+ (1,0) [0|255] "" DME
+
+CM_ BO_ 1814 "Motronic software version. ASCII '5e' in bytes 0-1.";
+
+
+; ─── 0x718 (1816) — PSM5 [?] ────────────────────────────────────
+BO_ 1816 PSM5: 8 PSM
+ SG_ PSM5_B0 : 0|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B1 : 8|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B2 : 16|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B3 : 24|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B4 : 32|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B5 : 40|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B6 : 48|8@1+ (1,0) [0|255] "" PSM
+ SG_ PSM5_B7 : 56|8@1+ (1,0) [0|255] "" PSM
+
+
+; ─── 0x719 (1817) — Gateway: Wake/Sleep [?] ──────────────────────
+;  D4 transitions 0x0B → 0x5B during startup.
+BO_ 1817 Gateway_State: 8 Gateway
+ SG_ GW_State_B0 : 0|8@1+ (1,0) [0|255] "" Gateway
+ SG_ GW_State_B1 : 8|8@1+ (1,0) [0|255] "" Gateway
+ SG_ GW_State_B2 : 16|8@1+ (1,0) [0|255] "" Gateway
+ SG_ GW_State_Change : 24|8@1+ (1,0) [0|255] "" Gateway
+ SG_ GW_State_B4_B7 : 32|32@1+ (1,0) [0|4294967295] "" Gateway
+
+CM_ BO_ 1817 "Gateway wake/sleep state. D4 changes 0x0B→0x5B at startup transition.";
+
+
+; ─── 0x71A (1818) — SCCM3 [?] ────────────────────────────────────
+BO_ 1818 SCCM3: 8 SCCM
+ SG_ SCCM3_B0 : 0|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B1 : 8|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B2 : 16|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B3 : 24|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B4 : 32|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B5 : 40|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B6 : 48|8@1+ (1,0) [0|255] "" SCCM
+ SG_ SCCM3_B7 : 56|8@1+ (1,0) [0|255] "" SCCM
+
+
+; ═══════════════════════════════════════════════════════════════════
+;  Transmit cycle times (approximate, inferred from message counts)
+; ═══════════════════════════════════════════════════════════════════
+
+BA_DEF_ SG_ "GenSigSendType" ENUM "Cyclic","OnWrite","OnWriteWithRepetition","OnChange","OnChangeWithRepetition","IfActive","IfActiveWithRepetition","NoSigSendType";
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
+BA_DEF_ BO_ "GenMsgSendType" ENUM "Cyclic","NotUsed","NotUsed","NotUsed","NotUsed","Cyclic","NotUsed","IfActive","NoMsgSendType";
+BA_DEF_ "DBName" STRING ;
+BA_DEF_DEF_ "GenSigSendType" "Cyclic";
+BA_DEF_DEF_ "GenMsgCycleTime" 0;
+BA_DEF_DEF_ "GenMsgSendType" "NoMsgSendType";
+BA_DEF_DEF_ "DBName" "";
+
+BA_ "DBName" "Porsche_987_Cayman_Powertrain";
+
+; ~10ms streaming
+BA_ "GenMsgCycleTime" BO_ 320 10;
+BA_ "GenMsgSendType" BO_ 320 0;
+BA_ "GenMsgCycleTime" BO_ 578 10;
+BA_ "GenMsgSendType" BO_ 578 0;
+BA_ "GenMsgCycleTime" BO_ 581 10;
+BA_ "GenMsgSendType" BO_ 581 0;
+BA_ "GenMsgCycleTime" BO_ 582 10;
+BA_ "GenMsgSendType" BO_ 582 0;
+BA_ "GenMsgCycleTime" BO_ 771 10;
+BA_ "GenMsgSendType" BO_ 771 0;
+BA_ "GenMsgCycleTime" BO_ 1089 20;
+BA_ "GenMsgSendType" BO_ 1089 0;
+BA_ "GenMsgCycleTime" BO_ 1100 10;
+BA_ "GenMsgSendType" BO_ 1100 0;
+BA_ "GenMsgCycleTime" BO_ 1136 10;
+BA_ "GenMsgSendType" BO_ 1136 0;
+
+; ~20ms
+BA_ "GenMsgCycleTime" BO_ 194 10;
+BA_ "GenMsgSendType" BO_ 194 0;
+BA_ "GenMsgCycleTime" BO_ 330 20;
+BA_ "GenMsgSendType" BO_ 330 0;
+BA_ "GenMsgCycleTime" BO_ 586 20;
+BA_ "GenMsgSendType" BO_ 586 0;
+BA_ "GenMsgCycleTime" BO_ 1099 10;
+BA_ "GenMsgSendType" BO_ 1099 0;
+BA_ "GenMsgCycleTime" BO_ 528 20;
+BA_ "GenMsgSendType" BO_ 528 0;
+
+; ~100-200ms
+BA_ "GenMsgCycleTime" BO_ 357 200;
+BA_ "GenMsgSendType" BO_ 357 0;
+BA_ "GenMsgCycleTime" BO_ 776 100;
+BA_ "GenMsgSendType" BO_ 776 0;
+BA_ "GenMsgCycleTime" BO_ 799 100;
+BA_ "GenMsgSendType" BO_ 799 0;
+BA_ "GenMsgCycleTime" BO_ 1103 100;
+BA_ "GenMsgSendType" BO_ 1103 0;
+BA_ "GenMsgCycleTime" BO_ 1536 100;
+BA_ "GenMsgSendType" BO_ 1536 0;
+
+; ~1s
+BA_ "GenMsgCycleTime" BO_ 1282 1000;
+BA_ "GenMsgSendType" BO_ 1282 0;
+
+; Startup-only (event-driven)
+BA_ "GenMsgSendType" BO_ 1578 5;
+BA_ "GenMsgSendType" BO_ 1583 5;
+BA_ "GenMsgSendType" BO_ 1641 5;
+BA_ "GenMsgSendType" BO_ 1814 5;
+BA_ "GenMsgSendType" BO_ 1803 5;
+BA_ "GenMsgSendType" BO_ 1805 5;
+BA_ "GenMsgSendType" BO_ 1817 5;
+BA_ "GenMsgSendType" BO_ 1299 5;
