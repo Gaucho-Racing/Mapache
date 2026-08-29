@@ -77,7 +77,7 @@ jobs:
           # Surgically rewrite the newTag of each mapache/* image only, leaving
           # kerbecs and all comments/formatting untouched for a clean diff.
           awk -v new="$NEW" '
-            $0 ~ "- name: ghcr.io/gaucho-racing/mapache/(auth|vehicle|gr26|live|query|dashboard)$" { inmap=1; print; next }
+            $0 ~ "- name: ghcr.io/gaucho-racing/mapache/(auth|vehicle|gr26|p987|live|query|dashboard)$" { inmap=1; print; next }
             inmap==1 && $1=="newTag:" { sub(/newTag:[[:space:]]*.*/, "newTag: " new); inmap=0 }
             { print }
           ' "infra/$KUSTOMIZATION" > "infra/$KUSTOMIZATION.tmp" && mv "infra/$KUSTOMIZATION.tmp" "infra/$KUSTOMIZATION"
