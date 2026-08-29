@@ -16,6 +16,15 @@ import (
 	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
+// Decode outcome statuses, recorded in the stored frame's metadata and
+// counted by the decode reporter.
+const (
+	statusOK               = "ok"
+	statusUnknownCANID     = "unknown_can_id"
+	statusDecodeError      = "decode_error"
+	statusInvalidTimestamp = "invalid_timestamp"
+)
+
 // headerSize is the relay's wire format: u64 BE microsecond timestamp
 // followed by a u16 BE upload key, then the raw CAN payload.
 const headerSize = 10
@@ -86,13 +95,10 @@ func ProcessFrame(vehicleID, bus string, canID, timestamp int, data []byte) (mod
 
 	switch {
 	case !IsValidProducedAt(timestamp):
-		logger.SugarLogger.Warnf("Frame with invalid timestamp: vehicle=%s bus=%s can_id=0x%X ts=%d decoded=%s",
-			vehicleID, bus, canID, timestamp, producedAt.UTC().Format(time.RFC3339Nano))
-		meta = MustJSON(map[string]any{
-			"status": "invalid_timestamp",
-			"note": fmt.Sprintf("ts=%d (%s) is before %s", timestamp,
-				producedAt.UTC().Format(time.RFC3339Nano), minValidProducedAt.UTC().Format(time.RFC3339Nano)),
-		})
+		note := fmt.Sprintf("ts=%d (%s) is before %s", timestamp,
+			producedAt.UTC().Format(time.RFC3339Nano), minValidProducedAt.UTC().Format(time.RFC3339Nano))
+		NoteDecodeOutcome(bus, canID, statusInvalidTimestamp, note)
+		meta = MustJSON(map[string]any{"status": statusInvalidTimestamp, "note": note})
 	default:
 		decoded, meta = decodeFrame(bus, canID, data)
 	}
@@ -130,18 +136,17 @@ func ProcessFrame(vehicleID, bus string, canID, timestamp int, data []byte) (mod
 func decodeFrame(bus string, canID int, data []byte) ([]mapache.Signal, []byte) {
 	messageStruct := model.GetMessage(bus, canID)
 	if messageStruct == nil {
-		return nil, MustJSON(map[string]any{
-			"status": "unknown_can_id",
-			"note":   fmt.Sprintf("no decoder registered for can id 0x%X on bus %s", canID, bus),
-		})
+		note := fmt.Sprintf("no decoder registered for can id 0x%X on bus %s", canID, bus)
+		NoteDecodeOutcome(bus, canID, statusUnknownCANID, note)
+		return nil, MustJSON(map[string]any{"status": statusUnknownCANID, "note": note})
 	}
 	if err := messageStruct.FillFromBytes(data); err != nil {
-		return nil, MustJSON(map[string]any{
-			"status": "decode_error",
-			"note":   err.Error(),
-		})
+		note := err.Error()
+		NoteDecodeOutcome(bus, canID, statusDecodeError, note)
+		return nil, MustJSON(map[string]any{"status": statusDecodeError, "note": note})
 	}
-	return messageStruct.ExportSignals(), MustJSON(map[string]any{"status": "ok"})
+	NoteDecodeOutcome(bus, canID, statusOK, "")
+	return messageStruct.ExportSignals(), MustJSON(map[string]any{"status": statusOK})
 }
 
 func HandleMessage(vehicleID string, bus string, canID int, message []byte) {
