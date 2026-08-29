@@ -1,7 +1,7 @@
 name: build
 run-name: Check Mapache service builds
 
-# Aggregates the six per-service image builds into one check so branch
+# Aggregates the per-service image builds into one check so branch
 # protection has a single required status to gate on.
 #
 # Only the image builds are waited on. mapache-go / mapache-py run on
@@ -95,4 +95,5 @@ jobs:
           wait_for_workflow "gr26" "gr26.yml"
           wait_for_workflow "live" "live.yml"
           wait_for_workflow "query" "query.yml"
+          wait_for_workflow "p987" "p987.yml"
           wait_for_workflow "dashboard" "dashboard.yml"
