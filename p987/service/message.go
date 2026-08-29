@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/dbc"
 	"github.com/gaucho-racing/mapache/p987/model"
 	"github.com/gaucho-racing/mapache/p987/mqtt"
 	"github.com/gaucho-racing/mapache/p987/pkg/logger"
@@ -31,21 +30,6 @@ var minValidProducedAt = time.Date(2003, 10, 31, 0, 0, 0, 0, time.UTC)
 // resolves to a time at or after minValidProducedAt.
 func IsValidProducedAt(tsMicros int) bool {
 	return !time.UnixMicro(int64(tsMicros)).Before(minValidProducedAt)
-}
-
-var decoder *dbc.Database
-
-// InitDecoder parses the embedded DBC. Called before MQTT so the first
-// frame doesn't race the load.
-func InitDecoder() error {
-	db, err := dbc.Cayman987()
-	if err != nil {
-		return err
-	}
-	decoder = db
-	logger.SugarLogger.Infof("[DBC] Loaded %d messages, %d signals (%d multiplexed, skipped)",
-		len(db.Messages), db.SignalCount(), db.MultiplexedCount())
-	return nil
 }
 
 // HandleInboundMessage routes one MQTT message.
@@ -96,7 +80,7 @@ func ProcessFrame(vehicleID, bus string, canID, timestamp int, data []byte) (mod
 	producedAt := time.UnixMicro(int64(timestamp))
 
 	var (
-		decoded []model.Decoded
+		decoded []mapache.Signal
 		meta    []byte
 	)
 
@@ -123,78 +107,42 @@ func ProcessFrame(vehicleID, bus string, canID, timestamp int, data []byte) (mod
 		ProducedAt: producedAt,
 	}
 
-	now := time.Now().Truncate(time.Microsecond)
-	signals := make([]mapache.Signal, 0, len(decoded))
-	for _, d := range decoded {
-		signals = append(signals, mapache.Signal{
+	if len(decoded) > 0 {
+		now := time.Now().Truncate(time.Microsecond)
+		for i := range decoded {
 			// Prefixed with the bus for the same reason gr26 prefixes with
 			// the node: it keeps names unique across buses and lets the
 			// signal-to-frame join recover the segment from the name.
-			Name:       fmt.Sprintf("%s_%s", bus, d.Name),
-			Value:      d.Value,
-			RawValue:   int(d.Raw),
-			Timestamp:  timestamp,
-			VehicleID:  vehicleID,
-			ProducedAt: producedAt,
-			CreatedAt:  now,
-		})
-	}
-	return can, signals
-}
-
-// decodeFrame picks a decoder: TCM housekeeping frames are synthetic and
-// described here, everything else comes from the DBC.
-func decodeFrame(bus string, canID int, data []byte) ([]model.Decoded, []byte) {
-	if bus == busTCM {
-		switch canID {
-		case model.MsgIDTCMStatus:
-			if d, ok := model.DecodeTCMStatus(data); ok {
-				return d, MustJSON(map[string]any{"status": "ok"})
-			}
-			return nil, MustJSON(map[string]any{
-				"status": "decode_error",
-				"note":   fmt.Sprintf("tcm status frame is %d bytes, want at least 3", len(data)),
-			})
-		case model.MsgIDTCMResources:
-			if d, ok := model.DecodeTCMResources(data); ok {
-				return d, MustJSON(map[string]any{"status": "ok"})
-			}
-			return nil, MustJSON(map[string]any{
-				"status": "decode_error",
-				"note":   fmt.Sprintf("tcm resources frame is %d bytes, want 29", len(data)),
-			})
+			decoded[i].Name = fmt.Sprintf("%s_%s", bus, decoded[i].Name)
+			decoded[i].Timestamp = timestamp
+			decoded[i].VehicleID = vehicleID
+			decoded[i].ProducedAt = producedAt
+			decoded[i].CreatedAt = now
 		}
 	}
-
-	if decoder == nil {
-		return nil, MustJSON(map[string]any{"status": "decoder_unavailable"})
-	}
-
-	msg, ok := decoder.Messages[uint32(canID)]
-	if !ok {
-		return nil, MustJSON(map[string]any{
-			"status": "unknown_can_id",
-			"note":   fmt.Sprintf("no dbc entry for can id 0x%X", canID),
-		})
-	}
-	if len(data) < msg.Length {
-		return nil, MustJSON(map[string]any{
-			"status": "short_frame",
-			"note":   fmt.Sprintf("%s expects %d bytes, got %d", msg.Name, msg.Length, len(data)),
-		})
-	}
-
-	out := msg.Decode(data)
-	decoded := make([]model.Decoded, 0, len(out))
-	for _, d := range out {
-		decoded = append(decoded, model.Decoded{Name: d.Name, Value: d.Value, Raw: d.Raw, Unit: d.Unit})
-	}
-	return decoded, MustJSON(map[string]any{"status": "ok", "message": msg.Name})
+	return can, decoded
 }
 
-// busTCM is the bus label the relay uses for frames that never touched a
-// physical CAN bus.
-const busTCM = "tcm"
+// decodeFrame looks up the decoder for this id on this bus and runs it.
+// Unknown ids and decode failures return no signals but a status blob, so
+// the raw frame is still stored — that is how an unknown id gets
+// reverse-engineered later.
+func decodeFrame(bus string, canID int, data []byte) ([]mapache.Signal, []byte) {
+	messageStruct := model.GetMessage(bus, canID)
+	if messageStruct == nil {
+		return nil, MustJSON(map[string]any{
+			"status": "unknown_can_id",
+			"note":   fmt.Sprintf("no decoder registered for can id 0x%X on bus %s", canID, bus),
+		})
+	}
+	if err := messageStruct.FillFromBytes(data); err != nil {
+		return nil, MustJSON(map[string]any{
+			"status": "decode_error",
+			"note":   err.Error(),
+		})
+	}
+	return messageStruct.ExportSignals(), MustJSON(map[string]any{"status": "ok"})
+}
 
 func HandleMessage(vehicleID string, bus string, canID int, message []byte) {
 	if len(message) < headerSize {

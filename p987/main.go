@@ -23,13 +23,6 @@ func main() {
 		database.Init()
 	}
 
-	// Parse the DBC before subscribing so the first frame doesn't race the
-	// load, and so a malformed file fails at startup rather than silently
-	// decoding nothing.
-	if err := service.InitDecoder(); err != nil {
-		logger.SugarLogger.Fatalf("Failed to load DBC: %v", err)
-	}
-
 	mqtt.SetMessageHandler(service.HandleInboundMessage)
 	if err := mqtt.Init(context.Background()); err != nil {
 		logger.SugarLogger.Fatalf("Failed to initialize MQTT: %v", err)

@@ -36,9 +36,4 @@ func InitializeRoutes(router *gin.Engine) {
 	router.GET("/p987/ping", Ping)
 	router.GET("/p987/messages/:id", GetCANMessage)
 	router.GET("/p987/signals/:id", GetCANBySignalID)
-	// The decoder registry is the thing most worth inspecting while
-	// bringing the car up: it answers "is this id in the DBC, and what
-	// should it produce?" without needing a frame to arrive first.
-	router.GET("/p987/dbc", GetDBC)
-	router.GET("/p987/dbc/:id", GetDBCMessage)
 }
