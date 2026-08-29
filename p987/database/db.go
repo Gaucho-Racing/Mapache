@@ -1,0 +1,129 @@
+package database
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/gaucho-racing/mapache/p987/config"
+	"github.com/gaucho-racing/mapache/p987/pkg/logger"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+)
+
+var Conn driver.Conn
+
+var dbRetries = 0
+
+func options(database string) *clickhouse.Options {
+	return &clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%s", config.ClickhouseHost, config.ClickhousePort)},
+		Auth: clickhouse.Auth{
+			Database: database,
+			Username: config.ClickhouseUser,
+			Password: config.ClickhousePassword,
+		},
+		DialTimeout: 10 * time.Second,
+	}
+}
+
+// InsertCtx flags inserts as server-side async — CH coalesces small INSERTs
+// into larger parts and we don't block on the flush.
+func InsertCtx(parent context.Context) context.Context {
+	return clickhouse.Context(parent, clickhouse.WithSettings(clickhouse.Settings{
+		"async_insert":          1,
+		"wait_for_async_insert": 0,
+	}))
+}
+
+func Init() {
+	if err := connect(); err != nil {
+		if dbRetries < 5 {
+			dbRetries++
+			logger.SugarLogger.Errorln("failed to connect clickhouse, retrying in 5s... ", err)
+			time.Sleep(time.Second * 5)
+			Init()
+			return
+		}
+		logger.SugarLogger.Fatalf("failed to connect clickhouse after 5 attempts: %v", err)
+	}
+}
+
+func connect() error {
+	ctx := context.Background()
+
+	// Bootstrap through "default" so we can CREATE DATABASE before opening the app conn.
+	bootstrap, err := clickhouse.Open(options("default"))
+	if err != nil {
+		return err
+	}
+	if err := bootstrap.Exec(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", config.ClickhouseDatabase)); err != nil {
+		bootstrap.Close()
+		return err
+	}
+	bootstrap.Close()
+
+	conn, err := clickhouse.Open(options(config.ClickhouseDatabase))
+	if err != nil {
+		return err
+	}
+	if err := conn.Ping(ctx); err != nil {
+		conn.Close()
+		return err
+	}
+	if err := migrate(ctx, conn); err != nil {
+		conn.Close()
+		return err
+	}
+	logger.SugarLogger.Infoln("Connected to ClickHouse")
+	Conn = conn
+	return nil
+}
+
+func migrate(ctx context.Context, conn driver.Conn) error {
+	for _, stmt := range []string{mapache.SignalClickHouseDDL, canDDL, mapache.PingClickHouseDDL} {
+		if err := conn.Exec(ctx, stmt); err != nil {
+			return err
+		}
+	}
+	logger.SugarLogger.Infoln("ClickHouse migration complete")
+	return nil
+}
+
+// p987_can DDL lives here (service-specific); signal/ping DDL live on
+// mapache-go. node_id holds the bus label, so it belongs in the sort key:
+// two physical buses have independent 11-bit id spaces, and the same
+// arbitration id on each is a different signal.
+const canDDL = `
+CREATE TABLE IF NOT EXISTS p987_can (
+	id          String CODEC(ZSTD(1)),
+
+	vehicle_id  LowCardinality(String),
+
+	node_id     LowCardinality(String),
+
+	timestamp   Int64 CODEC(Delta, ZSTD(1)),
+
+	can_id      Int32 CODEC(T64, ZSTD(1)),
+
+	bytes       String CODEC(ZSTD(1)),
+
+	upload_key  Int32 CODEC(T64, ZSTD(1)),
+
+	metadata    String CODEC(ZSTD(1)),
+
+	produced_at DateTime64(6, 'UTC')
+		MATERIALIZED fromUnixTimestamp64Micro(timestamp)
+		CODEC(Delta, ZSTD(1)),
+
+	created_at  DateTime64(6, 'UTC')
+		DEFAULT now64(6)
+		CODEC(Delta, ZSTD(1)),
+
+	INDEX idx_id id TYPE bloom_filter GRANULARITY 4
+)
+ENGINE = ReplacingMergeTree(created_at)
+PARTITION BY toYYYYMM(produced_at)
+ORDER BY (vehicle_id, timestamp, node_id, can_id)`

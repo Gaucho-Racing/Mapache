@@ -50,6 +50,12 @@ upstreams:
     instances:
       - http://gr26:7005
 
+  p987:
+    name: mapache-p987
+    version: 3.3.0
+    instances:
+      - http://p987:7020
+
   live:
     name: mapache-live
     version: 3.3.0
@@ -159,6 +165,14 @@ routes:
     match:
       path: /api/gr26/*
     upstream: gr26
+    rewrite:
+      strip_prefix: /api
+    envelope: default
+
+  - name: p987
+    match:
+      path: /api/p987/*
+    upstream: p987
     rewrite:
       strip_prefix: /api
     envelope: default

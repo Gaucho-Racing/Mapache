@@ -116,6 +116,39 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
 
+  p987:
+    container_name: mapache-p987
+    build:
+      context: .
+      dockerfile: p987/Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      - nanomq
+      - clickhouse
+    ports:
+      - "7020:7020"
+    volumes:
+      - ./p987:/app/p987
+      - ./mapache-go:/app/mapache-go
+      - p987_go_cache:/go
+    environment:
+      ENV: "DEV"
+      PORT: "7020"
+      MQTT_HOST: "nanomq"
+      MQTT_PORT: "1883"
+      MQTT_USER: "p987"
+      MQTT_PASSWORD: "p987"
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: "mapache"
+      KERBECS_ENDPOINT: "http://kerbecs:10300"
+      KERBECS_USER: "admin"
+      KERBECS_PASSWORD: "admin"
+      SKIP_AUTH_CHECK: "true"
+      VEHICLE_UPLOAD_KEY_CACHE_TTL: "600"
+
   live:
     container_name: mapache-live
     build:
@@ -254,5 +287,6 @@ volumes:
   auth_go_cache:
   vehicle_go_cache:
   gr26_go_cache:
+  p987_go_cache:
   live_go_cache:
   dashboard_node_modules:
