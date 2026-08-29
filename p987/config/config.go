@@ -21,7 +21,7 @@ func (s ServiceInfo) PathPrefix() string {
 
 var Service = ServiceInfo{
 	Name:    "P987",
-	Version: "3.10.1",
+	Version: "3.10.2",
 }
 
 // TopicRoot is the first topic segment the relay publishes under. It is
