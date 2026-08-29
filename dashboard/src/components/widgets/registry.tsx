@@ -42,6 +42,15 @@ import TcmCpuWidget from "@/components/widgets/gr25/live/TcmCpuWidget";
 import TcmCpuGraphWidget from "@/components/widgets/gr25/live/TcmCpuGraphWidget";
 import Gr25EcuDebugWidget from "@/components/widgets/gr25/live/EcuDebugWidget";
 import Gr25InverterDebugWidget from "@/components/widgets/gr25/live/InverterDebugWidget";
+import P987TcmResourceWidget from "@/components/widgets/p987/live/TcmResourceWidget";
+import P987TcmStatusWidget from "@/components/widgets/p987/live/TcmStatusWidget";
+import P987EcuDebugWidget from "@/components/widgets/p987/live/EcuDebugWidget";
+import {
+  dmeSignals,
+  psmSignals,
+  sccmSignals,
+  pdkSignals,
+} from "@/components/widgets/p987/live/signals";
 
 export interface WidgetEntry {
   id: string;
@@ -63,7 +72,110 @@ export const getWidgetRegistry = (vehicle_type: string) => {
   if (vehicle_type === "gr26") {
     return gr26_registry;
   }
+  if (vehicle_type === "p987") {
+    return p987_registry;
+  }
   return {};
+};
+
+// The 987 is a stock Porsche, so its groups are the car's own ECUs rather
+// than GR-designed nodes. Every debug widget shares one component and
+// passes its own signal list — see p987/live/signals.ts.
+export const p987_registry = {
+  TCM: [
+    {
+      id: "tcm-resources",
+      name: "TCM Resources",
+      description:
+        "Pi Zero 2 W CPU, memory, disk and temperature, plus under-voltage and thermal throttle flags.",
+      component: P987TcmResourceWidget,
+      icon: Activity,
+      span: 6,
+      preview: "/widgets/p987/tcm-resources.png",
+    },
+    {
+      id: "tcm-status",
+      name: "TCM Status",
+      description:
+        "Connectivity bits from 0x200 — internet, cloud broker, Mapache reachability, clock sync — and the round-trip time.",
+      component: P987TcmStatusWidget,
+      icon: Cpu,
+      span: 3,
+      preview: "/widgets/p987/tcm-status.png",
+    },
+  ],
+  DME: [
+    {
+      id: "dme-debug",
+      name: "Engine (DME)",
+      description:
+        "Engine speed, torque, pedal, coolant and oil, boost, lambda and fault flags.",
+      component: (props: any) => (
+        <P987EcuDebugWidget
+          {...props}
+          title="Engine (DME)"
+          signals={dmeSignals}
+        />
+      ),
+      icon: Gauge,
+      span: 12,
+      preview: "/widgets/p987/dme-debug.png",
+    },
+  ],
+  PSM: [
+    {
+      id: "psm-debug",
+      name: "Stability (PSM)",
+      description:
+        "Wheel speeds, brake pressure, yaw rate, accelerations and ABS/ESP state.",
+      component: (props: any) => (
+        <P987EcuDebugWidget
+          {...props}
+          title="Stability (PSM)"
+          signals={psmSignals}
+        />
+      ),
+      icon: Activity,
+      span: 12,
+      preview: "/widgets/p987/psm-debug.png",
+    },
+  ],
+  SCCM: [
+    {
+      id: "sccm-debug",
+      name: "Steering (SCCM)",
+      description:
+        "Steering angle and rate with their sign bits, plus cruise control stalk state.",
+      component: (props: any) => (
+        <P987EcuDebugWidget
+          {...props}
+          title="Steering (SCCM)"
+          signals={sccmSignals}
+        />
+      ),
+      icon: Crosshair,
+      span: 12,
+      preview: "/widgets/p987/sccm-debug.png",
+    },
+  ],
+  PDK: [
+    {
+      id: "pdk-debug",
+      name: "Transmission (PDK)",
+      description:
+        "Selected gear, clutch status, oil temperature and shift forks. Stays at zero on a manual car.",
+      component: (props: any) => (
+        <P987EcuDebugWidget
+          {...props}
+          title="Transmission (PDK)"
+          signals={pdkSignals}
+        />
+      ),
+      icon: Bug,
+      span: 12,
+      preview: "/widgets/p987/pdk-debug.png",
+    },
+  ],
 };
 
 export const gr25_registry = {
