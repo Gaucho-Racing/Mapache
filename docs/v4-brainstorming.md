@@ -456,6 +456,153 @@ Add retention tiers and rollups deliberately:
 
 Use explicit schema migrations owned by the platform, not adapters.
 
+### Is ClickHouse the right serving database?
+
+ClickHouse is a strong fit for continuously ingested, high-cardinality telemetry and concurrent interactive queries, but it is not automatically the most economical fit for Mapache. The current infrastructure deliberately selects an `r8g.xlarge` with 4 vCPU and 32 GiB RAM because ClickHouse benefits from memory for indexes, caches, merges, and query execution. That is a production-oriented choice, not a hard minimum. A smaller node can run Mapache's current load, but reduced cache and query headroom will make concurrent scans, merges, and imports less predictable.
+
+The v4 design should treat the analytical storage engine as an evaluated choice rather than a permanent architectural assumption.
+
+#### ClickHouse with local storage
+
+Strengths:
+
+- Low and predictable latency for recent and repeated queries.
+- Efficient continuous inserts, background compaction, compression, and time-series aggregation.
+- Mature concurrency, workload controls, materialized views, and server-side query cancellation.
+- One engine owns ingestion layout and query serving.
+
+Costs and limits:
+
+- Compute and memory remain provisioned while idle.
+- Durable local block storage, backups, and replacement procedures remain Mapache's responsibility in a self-managed single-node deployment.
+- A single node is a failure and maintenance boundary; replication increases the baseline cost substantially.
+- Engine-specific table layouts make object-store data less portable to other tools.
+
+For a small team with sporadic historical use, the always-on serving capacity can dominate the storage bill.
+
+#### ClickHouse with S3-backed MergeTree storage
+
+ClickHouse supports S3 as a MergeTree disk and supports a local cache in front of that disk. This separates durable capacity from compute and can remove the need for a large persistent data volume. It does not eliminate the ClickHouse server or its memory requirement.
+
+Expected behavior:
+
+- Hot cached ranges can approach local-disk behavior.
+- Cold queries pay object-store metadata and range-request latency before useful scanning begins.
+- Wide scans can use substantial network bandwidth and incur request/transfer costs.
+- A small cache causes repeated dashboard queries to churn remote objects.
+- Merges and mutations also interact with remote storage, so write amplification and S3 requests need measurement.
+- ClickHouse still keeps local metadata; self-managed backup and recovery procedures must account for it.
+
+This is the lowest-risk way to test object storage because it preserves the current query engine and API. It primarily saves durable storage cost and decouples capacity; it does not produce scale-to-zero compute. Official ClickHouse guidance specifically positions S3-backed storage for cases where cold-data performance is less critical and notes that self-managed separation of storage and compute is more complex than a standard deployment.
+
+#### Iceberg on S3 with DuckDB query workers
+
+Iceberg is a table format, not a serving database. It provides snapshots, schema and partition evolution, metadata-based file planning, and transactional table commits over Parquet files. DuckDB supplies vectorized SQL execution inside each query-service process.
+
+This can fit Mapache well when most historical requests are:
+
+- scoped to one vehicle
+- bounded to a session or modest time range
+- limited to a small set of signal bindings
+- downsampled to a few thousand points
+- issued by a relatively small number of concurrent users
+
+DuckDB reads Parquet from S3 with HTTP range requests and can avoid unneeded columns and row groups when filters and file statistics permit. An Iceberg catalog gives query workers a consistent current snapshot and enables writes; direct metadata-file reads are read-only and require explicit version discovery.
+
+Benefits:
+
+- S3 becomes the inexpensive, durable source of truth.
+- Stateless read-only query workers can start on demand and scale horizontally.
+- Other engines and notebooks can read the same open table.
+- DuckDB has excellent local analytical execution, including ASOF joins useful for multi-rate telemetry.
+- Per-query memory can be capped and larger operations can spill to local temporary disk.
+
+Costs and limits:
+
+- Cold-start and cold-cache latency is materially higher than a warm serving database.
+- Every worker has its own metadata/data cache unless Mapache builds a shared cache layer.
+- DuckDB is embedded compute, not by itself a multi-tenant distributed query service. Mapache must implement admission control, process isolation, cancellation, timeouts, caching, and horizontal routing.
+- Concurrent heavy dashboard queries multiply CPU, memory, temporary disk, and S3 bandwidth requirements across workers.
+- Continuous small commits create small Parquet files and large Iceberg manifests. Iceberg documentation explicitly calls out file-open and metadata overhead and requires periodic compaction.
+- A catalog, writer, snapshot expiration, orphan-file cleanup, compaction, and schema maintenance become production services or scheduled jobs.
+- Newly ingested data is only historically queryable after a file is written and an Iceberg snapshot commits.
+
+Iceberg therefore cannot be the complete live path. A durable event log and recent-observation buffer must serve the uncommitted tail. Historical queries read a known Iceberg snapshot, then the subscription layer merges observations after that snapshot watermark before entering live mode.
+
+#### Approximate compute envelopes
+
+These are planning ranges to benchmark, not guaranteed sizing. Query shape and concurrency matter more than total stored bytes.
+
+| Architecture | Starting compute | Local disk | Idle behavior | Expected interactive behavior |
+| --- | --- | --- | --- | --- |
+| ClickHouse, local hot data | 4 vCPU, 16–32 GiB RAM | 100–200+ GiB durable SSD | Always running | Best and most predictable sub-second behavior when indexed and warm |
+| ClickHouse, S3-backed with cache | 4 vCPU, 16–32 GiB RAM | 20–100 GiB cache/temp | Always running | Warm queries can be fast; cold queries may move into hundreds of milliseconds or seconds |
+| DuckDB worker over Iceberg/S3 | 2–4 vCPU, 4–8 GiB RAM per light worker | 10–50 GiB ephemeral cache/temp | Can scale to zero | Good for pruned session queries; cold metadata and object reads commonly dominate first-query latency |
+| DuckDB worker for broad joins/scans | 4–8 vCPU, 8–16+ GiB RAM | 50–200 GiB ephemeral temp/cache | Can be created per workload | Strong single-query throughput, but each concurrent broad query needs its own resource share |
+
+DuckDB defaults its memory limit to 80% of host RAM, though that limit applies to its buffer manager rather than every allocation. A production query worker should set explicit memory and temporary-directory limits below the container limit. Running one 8 GiB worker does not mean the service can safely execute many simultaneous 8 GiB queries; use a bounded worker pool or one isolated process per admitted query class.
+
+The current ClickHouse 32 GiB choice buys shared cache and concurrency headroom for every request. DuckDB reduces the idle floor, but compute cost becomes proportional to active queries and repeated S3 reads. At low concurrency that is likely cheaper. At sustained concurrency, a warm ClickHouse node can be both faster and cheaper than many isolated DuckDB workers.
+
+#### File layout matters more with DuckDB
+
+An Iceberg experiment will perform poorly if the ingestion path emits one tiny file per batch or partitions by high-cardinality identifiers without controlling file counts. The writer should buffer observations into moderately large, sorted Parquet files and expose bounded commit latency.
+
+Candidate layout decisions to benchmark include:
+
+- Iceberg partition transforms on event date/hour.
+- Bucketing or clustering by organization, vehicle, and signal binding.
+- Sorting within files by vehicle, signal binding, and event time.
+- Target files in the approximate 64–256 MiB range for Mapache's interactive workload, rather than blindly choosing very large lakehouse defaults.
+- Row-group sizing that lets a session query avoid downloading unrelated signals and time ranges.
+- Commit intervals that balance freshness against file and snapshot count.
+
+The exact values must come from Mapache traces. A layout optimized for querying one signal over a year differs from one optimized for replaying 200 signals over a 30-minute session.
+
+#### Recommended architecture to evaluate
+
+For v4, the most promising cost-oriented design is:
+
+```text
+adapters
+  -> ingest gateway
+  -> durable event log
+      -> recent/live subscription path
+      -> buffered Parquet/Iceberg writer -> S3
+
+query API
+  -> result cache
+  -> DuckDB worker pool -> Iceberg snapshot on S3
+  -> recent-tail merge when the requested range crosses the committed watermark
+```
+
+This makes Iceberg the durable analytical truth and DuckDB replaceable compute. Keep a hot serving tier optional rather than mandatory. If benchmarks show that recent interactive queries or concurrency miss their SLOs, add a small ClickHouse hot tier containing the most recent days or weeks while retaining Iceberg for durable history. The query planner can route ranges to hot ClickHouse, cold Iceberg, or both.
+
+That hybrid provides excellent performance but doubles write paths and consistency work. It should only be introduced after the Iceberg/DuckDB baseline fails a measured requirement. Starting with both creates more operational burden than the current system.
+
+#### Benchmark before selecting
+
+Build the benchmark from real GR26 and Porsche data and include the full API transformation, not only `SELECT count(*)`:
+
+1. Latest 10 seconds for 10, 100, and 500 signals.
+2. Thirty-minute session replay for 20 and 200 signals, downsampled to dashboard width.
+3. One signal across one day, one month, and one year.
+4. GPS plus vehicle-state ASOF alignment.
+5. Ten and fifty concurrent dashboard users with repeated and disjoint ranges.
+6. Cold worker/cache, warm worker/cache, and worker restart.
+7. Continuous ingest while compaction and queries run.
+8. Snapshot commit freshness, historical-to-live handoff, and late-data visibility.
+9. S3 GET/range bytes and request count per user action.
+10. Failure recovery after a writer, catalog, query worker, or ClickHouse restart.
+
+Record p50/p95/p99 latency, scanned and transferred bytes, peak memory, CPU-seconds, temporary disk, object-store requests, ingest-to-query freshness, and monthly idle/load cost.
+
+#### Provisional recommendation
+
+Do not assume the production system requires a permanent 32 GiB ClickHouse node. Prototype Iceberg on S3 with a bounded DuckDB worker pool as the primary historical engine. It is likely to be sufficient if Mapache remains session-oriented with low-to-moderate concurrency and accepts roughly sub-second-to-few-second cold queries.
+
+Keep the live and uncommitted recent tail on the durable event/subscription path. Do not query Iceberg for individual live updates. If the benchmark requires consistently low sub-second historical latency or materially higher concurrency, use ClickHouse as a hot serving tier or retain it as the primary serving database. S3-backed ClickHouse is a useful intermediate experiment, but it saves storage more than compute and should not be mistaken for a serverless architecture.
+
 ## Sessions and motorsport overlays
 
 Sessions are valuable but should not define the core storage model. A “session” may be a race outing, road trip, dyno pull, charging cycle, test procedure, or arbitrary investigation window.
