@@ -1,7 +1,7 @@
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS builder
 
 RUN apk --no-cache add ca-certificates
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache git tzdata
 
 WORKDIR /app
 

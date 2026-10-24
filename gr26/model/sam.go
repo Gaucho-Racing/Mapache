@@ -36,7 +36,7 @@ var SAMIMU = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "bmi323_gyro_x",
-			Value:    (float64(f.Value) * 0.001) - 327.68,
+			Value:    (float64(f.Value) * 0.001) - 32.768,
 			RawValue: f.Value,
 		})
 		return signals
@@ -45,7 +45,7 @@ var SAMIMU = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "bmi323_gyro_y",
-			Value:    (float64(f.Value) * 0.001) - 327.68,
+			Value:    (float64(f.Value) * 0.001) - 32.768,
 			RawValue: f.Value,
 		})
 		return signals
@@ -54,7 +54,7 @@ var SAMIMU = mp.Message{
 		signals := []mp.Signal{}
 		signals = append(signals, mp.Signal{
 			Name:     "bmi323_gyro_z",
-			Value:    (float64(f.Value) * 0.001) - 327.68,
+			Value:    (float64(f.Value) * 0.001) - 32.768,
 			RawValue: f.Value,
 		})
 		return signals
