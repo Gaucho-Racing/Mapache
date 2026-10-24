@@ -43,6 +43,9 @@ var messageMap = map[int]mp.Message{
 	0x201: TCMResourceUtil,
 	0x210: TCMShelterHeartbeat,
 	0x211: TCMShelterBatch,
+	// SAM
+	0x026: SAMIMU,
+	0x02B: SAMSusPots,
 	// GPS
 	0x030: DGPS_UVW,
 	0x031: GPSLatitude,
