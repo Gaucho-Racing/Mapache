@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache-go"
+import mp "github.com/gaucho-racing/mapache-legacy-go"
 
 var ECUStatusOne = mp.Message{
 	mp.NewField("state", 1, mp.Unsigned, mp.LittleEndian, nil),

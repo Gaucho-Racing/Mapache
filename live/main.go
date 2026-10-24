@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/gaucho-racing/mapache/live/api"
-	"github.com/gaucho-racing/mapache/live/config"
-	"github.com/gaucho-racing/mapache/live/mqtt"
-	"github.com/gaucho-racing/mapache/live/pkg/logger"
-	"github.com/gaucho-racing/mapache/live/service"
+	"github.com/gaucho-racing/mapache-legacy/live/api"
+	"github.com/gaucho-racing/mapache-legacy/live/config"
+	"github.com/gaucho-racing/mapache-legacy/live/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/live/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/live/service"
 )
 
 func main() {

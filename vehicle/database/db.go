@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/mapache-go/v3"
-	"github.com/gaucho-racing/mapache/vehicle/config"
-	"github.com/gaucho-racing/mapache/vehicle/model"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/config"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/model"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/pkg/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

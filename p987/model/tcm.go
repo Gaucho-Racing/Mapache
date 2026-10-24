@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // The TCM publishes these under the "tcm" bus label. They never touched a

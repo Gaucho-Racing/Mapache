@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 var messageMap = map[int]mp.Message{
 	// Per-node CAN heartbeat

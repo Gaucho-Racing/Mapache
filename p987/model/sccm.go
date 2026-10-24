@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // SCCM1 is 0xC2 from SCCM.
 var SCCM1 = mp.Message{

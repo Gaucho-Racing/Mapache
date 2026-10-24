@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // messageMap is the vehicle CAN decoder registry, transcribed from
 // cayman_987.dbc in the TCM-987 repo. Ids not listed here are still

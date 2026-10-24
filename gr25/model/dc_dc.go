@@ -1,7 +1,7 @@
 package model
 
 import (
-	mp "github.com/gaucho-racing/mapache-go"
+	mp "github.com/gaucho-racing/mapache-legacy-go"
 )
 
 var DC_DCStatus = mp.Message{

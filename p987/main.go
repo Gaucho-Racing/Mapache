@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 
-	"github.com/gaucho-racing/mapache/p987/api"
-	"github.com/gaucho-racing/mapache/p987/config"
-	"github.com/gaucho-racing/mapache/p987/database"
-	"github.com/gaucho-racing/mapache/p987/mqtt"
-	"github.com/gaucho-racing/mapache/p987/pkg/kerbecs"
-	"github.com/gaucho-racing/mapache/p987/pkg/logger"
-	"github.com/gaucho-racing/mapache/p987/service"
+	"github.com/gaucho-racing/mapache-legacy/p987/api"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/database"
+	"github.com/gaucho-racing/mapache-legacy/p987/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/p987/pkg/kerbecs"
+	"github.com/gaucho-racing/mapache-legacy/p987/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/p987/service"
 )
 
 func main() {

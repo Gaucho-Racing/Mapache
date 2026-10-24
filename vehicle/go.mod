@@ -1,10 +1,10 @@
-module github.com/gaucho-racing/mapache/vehicle
+module github.com/gaucho-racing/mapache-legacy/vehicle
 
 go 1.26
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/gaucho-racing/mapache/mapache-go/v3 v3.5.0
+	github.com/gaucho-racing/mapache-legacy/mapache-go/v3 v3.5.0
 	github.com/gaucho-racing/ulid-go v1.1.0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0

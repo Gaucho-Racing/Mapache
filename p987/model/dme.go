@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // Heartbeat is 0x140 from DME.
 var Heartbeat = mp.Message{

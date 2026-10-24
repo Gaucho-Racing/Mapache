@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // Ping (msg 0x002) is the per-node CAN heartbeat. Each node broadcasts it
 // periodically with a 4-byte millis-since-boot timestamp. Decoding it lets

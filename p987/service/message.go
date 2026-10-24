@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/model"
-	"github.com/gaucho-racing/mapache/p987/mqtt"
-	"github.com/gaucho-racing/mapache/p987/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/p987/model"
+	"github.com/gaucho-racing/mapache-legacy/p987/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/p987/pkg/logger"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // Decode outcome statuses, recorded in the stored frame's metadata and

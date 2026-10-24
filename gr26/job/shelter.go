@@ -10,7 +10,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	gr26config "github.com/gaucho-racing/mapache/gr26/config"
+	gr26config "github.com/gaucho-racing/mapache-legacy/gr26/config"
 )
 
 func newS3Client(ctx context.Context) (*s3.Client, error) {

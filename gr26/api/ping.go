@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
 	"github.com/gin-gonic/gin"
 )
 

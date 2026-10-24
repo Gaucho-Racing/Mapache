@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/vehicle/database"
-	"github.com/gaucho-racing/mapache/vehicle/model"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/database"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/model"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/pkg/logger"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

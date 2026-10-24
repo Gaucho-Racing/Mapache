@@ -20,7 +20,7 @@ export const SKIP_AUTH_CHECK =
   import.meta.env.VITE_SKIP_AUTH_CHECK === "true";
 
 export const SOCIAL_LINKS = {
-  github: "https://github.com/gaucho-racing/mapache",
+  github: "https://github.com/gaucho-racing/mapache-legacy",
   instagram: "https://instagram.com/gauchoracingucsb",
   twitter: "https://twitter.com/gauchoracing_",
   linkedin:

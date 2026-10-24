@@ -3,8 +3,8 @@ package api
 import (
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )

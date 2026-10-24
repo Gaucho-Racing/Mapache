@@ -3,10 +3,10 @@ package api
 import (
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/vehicle/model"
-	"github.com/gaucho-racing/mapache/vehicle/service"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/model"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/service"
 
-	"github.com/gaucho-racing/mapache/mapache-go/v3"
+	"github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 )
 

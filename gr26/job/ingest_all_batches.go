@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	gr26config "github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	gr26config "github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/foreman"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 )
 
 // Reingest=true scopes the idem key to this parent job so previously-ingested

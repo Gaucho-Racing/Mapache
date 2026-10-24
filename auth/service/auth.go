@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gaucho-racing/mapache/auth/config"
-	"github.com/gaucho-racing/mapache/auth/model"
-	"github.com/gaucho-racing/mapache/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/auth/config"
+	"github.com/gaucho-racing/mapache-legacy/auth/model"
+	"github.com/gaucho-racing/mapache-legacy/auth/pkg/logger"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/lestrrat-go/jwx/jwk"
 )

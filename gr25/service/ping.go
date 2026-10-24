@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/gaucho-racing/mapache-legacy-go"
 )
 
 func HandlePing(vehicleID string, nodeID string, payload []byte) {

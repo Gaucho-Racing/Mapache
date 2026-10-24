@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 var DTIData1 = mp.Message{
 	mp.NewField("erpm", 4, mp.Signed, mp.BigEndian, func(f mp.Field) []mp.Signal {

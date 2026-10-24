@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 var Conn driver.Conn

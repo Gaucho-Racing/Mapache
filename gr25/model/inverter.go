@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache-go"
+import mp "github.com/gaucho-racing/mapache-legacy-go"
 
 var InverterStatusOne = mp.Message{
 	mp.NewField("ac_current", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {

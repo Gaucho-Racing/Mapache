@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
-	"github.com/gaucho-racing/mapache/vehicle/service"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/service"
 	"github.com/gin-gonic/gin"
 )
 

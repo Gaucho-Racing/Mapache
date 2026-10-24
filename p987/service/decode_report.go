@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/p987/pkg/logger"
 )
 
 // A frame that produces no signals never reaches the live path — it is

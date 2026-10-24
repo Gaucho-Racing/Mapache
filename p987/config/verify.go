@@ -1,6 +1,6 @@
 package config
 
-import "github.com/gaucho-racing/mapache/p987/pkg/logger"
+import "github.com/gaucho-racing/mapache-legacy/p987/pkg/logger"
 
 func Verify() {
 	if Env == "" {

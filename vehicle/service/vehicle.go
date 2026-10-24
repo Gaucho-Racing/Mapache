@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/gaucho-racing/mapache/vehicle/database"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/database"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	"gorm.io/gorm/clause"
 )
 

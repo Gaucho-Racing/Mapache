@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/gaucho-racing/mapache/vehicle/api"
-	"github.com/gaucho-racing/mapache/vehicle/config"
-	"github.com/gaucho-racing/mapache/vehicle/database"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/api"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/config"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/database"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/pkg/logger"
 )
 
 func main() {

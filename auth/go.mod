@@ -1,4 +1,4 @@
-module github.com/gaucho-racing/mapache/auth
+module github.com/gaucho-racing/mapache-legacy/auth
 
 go 1.26
 

@@ -7,7 +7,7 @@ import (
 
 	"time"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/gaucho-racing/mapache-legacy-go"
 	singlestore "github.com/singlestore-labs/gorm-singlestore"
 	"gorm.io/gorm"
 )

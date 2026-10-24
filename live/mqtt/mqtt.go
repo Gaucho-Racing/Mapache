@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gaucho-racing/mapache/live/config"
-	"github.com/gaucho-racing/mapache/live/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/live/config"
+	"github.com/gaucho-racing/mapache-legacy/live/pkg/logger"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"

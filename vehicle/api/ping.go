@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gaucho-racing/mapache/vehicle/config"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/config"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

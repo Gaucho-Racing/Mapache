@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/pkg/kerbecs"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/kerbecs"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 
-	"github.com/gaucho-racing/mapache/mapache-go/v3"
+	"github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 type uploadKeyCacheEntry struct {

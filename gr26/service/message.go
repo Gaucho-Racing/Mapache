@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/model"
-	"github.com/gaucho-racing/mapache/gr26/mqtt"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/model"
+	"github.com/gaucho-racing/mapache-legacy/gr26/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // ShelterBatchHook is set by main.go to avoid a service → job import cycle.

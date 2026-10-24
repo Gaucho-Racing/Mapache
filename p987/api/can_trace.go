@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/gaucho-racing/mapache/p987/model"
+	"github.com/gaucho-racing/mapache-legacy/p987/model"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 type canFieldTrace struct {

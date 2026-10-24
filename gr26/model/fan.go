@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 var FanStatus = mp.Message{
 	mp.NewField("fan_speed", 2, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {

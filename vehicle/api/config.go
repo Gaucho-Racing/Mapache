@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gaucho-racing/mapache/vehicle/model"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
-	"github.com/gaucho-racing/mapache/vehicle/service"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/model"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/service"
 
 	"github.com/gin-gonic/gin"
 )

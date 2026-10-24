@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/gaucho-racing/mapache/auth/api"
-	"github.com/gaucho-racing/mapache/auth/config"
-	"github.com/gaucho-racing/mapache/auth/database"
-	"github.com/gaucho-racing/mapache/auth/pkg/logger"
-	"github.com/gaucho-racing/mapache/auth/service"
+	"github.com/gaucho-racing/mapache-legacy/auth/api"
+	"github.com/gaucho-racing/mapache-legacy/auth/config"
+	"github.com/gaucho-racing/mapache-legacy/auth/database"
+	"github.com/gaucho-racing/mapache-legacy/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/auth/service"
 )
 
 func main() {

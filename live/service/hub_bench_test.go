@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 const benchVehicle = "veh-bench"

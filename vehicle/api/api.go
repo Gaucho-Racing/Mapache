@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gaucho-racing/mapache/vehicle/config"
-	"github.com/gaucho-racing/mapache/vehicle/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/config"
+	"github.com/gaucho-racing/mapache-legacy/vehicle/pkg/logger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )

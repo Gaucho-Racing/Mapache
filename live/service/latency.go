@@ -3,7 +3,7 @@ package service
 import (
 	"sync"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // latencyTracker keeps a running EWMA of ingest latency in microseconds —

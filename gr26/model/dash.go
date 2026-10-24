@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // bit extracts bit n (0 = LSB) of v as a 0/1 signal with the given name.
 func bit(v int, n uint, name string) mp.Signal {

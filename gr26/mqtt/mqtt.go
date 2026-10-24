@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"

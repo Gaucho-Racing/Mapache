@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gaucho-racing/mapache/gr26/api"
-	"github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/database"
-	"github.com/gaucho-racing/mapache/gr26/job"
-	"github.com/gaucho-racing/mapache/gr26/mqtt"
-	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
-	"github.com/gaucho-racing/mapache/gr26/pkg/kerbecs"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/gr26/service"
+	"github.com/gaucho-racing/mapache-legacy/gr26/api"
+	"github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/database"
+	"github.com/gaucho-racing/mapache-legacy/gr26/job"
+	"github.com/gaucho-racing/mapache-legacy/gr26/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/foreman"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/kerbecs"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/service"
 )
 
 func main() {

@@ -19,7 +19,7 @@
 
 package foreman
 
-import "github.com/gaucho-racing/mapache/gr26/config"
+import "github.com/gaucho-racing/mapache-legacy/gr26/config"
 
 // Default is the package-level Client, populated by Init() at startup.
 // Always go through Default for producer-side calls (Enqueue, Cancel,

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/auth/config"
-	"github.com/gaucho-racing/mapache/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/auth/config"
+	"github.com/gaucho-racing/mapache-legacy/auth/pkg/logger"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

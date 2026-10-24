@@ -18,13 +18,13 @@ import (
 	"github.com/parquet-go/parquet-go"
 	ulid "github.com/gaucho-racing/ulid-go"
 
-	gr26config "github.com/gaucho-racing/mapache/gr26/config"
-	"github.com/gaucho-racing/mapache/gr26/model"
-	"github.com/gaucho-racing/mapache/gr26/pkg/foreman"
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
-	"github.com/gaucho-racing/mapache/gr26/service"
+	gr26config "github.com/gaucho-racing/mapache-legacy/gr26/config"
+	"github.com/gaucho-racing/mapache-legacy/gr26/model"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/foreman"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/service"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // ─── producer side: gr26.ingest_batch ───────────────────────────────────────

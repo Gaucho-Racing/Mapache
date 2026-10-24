@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // TCM Status is a synthetic 8-byte message the relay publishes every 5s
 // summarizing on-vehicle connectivity. status_bits is a flat bitfield;

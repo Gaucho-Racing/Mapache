@@ -21,9 +21,9 @@
 
 <div align="center">
 
-![GitHub contributors](https://img.shields.io/github/contributors/gaucho-racing/mapache?style=flat)
-[![build status](https://github.com/Gaucho-Racing/Mapache/actions/workflows/build.yml/badge.svg)](https://github.com/Gaucho-Racing/Mapache/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/Gaucho-Racing/Mapache/graph/badge.svg?token=FTX4H3ZT5V)](https://codecov.io/gh/Gaucho-Racing/Mapache)
+![GitHub contributors](https://img.shields.io/github/contributors/gaucho-racing/mapache-legacy?style=flat)
+[![build status](https://github.com/gaucho-racing/mapache-legacy/actions/workflows/build.yml/badge.svg)](https://github.com/gaucho-racing/mapache-legacy/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/gaucho-racing/mapache-legacy/graph/badge.svg?token=FTX4H3ZT5V)](https://codecov.io/gh/gaucho-racing/mapache-legacy)
 [![Docker Pulls](https://img.shields.io/docker/pulls/gauchoracing/mp_gr24.svg)](https://hub.docker.com/r/gauchoracing/mp_gr24)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -100,13 +100,13 @@ shout out my label thats me
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/Gaucho-Racing/Mapache.svg?style=for-the-badge
-[contributors-url]: https://github.com/Gaucho-Racing/Mapache/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Gaucho-Racing/Mapache.svg?style=for-the-badge
-[forks-url]: https://github.com/Gaucho-Racing/Mapache/network/members
-[stars-shield]: https://img.shields.io/github/stars/Gaucho-Racing/Mapache.svg?style=for-the-badge
-[stars-url]: https://github.com/Gaucho-Racing/Mapache/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Gaucho-Racing/Mapache.svg?style=for-the-badge
-[issues-url]: https://github.com/Gaucho-Racing/Mapache/issues
-[license-shield]: https://img.shields.io/github/license/Gaucho-Racing/Mapache.svg?style=for-the-badge
-[license-url]: https://github.com/Gaucho-Racing/Mapache/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/gaucho-racing/mapache-legacy.svg?style=for-the-badge
+[contributors-url]: https://github.com/gaucho-racing/mapache-legacy/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/gaucho-racing/mapache-legacy.svg?style=for-the-badge
+[forks-url]: https://github.com/gaucho-racing/mapache-legacy/network/members
+[stars-shield]: https://img.shields.io/github/stars/gaucho-racing/mapache-legacy.svg?style=for-the-badge
+[stars-url]: https://github.com/gaucho-racing/mapache-legacy/stargazers
+[issues-shield]: https://img.shields.io/github/issues/gaucho-racing/mapache-legacy.svg?style=for-the-badge
+[issues-url]: https://github.com/gaucho-racing/mapache-legacy/issues
+[license-shield]: https://img.shields.io/github/license/gaucho-racing/mapache-legacy.svg?style=for-the-badge
+[license-url]: https://github.com/gaucho-racing/mapache-legacy/blob/master/LICENSE.txt

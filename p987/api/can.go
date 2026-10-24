@@ -6,11 +6,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/p987/config"
-	"github.com/gaucho-racing/mapache/p987/model"
-	"github.com/gaucho-racing/mapache/p987/service"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/model"
+	"github.com/gaucho-racing/mapache-legacy/p987/service"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 	"github.com/gin-gonic/gin"
 )

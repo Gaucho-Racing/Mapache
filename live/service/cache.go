@@ -6,7 +6,7 @@ import (
 	"time"
 	"unsafe"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // signalStructBytes is the fixed-size memory footprint of a Signal — its

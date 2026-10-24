@@ -3,9 +3,9 @@ package service
 import (
 	"encoding/json"
 
-	"github.com/gaucho-racing/mapache/live/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/live/pkg/logger"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // HandleInboundMessage is the MQTT subscription callback. Topic shape is

@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	"github.com/gaucho-racing/mapache/auth/config"
+	"github.com/gaucho-racing/mapache-legacy/auth/config"
 	"github.com/golang-jwt/jwt/v4"
 )
 

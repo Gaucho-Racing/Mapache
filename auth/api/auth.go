@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/auth/service"
+	"github.com/gaucho-racing/mapache-legacy/auth/service"
 	"github.com/gin-gonic/gin"
 )
 

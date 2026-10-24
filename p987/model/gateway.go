@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // Gateway_Cfg is 0x70B from Gateway.
 // Gateway module configuration. Constant during capture.

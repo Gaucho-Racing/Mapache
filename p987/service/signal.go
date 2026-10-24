@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/config"
-	"github.com/gaucho-racing/mapache/p987/database"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/database"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	ulid "github.com/gaucho-racing/ulid-go"
 )
 

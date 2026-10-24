@@ -44,4 +44,4 @@ jobs:
       - name: Warm Go module proxy
         run: |
           VERSION="${GITHUB_REF_NAME#mapache-go/}"
-          GOPROXY=proxy.golang.org go list -m "github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}"
+          GOPROXY=proxy.golang.org go list -m "github.com/gaucho-racing/mapache-legacy/mapache-go/v3@${VERSION}"

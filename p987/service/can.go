@@ -6,11 +6,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/config"
-	"github.com/gaucho-racing/mapache/p987/database"
-	"github.com/gaucho-racing/mapache/p987/model"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/database"
+	"github.com/gaucho-racing/mapache-legacy/p987/model"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	ulid "github.com/gaucho-racing/ulid-go"

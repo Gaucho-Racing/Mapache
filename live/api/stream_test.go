@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gaucho-racing/mapache/live/config"
-	"github.com/gaucho-racing/mapache/live/service"
+	"github.com/gaucho-racing/mapache-legacy/live/config"
+	"github.com/gaucho-racing/mapache-legacy/live/service"
 
-	mapache "github.com/gaucho-racing/mapache/mapache-go/v3"
+	mapache "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )

@@ -3,7 +3,7 @@ package config
 import (
 	"strconv"
 
-	"github.com/gaucho-racing/mapache/gr26/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/gr26/pkg/logger"
 )
 
 func Verify() {

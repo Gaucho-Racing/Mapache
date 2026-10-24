@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache/mapache-go/v3"
+import mp "github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 
 // Stock Porsche signals do not sit on byte boundaries — SCCM_SteeringAngle
 // is 13 bits starting at bit 2 — so a field here is the contiguous run of

@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gaucho-racing/mapache/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
 	"github.com/gin-gonic/gin"
 )
 

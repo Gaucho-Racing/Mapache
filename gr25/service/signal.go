@@ -5,7 +5,7 @@ import (
 	"gr25/database"
 	"gr25/utils"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/gaucho-racing/mapache-legacy-go"
 )
 
 // signalCallbacks is a list of functions that will be called when a signal is created or updated

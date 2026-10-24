@@ -51,7 +51,7 @@ jobs:
         with:
           context: p987
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=ghcr.io/gaucho-racing/mapache/p987,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=ghcr.io/gaucho-racing/mapache-legacy/p987,push-by-digest=true,name-canonical=true,push=true
           cache-from: |
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-${{ github.ref_name }}
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-main
@@ -141,15 +141,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/gaucho-racing/mapache/p987
+          images: ghcr.io/gaucho-racing/mapache-legacy/p987
           tags: ${{ steps.tags.outputs.tags }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf 'ghcr.io/gaucho-racing/mapache/p987@sha256:%s ' *)
+            $(printf 'ghcr.io/gaucho-racing/mapache-legacy/p987@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache/p987:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache-legacy/p987:${{ steps.meta.outputs.version }}

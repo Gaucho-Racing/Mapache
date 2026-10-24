@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/gaucho-racing/mapache-legacy-go"
 )
 
 type ACU struct {

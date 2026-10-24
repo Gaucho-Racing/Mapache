@@ -1,4 +1,4 @@
-module github.com/gaucho-racing/mapache/p987
+module github.com/gaucho-racing/mapache-legacy/p987
 
 go 1.26
 
@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
 	github.com/eclipse/paho.golang v0.23.0
 	github.com/fatih/color v1.18.0
-	github.com/gaucho-racing/mapache/mapache-go/v3 v3.5.0
+	github.com/gaucho-racing/mapache-legacy/mapache-go/v3 v3.5.0
 	github.com/gaucho-racing/ulid-go v1.1.0
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0

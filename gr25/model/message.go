@@ -1,6 +1,6 @@
 package model
 
-import mp "github.com/gaucho-racing/mapache-go"
+import mp "github.com/gaucho-racing/mapache-legacy-go"
 
 var messageMap = map[int]mp.Message{
 	0x003: ECUStatusOne,

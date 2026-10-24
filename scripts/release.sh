@@ -244,7 +244,7 @@ case "$TARGET" in
         done
         echo ""
         echo "  Will publish:"
-        echo "    Go module: github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}"
+        echo "    Go module: github.com/gaucho-racing/mapache-legacy/mapache-go/v3@${VERSION}"
         echo ""
         read -rp "Proceed? (y/N) " CONFIRM
         if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
@@ -269,7 +269,7 @@ case "$TARGET" in
 
         for svc in "${GO_DEPENDENTS[@]}"; do
             echo "Bumping mapache-go in ${svc}..."
-            (cd "${REPO_ROOT}/${svc}" && go get "github.com/gaucho-racing/mapache/mapache-go/v3@${VERSION}" && go mod tidy)
+            (cd "${REPO_ROOT}/${svc}" && go get "github.com/gaucho-racing/mapache-legacy/mapache-go/v3@${VERSION}" && go mod tidy)
         done
 
         FILES=()
@@ -321,7 +321,7 @@ case "$TARGET" in
         echo ""
         echo "  Docker images that will be tagged:"
         for svc in "${ALL_SERVICES[@]}"; do
-            echo "    ghcr.io/gaucho-racing/mapache/${svc}:${SEMVER}"
+            echo "    ghcr.io/gaucho-racing/mapache-legacy/${svc}:${SEMVER}"
         done
         echo ""
         read -rp "Proceed? (y/N) " CONFIRM

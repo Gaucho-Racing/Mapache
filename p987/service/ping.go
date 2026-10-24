@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gaucho-racing/mapache/p987/config"
-	"github.com/gaucho-racing/mapache/p987/database"
-	"github.com/gaucho-racing/mapache/p987/mqtt"
-	"github.com/gaucho-racing/mapache/p987/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/p987/config"
+	"github.com/gaucho-racing/mapache-legacy/p987/database"
+	"github.com/gaucho-racing/mapache-legacy/p987/mqtt"
+	"github.com/gaucho-racing/mapache-legacy/p987/pkg/logger"
 
-	"github.com/gaucho-racing/mapache/mapache-go/v3"
+	"github.com/gaucho-racing/mapache-legacy/mapache-go/v3"
 )
 
 // pingPayloadSize is the relay's ping: u64 BE microsecond timestamp

@@ -56,7 +56,7 @@ jobs:
           # the rest of the app works.
           build-args: |
             VITE_MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}
-          outputs: type=image,name=ghcr.io/gaucho-racing/mapache/dashboard,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=ghcr.io/gaucho-racing/mapache-legacy/dashboard,push-by-digest=true,name-canonical=true,push=true
           cache-from: |
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-${{ github.ref_name }}
             type=gha,scope=build-${{ github.workflow }}-${{ steps.platform.outputs.pair }}-main
@@ -146,15 +146,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/gaucho-racing/mapache/dashboard
+          images: ghcr.io/gaucho-racing/mapache-legacy/dashboard
           tags: ${{ steps.tags.outputs.tags }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf 'ghcr.io/gaucho-racing/mapache/dashboard@sha256:%s ' *)
+            $(printf 'ghcr.io/gaucho-racing/mapache-legacy/dashboard@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache/dashboard:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/gaucho-racing/mapache-legacy/dashboard:${{ steps.meta.outputs.version }}

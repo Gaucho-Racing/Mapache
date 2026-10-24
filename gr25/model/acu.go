@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 
-	mp "github.com/gaucho-racing/mapache-go"
+	mp "github.com/gaucho-racing/mapache-legacy-go"
 )
 
 var ACUStatusOne = mp.Message{

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/gaucho-racing/mapache/auth/config"
-	"github.com/gaucho-racing/mapache/auth/model"
-	"github.com/gaucho-racing/mapache/auth/pkg/logger"
+	"github.com/gaucho-racing/mapache-legacy/auth/config"
+	"github.com/gaucho-racing/mapache-legacy/auth/model"
+	"github.com/gaucho-racing/mapache-legacy/auth/pkg/logger"
 )
 
 // SentinelError captures the {"error": "..."} envelope Sentinel v5

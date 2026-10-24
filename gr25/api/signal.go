@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gaucho-racing/mapache-go"
+	"github.com/gaucho-racing/mapache-legacy-go"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
