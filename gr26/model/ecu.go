@@ -6,6 +6,23 @@ import (
 	mp "github.com/gaucho-racing/mapache/mapache-go/v3"
 )
 
+func map_forward_current(raw_current uint8) float64 {
+	switch raw_current {
+	case 0:
+		return 50
+	case 1:
+		return 100
+	case 2:
+		return 200
+	case 3:
+		return 300
+	case 4:
+		return 325
+	default:
+		return 0
+	}
+}
+
 var ECUStatus1 = mp.Message{
 	mp.NewField("ecu_state", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
@@ -27,10 +44,10 @@ var ECUStatus1 = mp.Message{
 			{Name: "ping_group_3", Value: float64(f.Value), RawValue: f.Value},
 		}
 	}),
-	mp.NewField("power_torque", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
+	mp.NewField("forward_ac_i_code_regen_ac_i_code", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "power_level", Value: float64(f.Value & 0x0F), RawValue: f.Value & 0x0F},
-			{Name: "torque_map", Value: float64((f.Value >> 4) & 0x0F), RawValue: (f.Value >> 4) & 0x0F},
+			{Name: "forward_ac_i_code", Value: map_forward_current(uint8(f.Value & 0x0F)), RawValue: f.Value & 0x0F},
+			{Name: "regen_ac_i_code", Value: float64((f.Value>>4)&0x0F) * 15.0, RawValue: (f.Value >> 4) & 0x0F},
 		}
 	}),
 	mp.NewField("max_cell_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
