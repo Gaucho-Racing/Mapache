@@ -9,17 +9,17 @@ import (
 func map_forward_current(raw_current uint8) float64 {
 	switch raw_current {
 	case 0:
-		return 50
+		return 50.0
 	case 1:
-		return 100
+		return 100.0
 	case 2:
-		return 200
+		return 200.0
 	case 3:
-		return 300
+		return 300.0
 	case 4:
-		return 325
+		return 325.0
 	default:
-		return 0
+		return 0.0
 	}
 }
 
