@@ -46,8 +46,8 @@ var ECUStatus1 = mp.Message{
 	}),
 	mp.NewField("forward_ac_i_code_regen_ac_i_code", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
 		return []mp.Signal{
-			{Name: "forward_ac_i_code", Value: map_forward_current(uint8(f.Value & 0x0F)), RawValue: f.Value & 0x0F},
-			{Name: "regen_ac_i_code", Value: float64((f.Value>>4)&0x0F) * 15.0, RawValue: (f.Value >> 4) & 0x0F},
+			{Name: "forward_ac_i_code", Value: map_forward_current(uint8((f.Value >> 4) & 0x0F)), RawValue: (f.Value >> 4) & 0x0F},
+			{Name: "regen_ac_i_code", Value: float64(f.Value&0x0F) * 15.0, RawValue: f.Value & 0x0F},
 		}
 	}),
 	mp.NewField("max_cell_temp", 1, mp.Unsigned, mp.LittleEndian, func(f mp.Field) []mp.Signal {
