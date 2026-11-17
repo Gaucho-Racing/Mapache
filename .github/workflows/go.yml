@@ -1,0 +1,64 @@
+name: go
+run-name: Triggered by ${{ github.event_name }} to ${{ github.ref }} by @${{ github.actor }}
+
+on:
+  push:
+    branches:
+      - v4
+  pull_request:
+    branches:
+      - v4
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: mapache
+          POSTGRES_PASSWORD: mapache
+          POSTGRES_DB: mapache
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mapache -d mapache"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgres://mapache:mapache@localhost:5432/mapache?sslmode=disable
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: migrator/go.mod
+          cache-dependency-path: "**/go.sum"
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l pkg migrator)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./pkg/... ./migrator/...
+
+      - name: Test
+        run: go test -race -count=1 ./pkg/... ./migrator/...
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build migrator image
+        run: docker build -f migrator/Dockerfile .

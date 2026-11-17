@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: mapache
+      POSTGRES_PASSWORD: mapache
+      POSTGRES_DB: mapache
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mapache -d mapache"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  # Migrations are never applied automatically. Run them by hand:
+  #   docker compose run --rm migrator status
+  #   docker compose run --rm migrator up
+  migrator:
+    build:
+      context: .
+      dockerfile: migrator/Dockerfile
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://mapache:mapache@postgres:5432/mapache?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
